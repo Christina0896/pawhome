@@ -1,13 +1,15 @@
 @import 'tailwindcss';
 
 :root {
-  --background: #ffffff;
+  --background: #fff7eb;
+  --header: #ffffff;
+  --header-border: #e8dfd1;
 }
 
 @theme {
   --color-cream: #faf6ec;
   --color-surface: #ffffff;
-  --color-surface-soft: #fff9ef;
+  --color-surface-soft: #fbfaf3;
 
   --color-green: #0e4f2a;
   --color-green-dark: #07391d;
@@ -29,5 +31,4 @@ body {
   background: var(--background);
   font-family: Inter, sans-serif;
   margin: 0 auto;
-  max-width: 1600px;
 }
