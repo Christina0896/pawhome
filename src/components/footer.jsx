@@ -53,7 +53,7 @@ const Footer = () => {
             Follow our guide to help ensure you and your new pet have the best start together.
           </p>
 
-          <button className="mt-5 rounded-xl border border-[#0E4F2A] px-5 py-2.5 text-sm font-semibold text-[#0E4F2A]">
+          <button className="mt-5 rounded-xl border border-[#0E4F2A] px-5 py-2.5 text-sm font-semibold text-[#0E4F2A]  hover:bg-[var(--color-green-light)]">
             Read the Guide
           </button>
         </div>
