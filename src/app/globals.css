@@ -1,34 +1,29 @@
+@import url('https://fonts.googleapis.com/css2?family=Lora:wght@400;500;600;700&family=Nunito+Sans:wght@400;500;600;700;800&display=swap');
 @import 'tailwindcss';
 
 :root {
-  --background: #fff7eb;
-  --header: #ffffff;
-  --header-border: #e8dfd1;
-}
+  --background: #fdf7f1;
+  --secundary-background: #fffffff4;
+  --border-beige: #f1e9dc;
 
-@theme {
-  --color-cream: #faf6ec;
-  --color-surface: #ffffff;
-  --color-surface-soft: #fbfaf3;
+  --primary-green: #0e4f2a;
+  --secondary-green: #123524;
+  --light-green: #ddedd8;
 
-  --color-green: #0e4f2a;
-  --color-green-dark: #07391d;
-  --color-green-light: #ddedd8;
+  --primary-orange: #f0700f;
+  --secondary-orange: #ea580c;
+  --light-orange: #fcead7;
 
-  --color-orange: #ff8a2a;
-  --color-orange-dark: #e96f12;
-  --color-orange-light: #ffe3c7;
+  --muted-green-text: #5f6f64;
 
-  --color-text-main: #123524;
-  --color-text-muted: #5f6f64;
-  --color-text-light: #8a968d;
-
-  --color-border-soft: #e8dfd1;
-  --color-card-border: #efe5d6;
+  --page-max-width: 1440px;
 }
 
 body {
+  margin: 0;
+  font-family: 'Nunito Sans', sans-serif;
   background: var(--background);
-  font-family: Inter, sans-serif;
-  margin: 0 auto;
+}
+h1 {
+  font-family: 'Lora', serif;
 }

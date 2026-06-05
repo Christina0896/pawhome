@@ -78,7 +78,12 @@ export default function ListingDetailPage() {
       </div>
     );
   }
-
+  const sellerMemberSince = listing?.seller_member_since
+    ? new Date(listing.seller_member_since).toLocaleDateString('en-IE', {
+        month: 'long',
+        year: 'numeric',
+      })
+    : '-';
   return (
     <div className="min-h-screen bg-[#FAF6EC]">
       <Header />
@@ -203,6 +208,28 @@ export default function ListingDetailPage() {
             </div>
 
             <div className="mt-8 rounded-2xl bg-[#FFFCF5] p-5">
+              {/* Seller info box */}
+              <div className="rounded-2xl border border-(--border-beige) bg-white p-5 shadow-sm">
+                <h3 className="text-lg font-bold text-(--secondary-green)">Seller Information</h3>
+
+                <div className="mt-4 space-y-3 text-sm">
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-(--muted-green-text)">Seller type</span>
+                    <span className="font-bold text-(--secondary-green)">{listing.seller_type || '-'}</span>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-(--muted-green-text)">Member since</span>
+                    <span className="font-bold text-(--secondary-green)">{sellerMemberSince}</span>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-(--muted-green-text)">Location</span>
+                    <span className="font-bold text-(--secondary-green)">{listing.county || '-'}</span>
+                  </div>
+                </div>
+              </div>
+
               <h3 className="font-bold text-[#123524]">Contact Seller</h3>
 
               <p className="mt-2 text-sm leading-6 text-[#5F6F64]">
@@ -230,6 +257,11 @@ export default function ListingDetailPage() {
                   Show Phone Number
                 </button>
               )}
+
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-(--muted-green-text)">Member since</span>
+                <span className="font-bold text-(--secondary-green)">{sellerMemberSince}</span>
+              </div>
             </div>
 
             <a href="/listings" className="mt-5 block text-center text-sm font-semibold text-[#0E4F2A]">

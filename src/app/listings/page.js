@@ -22,6 +22,7 @@ export default function ListingsPage() {
     maxPrice: searchParams.get('maxPrice') || '',
     age: '',
     sex: '',
+    listingType: searchParams.get('listingType') || '',
     vaccinated: false,
     microchipped: false,
     kennelClubRegistered: false,
@@ -163,6 +164,9 @@ export default function ListingsPage() {
 
     if (sortBy === 'price-high') {
       result.sort((a, b) => Number(b.price || 0) - Number(a.price || 0));
+    }
+    if (filters.listingType && listing.listing_type !== filters.listingType) {
+      return false;
     }
 
     return result;

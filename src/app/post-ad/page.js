@@ -5,17 +5,89 @@ import Header from '../../components/header';
 import { supabase } from '../../lib/supabaseClient';
 import { counties } from '../../data/countyList';
 import { dogBreeds, catBreeds, otherPetTypes } from '../../data/petOptions';
+
+const REQUIRE_VERIFICATION_TO_POST = false;
+
+// Custom select component
+function CustomSelect({
+  id,
+  label,
+  required = false,
+  value,
+  placeholder,
+  options,
+  error,
+  openDropdown,
+  setOpenDropdown,
+  onChange,
+}) {
+  const open = openDropdown === id;
+
+  return (
+    <div className="relative w-full data-dropdown-root">
+      <div className=" min-h-[38px]">
+        <label className="block text-sm font-semibold text-(--secondary-green)">
+          {label} {required && <span className="text-(--primary-orange)">*</span>}
+        </label>
+
+        <p className=" min-h-[16px] text-xs text-red-500">{error || ''}</p>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => setOpenDropdown(open ? null : id)}
+        className={`flex h-[45px] w-full items-center justify-between rounded-xl border bg-white px-4 text-left text-sm outline-none ring-0 transition focus:outline-none focus:ring-0 ${
+          error
+            ? 'border-red-400'
+            : open
+              ? 'border-(--primary-green)'
+              : 'border-(--border-beige) hover:border-(--primary-green)'
+        }`}
+      >
+        <span className={`block truncate ${value ? 'text-(--secondary-green)' : 'text-(--muted-green-text)'}`}>
+          {value || placeholder}
+        </span>
+
+        <span className={`ml-3 shrink-0 text-xs text-(--primary-green) transition ${open ? 'rotate-180' : ''}`}>▼</span>
+      </button>
+
+      {open && (
+        <div className="absolute left-0 right-0 top-full z-[9999] mt-2 max-h-72 overflow-y-auto rounded-xl border border-(--border-beige) bg-white shadow-lg">
+          {options.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onChange(option.value);
+                setOpenDropdown(null);
+              }}
+              className="block w-full border-b border-(--border-beige) px-4 py-3 text-left text-sm text-(--secondary-green) outline-none transition hover:bg-(--background) focus:outline-none"
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 export default function PostAdPage() {
+  const fileInputRef = useRef(null);
+  const [showAnimalDropdown, setShowAnimalDropdown] = useState(false);
   const [photos, setPhotos] = useState([]);
   const [photoPreviews, setPhotoPreviews] = useState([]);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [errors, setErrors] = useState({});
   const [formData, setFormData] = useState({
     animalType: 'Dogs',
     breed: '',
     age: '',
     sex: '',
     price: '',
+    price_negotiable: 'true',
     county: '',
     city: '',
     sellerType: '',
@@ -45,6 +117,64 @@ export default function PostAdPage() {
       [name]: value,
     }));
   };
+  const validateForm = () => {
+    const newErrors = {};
+
+    if (!formData.listing_type) {
+      newErrors.listing_type = 'Please select an ad type.';
+    }
+
+    if (!formData.animal_type) {
+      newErrors.animal_type = 'Please select an animal type.';
+    }
+
+    if (!formData.breed || formData.breed.trim().length < 2) {
+      newErrors.breed = 'Please enter a breed or pet type.';
+    }
+
+    if (!formData.age) {
+      newErrors.age = "Please enter the pet's age.";
+    }
+
+    if (!formData.sex) {
+      newErrors.sex = 'Please select the sex.';
+    }
+
+    if (
+      (formData.listing_type === 'For Sale' || formData.listing_type === 'For Stud') &&
+      (!formData.price || Number(formData.price) <= 0)
+    ) {
+      newErrors.price = 'Please enter a valid price.';
+    }
+
+    if (!formData.county) {
+      newErrors.county = 'Please select a county.';
+    }
+
+    if (!formData.seller_type) {
+      newErrors.seller_type = 'Please select the seller type.';
+    }
+
+    if (formData.animal_type === 'Dogs' && !formData.microchip_number?.trim()) {
+      newErrors.microchip_number = 'Microchip number is required for dog listings.';
+    }
+
+    if (!formData.description || formData.description.trim().length < 80) {
+      newErrors.description = 'Description must be at least 80 characters.';
+    }
+
+    if (formData.description && formData.description.trim().length > 800) {
+      newErrors.description = 'Description cannot be longer than 800 characters.';
+    }
+
+    if (!photos || photos.length === 0) {
+      newErrors.photos = 'Please upload at least one photo.';
+    }
+
+    setErrors(newErrors);
+
+    return Object.keys(newErrors).length === 0;
+  };
   useEffect(() => {
     const checkUser = async () => {
       const {
@@ -55,7 +185,15 @@ export default function PostAdPage() {
         window.location.href = '/login';
         return;
       }
+      const metadata = user.user_metadata || {};
 
+      const emailVerified = Boolean(metadata.email_verified || user.email_confirmed_at);
+      const phoneVerified = Boolean(metadata.phone_verified);
+
+      if (REQUIRE_VERIFICATION_TO_POST && (!emailVerified || !phoneVerified)) {
+        alert('Please verify your email and phone number before posting an ad.');
+        return;
+      }
       const userMetadata = user.user_metadata || {};
 
       const contactPhone = `${userMetadata.phone_code || ''} ${userMetadata.phone || ''}`.trim();
@@ -66,22 +204,14 @@ export default function PostAdPage() {
 
     checkUser();
   }, []);
-  const [animalType, setAnimalType] = useState('Dogs');
-  const [breedInput, setBreedInput] = useState('');
-  const [showBreedDropdown, setShowBreedDropdown] = useState(false);
 
-  const breedOptions = animalType === 'Dogs' ? dogBreeds : animalType === 'Cats' ? catBreeds : [];
-
-  const filteredBreeds = breedOptions.filter((breed) => breed.toLowerCase().includes(breedInput.toLowerCase()));
-
-  const breedSuggestions = breedInput.trim() === '' ? breedOptions : filteredBreeds;
-
-  const breedDropdownRef = useRef(null);
+  const [openDropdown, setOpenDropdown] = useState(null);
+  const formRef = useRef(null);
 
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (breedDropdownRef.current && !breedDropdownRef.current.contains(event.target)) {
-        setShowBreedDropdown(false);
+    const handleClickOutside = (e) => {
+      if (!e.target.closest('[data-dropdown-root]')) {
+        setOpenDropdown(null);
       }
     };
 
@@ -92,24 +222,89 @@ export default function PostAdPage() {
     };
   }, []);
 
-  const handlePhotoChange = (e) => {
-    const files = Array.from(e.target.files);
+  const [animalType, setAnimalType] = useState('Dogs');
+  const [breedInput, setBreedInput] = useState('');
+  const [showBreedDropdown, setShowBreedDropdown] = useState(false);
 
-    if (files.length === 0) return;
+  const breedOptions = animalType === 'Dogs' ? dogBreeds : animalType === 'Cats' ? catBreeds : [];
 
-    const selectedFiles = files.slice(0, 6);
+  const filteredBreeds = breedOptions.filter((breed) => breed.toLowerCase().includes(breedInput.toLowerCase()));
 
-    setPhotos(selectedFiles);
+  const breedSuggestions =
+    formData.animal_type === 'Dogs'
+      ? dogBreeds
+      : formData.animal_type === 'Cats'
+        ? catBreeds
+        : formData.animal_type === 'Other Pets'
+          ? []
+          : [...dogBreeds, ...catBreeds];
 
-    const previews = selectedFiles.map((file) => URL.createObjectURL(file));
-    setPhotoPreviews(previews);
+  const filteredBreedSuggestions = breedSuggestions.filter((breed) =>
+    breed.toLowerCase().includes(formData.breed.toLowerCase()),
+  );
+
+  const breedDropdownRef = useRef(null);
+
+  const addPhotos = (files) => {
+    const allowedFiles = files.filter((file) => ['image/jpeg', 'image/png', 'image/webp'].includes(file.type));
+
+    if (allowedFiles.length === 0) return;
+
+    setPhotos((prevPhotos) => {
+      const remainingSlots = 6 - prevPhotos.length;
+      const filesToAdd = allowedFiles.slice(0, remainingSlots);
+
+      return [...prevPhotos, ...filesToAdd];
+    });
+
+    setPhotoPreviews((prevPreviews) => {
+      const remainingSlots = 6 - prevPreviews.length;
+      const filesToAdd = allowedFiles.slice(0, remainingSlots);
+      const newPreviews = filesToAdd.map((file) => URL.createObjectURL(file));
+
+      return [...prevPreviews, ...newPreviews];
+    });
+
+    setErrors({
+      ...errors,
+      photos: '',
+    });
   };
+
+  const handlePhotoChange = (e) => {
+    const files = Array.from(e.target.files || []);
+
+    addPhotos(files);
+
+    e.target.value = '';
+  };
+
+  const handlePhotoDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const files = Array.from(e.dataTransfer.files || []);
+
+    addPhotos(files);
+  };
+  const [hasTriedSubmit, setHasTriedSubmit] = useState(false);
   const handleSubmitListing = async (e) => {
     e.preventDefault();
 
-    console.log('Submit clicked');
-    console.log('Form data:', formData);
-    console.log('Photos:', photos);
+    setHasTriedSubmit(true);
+
+    const isValid = validateForm();
+
+    if (!isValid) {
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth',
+      });
+
+      return;
+    }
+
+    // rest of submit code
 
     const {
       data: { user },
@@ -122,6 +317,7 @@ export default function PostAdPage() {
     const userMetadata = user.user_metadata || {};
 
     const contactPhone = `${userMetadata.phone_code || ''} ${userMetadata.phone || ''}`.trim();
+    const sellerMemberSince = user.created_at;
 
     // 1. Insert listing first
     const { data: listingData, error: listingError } = await supabase
@@ -139,6 +335,7 @@ export default function PostAdPage() {
         price: formData.price || null,
         listing_type: formData.listingType,
         seller_type: formData.sellerType,
+        seller_member_since: user.created_at,
         contact_phone: contactPhone,
         microchip: formData.microchip,
         registration_number: formData.registrationNumber,
@@ -163,11 +360,9 @@ export default function PostAdPage() {
 
     if (listingError) {
       console.error('Listing insert error:', listingError);
-      alert('Could not submit listing.');
+      setErrors({ submit: 'Could not submit listing. Please try again.' });
       return;
     }
-
-    console.log('Listing created:', listingData);
 
     // 2. Upload photos
     if (photos.length > 0) {
@@ -183,7 +378,7 @@ export default function PostAdPage() {
 
         if (uploadError) {
           console.error('Photo upload error:', uploadError);
-          alert('Listing was created, but photo upload failed.');
+          setErrors({ submit: 'Listing was created, but photo upload failed.' });
           return;
         }
 
@@ -201,12 +396,14 @@ export default function PostAdPage() {
 
       if (photoDbError) {
         console.error('Photo DB insert error:', photoDbError);
-        alert('Listing was created, but photo records could not be saved.');
+        setErrors({
+          submit: 'Listing was created, but photo records could not be saved.',
+        });
         return;
       }
-    }
 
-    alert('Listing submitted. It is now pending review.');
+      window.location.href = '/post-ad/success';
+    }
   };
 
   if (loading) {
@@ -235,308 +432,424 @@ export default function PostAdPage() {
         </div>
 
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-[280px_1fr]">
-          {/* Left Sidebar */}
-          <aside className="rounded-2xl border border-[#E8DFD1] bg-[#FFFCF5] p-6">
-            <h1 className="text-2xl font-bold text-[#123524]">Post a New Ad</h1>
+          <form
+            ref={formRef}
+            onSubmit={handleSubmitListing}
+            className="col-span-full rounded-2xl border border-[#E8DFD1] bg-white p-8 shadow-sm"
+          >
+            {hasTriedSubmit &&
+              Object.values(errors).filter((error) => typeof error === 'string' && error.trim() !== '').length > 0 && (
+                <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">
+                  <p className="font-bold">Please fix the following:</p>
 
-            <p className="mt-2 text-sm leading-6 text-[#5F6F64]">Fill in the details below to list your pet.</p>
-
-            <div className="mt-10 space-y-7">
-              <div className="flex items-center gap-4">
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#0E4F2A] text-sm font-bold text-white">
-                  1
+                  <ul className="mt-2 list-disc space-y-1 pl-5">
+                    {Object.values(errors)
+                      .filter((error) => typeof error === 'string' && error.trim() !== '')
+                      .map((error) => (
+                        <li key={error}>{error}</li>
+                      ))}
+                  </ul>
                 </div>
-                <span className="text-sm font-semibold text-[#123524]">Pet Details</span>
-              </div>
-
-              <div className="flex items-center gap-4">
-                <div className="flex h-9 w-9 items-center justify-center rounded-full border border-[#E8DFD1] bg-white text-sm font-bold text-[#5F6F64]">
-                  2
-                </div>
-                <span className="text-sm font-semibold text-[#5F6F64]">Photos</span>
-              </div>
-
-              <div className="flex items-center gap-4">
-                <div className="flex h-9 w-9 items-center justify-center rounded-full border border-[#E8DFD1] bg-white text-sm font-bold text-[#5F6F64]">
-                  3
-                </div>
-                <span className="text-sm font-semibold text-[#5F6F64]">Your Details</span>
-              </div>
-
-              <div className="flex items-center gap-4">
-                <div className="flex h-9 w-9 items-center justify-center rounded-full border border-[#E8DFD1] bg-white text-sm font-bold text-[#5F6F64]">
-                  4
-                </div>
-                <span className="text-sm font-semibold text-[#5F6F64]">Review & Submit</span>
-              </div>
-            </div>
-          </aside>
-
-          {/* Main Form */}
-          <form onSubmit={handleSubmitListing} className="rounded-2xl border border-[#E8DFD1] bg-white p-8 shadow-sm">
-            <div className="mb-8">
-              <h2 className="text-2xl font-bold text-[#123524]">Pet Details</h2>
-              <p className="mt-2 text-sm text-[#5F6F64]">
-                Add the key information buyers need to understand your listing.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-4">
+              )}
+            <div className="grid grid-cols-1 gap-x-6 gap-y-5 md:grid-cols-2 xl:grid-cols-4">
               {/* Listing Type */}
-              <div className="md:col-span-4">
-                <label className="mb-2 block text-sm font-semibold text-[#123524]">
-                  Listing Type <span className="text-[#FF8A2A]">*</span>
-                </label>
 
-                <div className="grid grid-cols-1 gap-3 rounded-xl border border-[#E8DFD1] p-4 md:grid-cols-3">
-                  <label className="flex items-center gap-2 text-sm text-[#123524]">
-                    <input
-                      type="radio"
-                      name="listingType"
-                      value="For Sale"
-                      checked={formData.listingType === 'For Sale'}
-                      onChange={handleFormChange}
-                    />
-                    For Sale
-                  </label>
+              <CustomSelect
+                id="listing_type"
+                label="Ad Type"
+                required
+                value={formData.listing_type}
+                placeholder="Select ad type"
+                error={errors.listing_type}
+                openDropdown={openDropdown}
+                setOpenDropdown={setOpenDropdown}
+                options={[
+                  { label: 'For Sale', value: 'For Sale' },
+                  { label: 'For Stud', value: 'For Stud' },
+                  { label: 'For Adoption', value: 'For Adoption' },
+                ]}
+                onChange={(value) => {
+                  setFormData({
+                    ...formData,
+                    listing_type: value,
+                    health_tested: value === 'For Stud' ? formData.health_tested : '',
+                    proven_stud: value === 'For Stud' ? formData.proven_stud : '',
+                    stud_terms: value === 'For Stud' ? formData.stud_terms : '',
+                  });
 
-                  <label className="flex items-center gap-2 text-sm text-[#123524]">
-                    <input
-                      type="radio"
-                      name="listingType"
-                      value="For Adoption"
-                      checked={formData.listingType === 'For Adoption'}
-                      onChange={handleFormChange}
-                    />
-                    For Adoption
-                  </label>
+                  setErrors({
+                    ...errors,
+                    listing_type: '',
+                    price: '',
+                    health_tested: '',
+                    proven_stud: '',
+                    stud_terms: '',
+                  });
+                }}
+              />
 
-                  <label className="flex items-center gap-2 text-sm text-[#123524]">
-                    <input
-                      type="radio"
-                      name="listingType"
-                      value="For Stud"
-                      checked={formData.listingType === 'For Stud'}
-                      onChange={handleFormChange}
-                    />
-                    For Stud
-                  </label>
-                </div>
-              </div>
               {/* Animal Type */}
-              <div>
-                <label className="mb-2 block text-xs font-semibold text-[#123524]">Animal Type</label>
-                <select
-                  name="animalType"
-                  value={formData.animalType}
-                  onChange={(e) => {
-                    setAnimalType(e.target.value);
-                    setBreedInput('');
-                    setShowBreedDropdown(false);
+              <CustomSelect
+                id="animal_type"
+                label="Animal Type"
+                required
+                value={formData.animal_type}
+                placeholder="Select animal type"
+                error={errors.animal_type}
+                openDropdown={openDropdown}
+                setOpenDropdown={setOpenDropdown}
+                options={[
+                  { label: 'Dogs', value: 'Dogs' },
+                  { label: 'Cats', value: 'Cats' },
+                  { label: 'Other Pets', value: 'Other Pets' },
+                ]}
+                onChange={(value) => {
+                  setFormData({
+                    ...formData,
+                    animal_type: value,
+                    breed: '',
+                  });
 
-                    setFormData((prev) => ({
-                      ...prev,
-                      animalType: e.target.value,
-                      breed: '',
-                    }));
-                  }}
-                  className="w-full rounded-xl border border-[#E8DFD1] bg-white px-4 py-3 pr-10 text-sm outline-none focus:border-[#0E4F2A]"
+                  setErrors({
+                    ...errors,
+                    animal_type: '',
+                    breed: '',
+                  });
+                }}
+              />
+
+              {/* Breed */}
+              <div className="relative data-dropdown-root">
+                <div className=" min-h-[38px]">
+                  <label className="block text-sm font-semibold text-(--secondary-green)">
+                    Breed <span className="text-(--primary-orange)">*</span>
+                  </label>
+
+                  <p className=" min-h-[16px] text-xs text-red-500">{errors.breed || ''}</p>
+                </div>
+
+                <div
+                  className={`h-[45px] flex w-full items-center justify-between rounded-xl border bg-white px-4 py-3 text-sm transition ${
+                    errors.breed
+                      ? 'border-red-400'
+                      : openDropdown === 'breed'
+                        ? 'border-(--primary-green)'
+                        : 'border-(--border-beige) hover:border-(--primary-green)'
+                  }`}
                 >
-                  <option value="Dogs">Dogs</option>
-                  <option value="Cats">Cats</option>
-                  <option value="Other Pets">Other Pets</option>
-                </select>
-              </div>
-              {/* Breed / Pet Type */}
-              <div className="relative" ref={breedDropdownRef}>
-                <label className="mb-2 block text-xs font-semibold text-[#123524]">
-                  {animalType === 'Other Pets' ? 'Pet Type' : 'Breed'}
-                </label>
+                  <input
+                    type="text"
+                    name="breed"
+                    value={formData.breed}
+                    onFocus={() => {
+                      if (formData.animal_type !== 'Other Pets') {
+                        setOpenDropdown('breed');
+                      }
+                    }}
+                    onChange={(e) => {
+                      setFormData({
+                        ...formData,
+                        breed: e.target.value,
+                      });
 
-                {animalType === 'Other Pets' ? (
-                  <select className="w-full rounded-lg border border-[#E8DFD1] bg-white px-4 py-3 text-sm outline-none transition focus:border-[#0E4F2A]">
-                    <option>All Pet Types</option>
-                    {otherPetTypes.map((type) => (
-                      <option key={type}>{type}</option>
-                    ))}
-                  </select>
-                ) : (
-                  <>
-                    <div className="relative">
-                      <input
-                        type="text"
-                        value={breedInput}
-                        onFocus={() => setShowBreedDropdown(true)}
-                        onChange={(e) => {
-                          setBreedInput(e.target.value);
-                          setShowBreedDropdown(true);
+                      setErrors({
+                        ...errors,
+                        breed: '',
+                      });
 
-                          setFormData((prev) => ({
-                            ...prev,
-                            breed: e.target.value,
-                          }));
-                        }}
-                        placeholder="Start typing..."
-                        className="w-full rounded-xl border border-[#E8DFD1] bg-white px-4 py-3 pr-10 text-sm outline-none focus:border-[#0E4F2A]"
-                      />
+                      if (formData.animal_type !== 'Other Pets') {
+                        setOpenDropdown('breed');
+                      }
+                    }}
+                    placeholder={formData.animal_type === 'Other Pets' ? 'Enter pet type...' : 'Start typing...'}
+                    className="min-w-0 flex-1 bg-transparent text-(--secondary-green) outline-none ring-0 placeholder:text-(--muted-green-text) focus:outline-none focus:ring-0"
+                  />
 
+                  {formData.animal_type !== 'Other Pets' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOpenDropdown(openDropdown === 'breed' ? null : 'breed');
+                      }}
+                      className="ml-3 shrink-0 text-xs text-(--primary-green) outline-none focus:outline-none"
+                    >
+                      ▼
+                    </button>
+                  )}
+                </div>
+
+                {openDropdown === 'breed' && formData.animal_type !== 'Other Pets' && (
+                  <div className="absolute left-0 right-0 top-full z-[9999] mt-2 max-h-72 overflow-y-auto rounded-xl border border-(--border-beige) bg-white shadow-lg">
+                    <button
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+
+                        setFormData({
+                          ...formData,
+                          breed: '',
+                        });
+
+                        setErrors({
+                          ...errors,
+                          breed: '',
+                        });
+
+                        setOpenDropdown(null);
+                      }}
+                      className="block w-full border-b border-(--border-beige) px-4 py-3 text-left text-sm text-(--secondary-green) outline-none hover:bg-(--background) focus:outline-none"
+                    >
+                      All Breeds
+                    </button>
+
+                    {filteredBreedSuggestions.map((breed) => (
                       <button
+                        key={breed}
                         type="button"
-                        onClick={() => setShowBreedDropdown(!showBreedDropdown)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[#123524]"
-                      ></button>
-                    </div>
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
 
-                    {showBreedDropdown && (
-                      <div className="absolute left-0 right-0 top-full z-50 mt-2 max-h-72 overflow-y-auto rounded-xl border border-[#E8DFD1] bg-white shadow-lg">
-                        <p className="px-4 py-3 text-xs font-bold uppercase tracking-wide text-[#A68B6B]">
-                          Suggestions:
-                        </p>
+                          setFormData({
+                            ...formData,
+                            breed,
+                          });
 
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setBreedInput(breed);
+                          setErrors({
+                            ...errors,
+                            breed: '',
+                          });
 
-                            setFormData((prev) => ({
-                              ...prev,
-                              breed: breed,
-                            }));
+                          setOpenDropdown(null);
+                        }}
+                        className="block w-full border-b border-(--border-beige) px-4 py-3 text-left text-sm text-(--secondary-green) outline-none hover:bg-(--background) focus:outline-none"
+                      >
+                        {breed}
+                      </button>
+                    ))}
 
-                            setShowBreedDropdown(false);
-                          }}
-                          className="block w-full border-b border-[#EFE5D6] px-4 py-3 text-left text-sm text-[#123524] hover:bg-[#FAF6EC]"
-                        >
-                          All Breeds
-                        </button>
-                        {breedSuggestions.map((breed) => (
-                          <button
-                            key={breed}
-                            type="button"
-                            onClick={() => {
-                              setBreedInput(breed);
-
-                              setFormData((prev) => ({
-                                ...prev,
-                                breed: breed,
-                              }));
-
-                              setShowBreedDropdown(false);
-                            }}
-                            className="block w-full border-b border-[#EFE5D6] px-4 py-3 text-left text-sm text-[#123524] hover:bg-[#FAF6EC]"
-                          >
-                            {breed}
-                          </button>
-                        ))}
-                        {breedSuggestions.length === 0 && (
-                          <p className="px-4 py-3 text-sm text-[#5F6F64]">
-                            No breed found. You can still search with your typed text.
-                          </p>
-                        )}
-                      </div>
+                    {filteredBreedSuggestions.length === 0 && (
+                      <p className="px-4 py-3 text-sm text-(--muted-green-text)">No breeds found</p>
                     )}
-                  </>
+                  </div>
                 )}
               </div>
 
               {/* Age */}
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-[#123524]">
-                  Age <span className="text-[#FF8A2A]">*</span>
-                </label>
+              <div className="w-full">
+                <div className=" min-h-[38px]">
+                  <label className="block text-sm font-semibold text-(--secondary-green)">
+                    Age <span className="text-(--primary-orange)">*</span>
+                  </label>
+
+                  <p className=" min-h-[16px] text-xs text-red-500">{errors.age || ''}</p>
+                </div>
+
                 <input
+                  type="text"
                   name="age"
                   value={formData.age}
-                  onChange={handleFormChange}
-                  type="text"
+                  onChange={(e) => {
+                    handleFormChange(e);
+                    setErrors({ ...errors, age: '' });
+                  }}
                   placeholder="e.g. 8 weeks"
-                  className="w-full rounded-xl border border-[#E8DFD1] bg-white px-4 py-3 text-sm outline-none focus:border-[#0E4F2A]"
+                  className={`h-[45px] w-full rounded-xl border bg-white px-4 text-sm text-(--secondary-green) outline-none ring-0 transition placeholder:text-(--muted-green-text) focus:outline-none focus:ring-0 ${
+                    errors.age
+                      ? 'border-red-400 focus:border-red-500'
+                      : 'border-(--border-beige) focus:border-(--primary-green)'
+                  }`}
                 />
               </div>
 
               {/* Sex */}
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-[#123524]">
-                  Sex <span className="text-[#FF8A2A]">*</span>
-                </label>
-                <select
-                  name="sex"
-                  value={formData.sex}
-                  onChange={handleFormChange}
-                  className="w-full rounded-xl border border-[#E8DFD1] bg-white px-4 py-3 text-sm outline-none focus:border-[#0E4F2A]"
-                >
-                  <option>Select sex</option>
-                  <option>Male</option>
-                  <option>Female</option>
-                  <option>Mixed litter</option>
-                  <option>Unknown</option>
-                </select>
-              </div>
+              <CustomSelect
+                id="sex"
+                label="Sex"
+                required
+                value={formData.sex}
+                placeholder="Select sex"
+                error={errors.sex}
+                openDropdown={openDropdown}
+                setOpenDropdown={setOpenDropdown}
+                options={[
+                  { label: 'Male', value: 'Male' },
+                  { label: 'Female', value: 'Female' },
+                  { label: 'Mixed Litter', value: 'Mixed Litter' },
+                ]}
+                onChange={(value) => {
+                  setFormData({
+                    ...formData,
+                    sex: value,
+                  });
+
+                  setErrors({
+                    ...errors,
+                    sex: '',
+                  });
+                }}
+              />
 
               {/* Price */}
               <div>
-                <label className="mb-2 block text-sm font-semibold text-[#123524]">
-                  Price (€) <span className="text-[#FF8A2A]">*</span>
+                <div className=" min-h-[38px]">
+                  <label className="block text-sm font-semibold text-(--secondary-green)">
+                    Price{' '}
+                    {(formData.listing_type === 'For Sale' || formData.listing_type === 'For Stud') && (
+                      <span className="text-(--primary-orange)">*</span>
+                    )}
+                  </label>
+
+                  <p className=" min-h-[16px] text-xs text-red-500">{errors.price || ''}</p>
+                </div>
+
+                <div
+                  className={`flex h-[45px] w-full items-center rounded-xl border bg-white px-4 transition ${
+                    errors.price
+                      ? 'border-red-400 focus-within:border-red-500'
+                      : 'border-(--border-beige) focus-within:border-(--primary-green)'
+                  }`}
+                >
+                  <span className="mr-3 text-(--secondary-green)">€</span>
+
+                  <input
+                    type="number"
+                    name="price"
+                    value={formData.price}
+                    onChange={(e) => {
+                      handleFormChange(e);
+                      setErrors({ ...errors, price: '' });
+                    }}
+                    placeholder="Guide price"
+                    className="h-full min-w-0 flex-1 bg-transparent text-sm text-(--secondary-green) outline-none placeholder:text-(--muted-green-text)"
+                  />
+                </div>
+
+                <label className="mt-2 mx-2 flex cursor-pointer items-center gap-3 text-sm text-(--secondary-green)">
+                  <input
+                    type="checkbox"
+                    name="price_negotiable"
+                    checked={formData.price_negotiable}
+                    onChange={(e) => {
+                      setFormData({
+                        ...formData,
+                        price_negotiable: e.target.checked,
+                      });
+                    }}
+                    className="h-4 w-4 rounded border-(--border-beige) accent-(--primary-green)"
+                  />
+                  Price negotiable
                 </label>
-                <input
-                  name="price"
-                  value={formData.price}
-                  onChange={handleFormChange}
-                  type="number"
-                  placeholder="e.g. 1200"
-                  className="w-full rounded-xl border border-[#E8DFD1] bg-white px-4 py-3 text-sm outline-none focus:border-[#0E4F2A]"
-                />
               </div>
 
               {/* County */}
-              <div>
-                <label className="mb-2 block text-xs font-semibold text-[#123524]">County</label>
+              <CustomSelect
+                id="county"
+                label="County"
+                required
+                value={formData.county}
+                placeholder="All Counties"
+                error={errors.county}
+                openDropdown={openDropdown}
+                setOpenDropdown={setOpenDropdown}
+                options={counties.map((county) => ({
+                  label: county,
+                  value: county,
+                }))}
+                onChange={(value) => {
+                  setFormData({
+                    ...formData,
+                    county: value,
+                  });
 
-                <select
-                  name="county"
-                  value={formData.county}
-                  onChange={handleFormChange}
-                  className="w-full rounded-lg border border-[#E8DFD1] bg-white px-4 py-3 text-sm outline-none transition focus:border-[#0E4F2A]"
-                >
-                  <option>All Counties</option>
-                  {counties.map((county) => (
-                    <option key={county}>{county}</option>
-                  ))}
-                </select>
-              </div>
+                  setErrors({
+                    ...errors,
+                    county: '',
+                  });
+                }}
+              />
 
-              {/* City */}
+              {/* City / Town */}
               <div>
-                <label className="mb-2 block text-sm font-semibold text-[#123524]">City / Town</label>
+                <div className=" min-h-[34px]">
+                  <label className="block text-sm font-semibold text-(--secondary-green)">City / Town</label>
+
+                  <p className=" min-h-[16px] text-xs text-red-500">{errors.city || ''}</p>
+                </div>
+
                 <input
+                  type="text"
                   name="city"
                   value={formData.city}
-                  onChange={handleFormChange}
-                  type="text"
+                  onChange={(e) => {
+                    handleFormChange(e);
+                    setErrors({ ...errors, city: '' });
+                  }}
                   placeholder="e.g. Dublin"
-                  className="w-full rounded-xl border border-[#E8DFD1] bg-white px-4 py-3 text-sm outline-none focus:border-[#0E4F2A]"
+                  className={`w-full rounded-xl border bg-white px-4 py-3 text-sm text-(--secondary-green) outline-none ring-0 transition placeholder:text-(--muted-green-text) focus:outline-none focus:ring-0 ${
+                    errors.city
+                      ? 'border-red-400 focus:border-red-500'
+                      : 'border-(--border-beige) focus:border-(--primary-green)'
+                  }`}
                 />
               </div>
 
               {/* Seller Type */}
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-[#123524]">
-                  Seller Type <span className="text-[#FF8A2A]">*</span>
-                </label>
-                <select
-                  name="sellerType"
-                  value={formData.sellerType}
-                  onChange={handleFormChange}
-                  className="w-full rounded-xl border border-[#E8DFD1] bg-white px-4 py-3 text-sm outline-none focus:border-[#0E4F2A]"
-                >
-                  <option>Select seller type</option>
-                  <option>Private Owner</option>
-                  <option>Registered Breeder</option>
-                  <option>Rescue</option>
-                  <option>Shelter</option>
-                </select>
-              </div>
+              <CustomSelect
+                id="seller_type"
+                label="Seller Type"
+                required
+                value={formData.seller_type}
+                placeholder="Select seller type"
+                error={errors.seller_type}
+                openDropdown={openDropdown}
+                setOpenDropdown={setOpenDropdown}
+                options={[
+                  { label: 'Private Owner', value: 'Private Owner' },
+                  { label: 'Breeder', value: 'Breeder' },
+                  { label: 'Shelter / Rescue', value: 'Shelter / Rescue' },
+                ]}
+                onChange={(value) => {
+                  setFormData({
+                    ...formData,
+                    seller_type: value,
+                  });
 
+                  setErrors({
+                    ...errors,
+                    seller_type: '',
+                  });
+                }}
+              />
+
+              {/* IKC / KC Registered */}
+              <CustomSelect
+                id="kc_registered"
+                label="IKC / KC Registered"
+                value={formData.kc_registered}
+                placeholder="Select option"
+                error={errors.kc_registered}
+                openDropdown={openDropdown}
+                setOpenDropdown={setOpenDropdown}
+                options={[
+                  { label: 'Yes', value: 'Yes' },
+                  { label: 'No', value: 'No' },
+                ]}
+                onChange={(value) => {
+                  setFormData({
+                    ...formData,
+                    kc_registered: value,
+                  });
+
+                  setErrors({
+                    ...errors,
+                    kc_registered: '',
+                  });
+                }}
+              />
+
+              {/* Second Section */}
               {/* Health & Verification */}
               <div className="md:col-span-4">
                 <div className="mt-4 border-t border-[#E8DFD1] pt-6">
@@ -549,208 +862,243 @@ export default function PostAdPage() {
 
               {/* Microchip */}
               <div className="md:col-span-2">
-                <label className="mb-2 block text-sm font-semibold text-[#123524]">Microchip / Ear Tattoo</label>
+                <div className=" min-h-[38px]">
+                  <label className="block text-sm font-semibold text-(--secondary-green)">
+                    Microchip Number{' '}
+                    {formData.animal_type === 'Dogs' && <span className="text-(--primary-orange)">*</span>}
+                  </label>
+                  <p className=" min-h-[16px] text-xs text-red-500">{errors.microchip_number || ''}</p>
+                </div>
                 <input
-                  name="microchip"
-                  value={formData.microchip}
-                  onChange={handleFormChange}
                   type="text"
-                  placeholder="Enter microchip or ear tattoo number"
-                  className="w-full rounded-xl border border-[#E8DFD1] bg-white px-4 py-3 text-sm outline-none focus:border-[#0E4F2A]"
-                />
-              </div>
-
-              {/* Registration */}
-              <div className="md:col-span-2">
-                <label className="mb-2 block text-sm font-semibold text-[#123524]">
-                  Registration / Kennel Club Number
-                </label>
-                <input
-                  name="registration"
-                  value={formData.registration}
-                  onChange={handleFormChange}
-                  type="text"
-                  placeholder="Enter registration or kennel club number"
-                  className="w-full rounded-xl border border-[#E8DFD1] bg-white px-4 py-3 text-sm outline-none focus:border-[#0E4F2A]"
+                  name="microchip_number"
+                  value={formData.microchip_number}
+                  onChange={(e) => {
+                    handleFormChange(e);
+                    setErrors({
+                      ...errors,
+                      microchip_number: '',
+                    });
+                  }}
+                  placeholder={formData.animal_type === 'Dogs' ? 'Required for dog listings' : 'Optional'}
+                  className={`h-[45px] w-full rounded-xl border bg-white px-4 text-sm text-(--secondary-green) outline-none ring-0 transition placeholder:text-(--muted-green-text) focus:outline-none focus:ring-0 ${
+                    errors.microchip_number
+                      ? 'border-red-400 focus:border-red-500'
+                      : 'border-(--border-beige) focus:border-(--primary-green)'
+                  }`}
                 />
               </div>
 
               {/* Vaccinated */}
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-[#123524]">Vaccinated</label>
-                <select
-                  name="vaccinated"
-                  value={formData.vaccinated}
-                  onChange={handleFormChange}
-                  className="w-full rounded-xl border border-[#E8DFD1] bg-white px-4 py-3 text-sm outline-none focus:border-[#0E4F2A]"
-                >
-                  <option>Select</option>
-                  <option>Yes</option>
-                  <option>No</option>
-                  <option>Unknown</option>
-                </select>
-              </div>
+              <CustomSelect
+                id="vaccinated"
+                label="Vaccinated"
+                value={formData.vaccinated}
+                placeholder="Select"
+                error={errors.vaccinated}
+                openDropdown={openDropdown}
+                setOpenDropdown={setOpenDropdown}
+                options={[
+                  { label: 'Yes', value: 'Yes' },
+                  { label: 'No', value: 'No' },
+                  { label: 'Unknown', value: 'Unknown' },
+                ]}
+                onChange={(value) => {
+                  setFormData({
+                    ...formData,
+                    vaccinated: value,
+                  });
+
+                  setErrors({
+                    ...errors,
+                    vaccinated: '',
+                  });
+                }}
+              />
 
               {/* Wormed */}
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-[#123524]">Wormed</label>
-                <select
-                  name="wormed"
-                  value={formData.wormed}
-                  onChange={handleFormChange}
-                  className="w-full rounded-xl border border-[#E8DFD1] bg-white px-4 py-3 text-sm outline-none focus:border-[#0E4F2A]"
-                >
-                  <option>Select</option>
-                  <option>Yes</option>
-                  <option>No</option>
-                  <option>Unknown</option>
-                </select>
-              </div>
+              <CustomSelect
+                id="wormed"
+                label="Wormed"
+                value={formData.wormed}
+                placeholder="Select"
+                error={errors.wormed}
+                openDropdown={openDropdown}
+                setOpenDropdown={setOpenDropdown}
+                options={[
+                  { label: 'Yes', value: 'Yes' },
+                  { label: 'No', value: 'No' },
+                  { label: 'Unknown', value: 'Unknown' },
+                ]}
+                onChange={(value) => {
+                  setFormData({ ...formData, wormed: value });
+                  setErrors({ ...errors, wormed: '' });
+                }}
+              />
 
               {/* Vet Checked */}
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-[#123524]">Vet Checked</label>
-                <select
-                  name="vetChecked"
-                  value={formData.vetChecked}
-                  onChange={handleFormChange}
-                  className="w-full rounded-xl border border-[#E8DFD1] bg-white px-4 py-3 text-sm outline-none focus:border-[#0E4F2A]"
-                >
-                  <option>Select</option>
-                  <option>Yes</option>
-                  <option>No</option>
-                  <option>Unknown</option>
-                </select>
-              </div>
+              <CustomSelect
+                id="vet_checked"
+                label="Vet Checked"
+                value={formData.vet_checked}
+                placeholder="Select"
+                error={errors.vet_checked}
+                openDropdown={openDropdown}
+                setOpenDropdown={setOpenDropdown}
+                options={[
+                  { label: 'Yes', value: 'Yes' },
+                  { label: 'No', value: 'No' },
+                ]}
+                onChange={(value) => {
+                  setFormData({ ...formData, vet_checked: value });
+                  setErrors({ ...errors, vet_checked: '' });
+                }}
+              />
 
               {/* Spayed */}
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-[#123524]">Spayed / Neutered</label>
-                <select
-                  name="spayed"
-                  value={formData.spayed}
-                  onChange={handleFormChange}
-                  className="w-full rounded-xl border border-[#E8DFD1] bg-white px-4 py-3 text-sm outline-none focus:border-[#0E4F2A]"
-                >
-                  <option>Select</option>
-                  <option>Yes</option>
-                  <option>No</option>
-                  <option>Not applicable</option>
-                </select>
-              </div>
+              <CustomSelect
+                id="spayed_neutered"
+                label="Spayed / Neutered"
+                value={formData.spayed_neutered}
+                placeholder="Select"
+                error={errors.spayed_neutered}
+                openDropdown={openDropdown}
+                setOpenDropdown={setOpenDropdown}
+                options={[
+                  { label: 'Yes', value: 'Yes' },
+                  { label: 'No', value: 'No' },
+                  { label: 'Not applicable', value: 'Not applicable' },
+                ]}
+                onChange={(value) => {
+                  setFormData({ ...formData, spayed_neutered: value });
+                  setErrors({ ...errors, spayed_neutered: '' });
+                }}
+              />
 
               {/* Health Tested */}
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-[#123524]">Health Tested</label>
-                <select
-                  name="healthTested"
-                  value={formData.healthTested}
-                  onChange={handleFormChange}
-                  className="w-full rounded-xl border border-[#E8DFD1] bg-white px-4 py-3 text-sm outline-none focus:border-[#0E4F2A]"
-                >
-                  <option>Select</option>
-                  <option>Yes</option>
-                  <option>No</option>
-                  <option>Not sure</option>
-                </select>
-              </div>
-
-              {/* Kennel Club Registered */}
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-[#123524]">Kennel Club Registered</label>
-                <select
-                  name="kennelClubRegistered"
-                  value={formData.kennelClubRegistered}
-                  onChange={handleFormChange}
-                  className="w-full rounded-xl border border-[#E8DFD1] bg-white px-4 py-3 text-sm outline-none focus:border-[#0E4F2A]"
-                >
-                  <option value="">Select</option>
-                  <option value="KC Registered">KC Registered</option>
-                  <option value="IKC Registered">IKC Registered</option>
-                  <option value="Not Registered">Not Registered</option>
-                </select>
-              </div>
-
+              <CustomSelect
+                id="health_tested"
+                label="Health Tested"
+                value={formData.health_tested}
+                placeholder="Select"
+                error={errors.health_tested}
+                openDropdown={openDropdown}
+                setOpenDropdown={setOpenDropdown}
+                options={[
+                  { label: 'Yes', value: 'Yes' },
+                  { label: 'No', value: 'No' },
+                ]}
+                onChange={(value) => {
+                  setFormData({ ...formData, health_tested: value });
+                  setErrors({ ...errors, health_tested: '' });
+                }}
+              />
               {/* Breeding Rights */}
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-[#123524]">Breeding Rights</label>
-                <select
-                  name="breedingRights"
-                  value={formData.breedingRights}
-                  onChange={handleFormChange}
-                  className="w-full rounded-xl border border-[#E8DFD1] bg-white px-4 py-3 text-sm outline-none focus:border-[#0E4F2A]"
-                >
-                  <option>Select</option>
-                  <option>Included</option>
-                  <option>Not included</option>
-                  <option>Not applicable</option>
-                </select>
-              </div>
+              <CustomSelect
+                id="breeding_rights"
+                label="Breeding Rights"
+                value={formData.breeding_rights}
+                placeholder="Select"
+                error={errors.breeding_rights}
+                openDropdown={openDropdown}
+                setOpenDropdown={setOpenDropdown}
+                options={[
+                  { label: 'Yes', value: 'Yes' },
+                  { label: 'No', value: 'No' },
+                  { label: 'Not applicable', value: 'Not applicable' },
+                ]}
+                onChange={(value) => {
+                  setFormData({ ...formData, breeding_rights: value });
+                  setErrors({ ...errors, breeding_rights: '' });
+                }}
+              />
 
-              {/* Proven Stud */}
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-[#123524]">Proven Stud</label>
-                <select
-                  name="provenStud"
-                  value={formData.provenStud}
-                  onChange={handleFormChange}
-                  className="w-full rounded-xl border border-[#E8DFD1] bg-white px-4 py-3 text-sm outline-none focus:border-[#0E4F2A]"
-                >
-                  <option>Select</option>
-                  <option>Yes</option>
-                  <option>No</option>
-                  <option>Not applicable</option>
-                </select>
-              </div>
+              {formData.listing_type === 'For Stud' && (
+                <div className="col-span-full rounded-2xl border border-(--border-beige) bg-(--background) p-5">
+                  <h3 className="text-lg font-bold text-(--secondary-green)">Stud Information</h3>
 
-              {/* Stud / Breeding Info */}
-              <div className="md:col-span-4">
-                <div className="mt-4 border-t border-[#E8DFD1] pt-6">
-                  <h3 className="text-lg font-bold text-[#123524]">Stud / Breeding Info</h3>
-                  <p className="mt-1 text-sm text-[#5F6F64]">
-                    Complete this if the listing is for stud or if breeding information is relevant.
-                  </p>
+                  <p className="mt-1 text-sm text-(--muted-green-text)">Add extra details for stud listings.</p>
+
+                  <div className="mt-5 grid grid-cols-1 gap-x-6 gap-y-5 md:grid-cols-2 xl:grid-cols-3">
+                    {/* Health Tested */}
+                    <CustomSelect
+                      id="health_tested"
+                      label="Health Tested"
+                      value={formData.health_tested}
+                      placeholder="Select option"
+                      error={errors.health_tested}
+                      openDropdown={openDropdown}
+                      setOpenDropdown={setOpenDropdown}
+                      options={[
+                        { label: 'Yes', value: 'Yes' },
+                        { label: 'No', value: 'No' },
+                      ]}
+                      onChange={(value) => {
+                        setFormData({
+                          ...formData,
+                          health_tested: value,
+                        });
+
+                        setErrors({
+                          ...errors,
+                          health_tested: '',
+                        });
+                      }}
+                    />
+
+                    {/* Proven Stud */}
+                    <CustomSelect
+                      id="proven_stud"
+                      label="Proven Stud"
+                      value={formData.proven_stud}
+                      placeholder="Select option"
+                      error={errors.proven_stud}
+                      openDropdown={openDropdown}
+                      setOpenDropdown={setOpenDropdown}
+                      options={[
+                        { label: 'Yes', value: 'Yes' },
+                        { label: 'No', value: 'No' },
+                      ]}
+                      onChange={(value) => {
+                        setFormData({
+                          ...formData,
+                          proven_stud: value,
+                        });
+
+                        setErrors({
+                          ...errors,
+                          proven_stud: '',
+                        });
+                      }}
+                    />
+
+                    {/* Stud Terms */}
+                    <div className="col-span-full">
+                      <div className="mb-2 min-h-[38px]">
+                        <label className="block text-sm font-semibold text-(--secondary-green)">Stud Terms</label>
+
+                        <p className="mt-1 min-h-[16px] text-xs text-red-500">{errors.stud_terms || ''}</p>
+                      </div>
+
+                      <textarea
+                        name="stud_terms"
+                        value={formData.stud_terms}
+                        onChange={(e) => {
+                          handleFormChange(e);
+                          setErrors({ ...errors, stud_terms: '' });
+                        }}
+                        rows={4}
+                        placeholder="Add details about stud fee, conditions, health testing, and requirements."
+                        className={`min-h-[120px] w-full resize-y rounded-2xl border bg-white px-4 py-3 text-sm text-(--secondary-green) outline-none ring-0 transition placeholder:text-(--muted-green-text) focus:outline-none focus:ring-0 ${
+                          errors.stud_terms
+                            ? 'border-red-400 focus:border-red-500'
+                            : 'border-(--border-beige) focus:border-(--primary-green)'
+                        }`}
+                      />
+                    </div>
+                  </div>
                 </div>
-              </div>
-
-              {/* Stud Fee */}
-              <div className="md:col-span-2">
-                <label className="mb-2 block text-sm font-semibold text-[#123524]">Stud Fee</label>
-                <input
-                  type="number"
-                  name="studFee"
-                  value={formData.studFee}
-                  onChange={handleFormChange}
-                  placeholder="€"
-                  className="w-full rounded-xl border border-[#E8DFD1] bg-white px-4 py-3 text-sm outline-none focus:border-[#0E4F2A]"
-                />
-              </div>
-
-              {/* Health Test Details */}
-              <div className="md:col-span-2">
-                <label className="mb-2 block text-sm font-semibold text-[#123524]">Health Test Details</label>
-                <input
-                  type="text"
-                  name="healthTestDetails"
-                  value={formData.healthTestDetails}
-                  onChange={handleFormChange}
-                  placeholder="e.g. hips, elbows, eyes, genetic panel"
-                  className="w-full rounded-xl border border-[#E8DFD1] bg-white px-4 py-3 text-sm outline-none focus:border-[#0E4F2A]"
-                />
-              </div>
-
-              {/* Breeding Notes */}
-              <div className="md:col-span-4">
-                <label className="mb-2 block text-sm font-semibold text-[#123524]">Breeding / Stud Notes</label>
-                <textarea
-                  rows="4"
-                  name="breedingNotes"
-                  value={formData.breedingNotes}
-                  onChange={handleFormChange}
-                  placeholder="Add breeding conditions, compatible breeds, previous litters, or important notes..."
-                  className="w-full resize-none rounded-xl border border-[#E8DFD1] bg-white px-4 py-3 text-sm outline-none focus:border-[#0E4F2A]"
-                />
-              </div>
+              )}
 
               {/* Photos */}
               <div className="md:col-span-4">
@@ -760,35 +1108,64 @@ export default function PostAdPage() {
                     Add clear photos of the pet. You can upload up to 6 images.
                   </p>
                 </div>
-              </div>
 
-              <div className="md:col-span-4">
-                <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#E8DFD1] bg-[#FFFCF5] px-6 py-10 text-center transition hover:border-[#0E4F2A]">
-                  <span className="text-3xl">📷</span>
-                  <span className="mt-3 text-sm font-semibold text-[#123524]">Click to upload photos</span>
-                  <span className="mt-1 text-xs text-[#5F6F64]">JPG, PNG or WEBP. Maximum 6 photos.</span>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  multiple
+                  onChange={handlePhotoChange}
+                  className="hidden"
+                />
 
-                  <input type="file" accept="image/*" multiple onChange={handlePhotoChange} className="hidden" />
-                </label>
-              </div>
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => fileInputRef.current?.click()}
+                  onDragEnter={(e) => e.preventDefault()}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={handlePhotoDrop}
+                  className={`mt-6 flex min-h-[170px] cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed px-6 text-center transition ${
+                    errors.photos
+                      ? 'border-red-300 bg-red-50'
+                      : 'border-(--border-beige) bg-(--background) hover:border-(--primary-green)'
+                  }`}
+                >
+                  <div className="text-3xl">📷</div>
 
-              {photoPreviews.length > 0 && (
-                <div className="md:col-span-4">
-                  <div className="grid grid-cols-2 gap-4 md:grid-cols-6">
-                    {photoPreviews.map((src, index) => (
-                      <div key={src} className="relative overflow-hidden rounded-xl border border-[#E8DFD1] bg-white">
-                        <img src={src} alt={`Pet photo ${index + 1}`} className="h-28 w-full object-cover" />
+                  <p className="mt-3 text-sm font-semibold text-(--secondary-green)">Click or drag photos here</p>
 
-                        {index === 0 && (
-                          <div className="absolute left-2 top-2 rounded-full bg-[#0E4F2A] px-2 py-1 text-xs font-semibold text-white">
-                            Main
-                          </div>
-                        )}
+                  <p className="mt-1 text-xs text-(--muted-green-text)">JPG, PNG or WEBP. Maximum 6 photos.</p>
+                </div>
+
+                {errors.photos && <p className="mt-2 text-xs font-medium text-red-500">{errors.photos}</p>}
+
+                {photoPreviews.length > 0 && (
+                  <div className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-6">
+                    {photoPreviews.map((preview, index) => (
+                      <div
+                        key={preview}
+                        className="relative h-28 overflow-hidden rounded-xl border border-(--border-beige)"
+                      >
+                        <img src={preview} alt={`Preview ${index + 1}`} className="h-full w-full object-cover" />
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            URL.revokeObjectURL(preview);
+
+                            setPhotos((prev) => prev.filter((_, i) => i !== index));
+                            setPhotoPreviews((prev) => prev.filter((_, i) => i !== index));
+                          }}
+                          className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-white text-sm font-bold text-red-500 shadow"
+                        >
+                          ×
+                        </button>
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
+                )}
+              </div>
 
               {/* Seller Registration */}
               <div className="md:col-span-4">
@@ -824,38 +1201,46 @@ export default function PostAdPage() {
               </div>
 
               {/* Description */}
-              <div className="md:col-span-4">
-                <div className="mt-4 border-t border-[#E8DFD1] pt-6">
-                  <label className="mb-2 block text-sm font-semibold text-[#123524]">
-                    Description <span className="text-[#FF8A2A]">*</span>
+              <div className="col-span-full">
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <label className="block text-sm font-semibold text-(--secondary-green)">
+                    Description <span className="text-(--primary-orange)">*</span>
                   </label>
-                  <textarea
-                    rows="6"
-                    name="description"
-                    value={formData.description}
-                    onChange={handleFormChange}
-                    placeholder="Tell us about your pet, temperament, health, training, family suitability, and anything buyers should know..."
-                    className="w-full resize-none rounded-xl border border-[#E8DFD1] bg-white px-4 py-3 text-sm outline-none focus:border-[#0E4F2A]"
-                  />
-                  <p className="mt-1 text-right text-xs text-[#8A968D]">0 / 1000</p>
+
+                  {errors.description && <p className="text-xs font-medium text-red-500">{errors.description}</p>}
                 </div>
+
+                <textarea
+                  name="description"
+                  value={formData.description}
+                  onChange={(e) => {
+                    if (e.target.value.length <= 800) {
+                      handleFormChange(e);
+                      setErrors({ ...errors, description: '' });
+                    }
+                  }}
+                  minLength={80}
+                  maxLength={800}
+                  rows={7}
+                  placeholder="Tell buyers about the pet’s personality, age, health, temperament, living situation, and what kind of home would suit them best."
+                  className={`min-h-[180px] w-full resize-y rounded-2xl border bg-white px-4 py-3 text-sm text-(--secondary-green) outline-none ring-0 transition placeholder:text-(--muted-green-text) focus:outline-none focus:ring-0 ${
+                    errors.description
+                      ? 'border-red-400 focus:border-red-500'
+                      : 'border-(--border-beige) focus:border-(--primary-green)'
+                  }`}
+                />
+
+                <div className="mt-1 flex justify-end text-xs text-(--muted-green-text)">Minimum 80 characters.</div>
               </div>
             </div>
 
             {/* Footer Buttons */}
-            <div className="mt-8 flex items-center justify-between">
-              <button
-                type="button"
-                className="rounded-xl border border-[#0E4F2A] px-6 py-3 text-sm font-semibold text-[#0E4F2A]"
-              >
-                Save Draft
-              </button>
-
+            <div className="mt-8 flex items-center justify-end">
               <button
                 type="submit"
-                className="rounded-xl bg-[#FF8A2A] px-8 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#E96F12]"
+                className="rounded-xl bg-(--primary-orange) px-8 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-(--secondary-orange)"
               >
-                Next Step
+                Submit
               </button>
             </div>
           </form>
