@@ -7,8 +7,44 @@ import { supabase } from '../../lib/supabaseClient';
 import { counties } from '../../data/countyList';
 import { dogBreeds, catBreeds } from '../../data/petOptions';
 import { useSearchParams } from 'next/navigation';
+import {
+  FemaleIcon,
+  MaleIcon,
+  MixedGenderIcon,
+  LocationIcon,
+  CalendarIcon,
+  HeartIcon,
+  PawIcon,
+} from '../../components/Icons';
 
 export default function ListingsPage() {
+  const formatDate = (date) => {
+    if (!date) return 'recently';
+
+    return new Date(date).toLocaleDateString('en-IE', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
+  };
+
+  const getSexIcon = (sex) => {
+    const value = sex?.toLowerCase();
+
+    if (value === 'female') {
+      return <FemaleIcon />;
+    }
+
+    if (value === 'male') {
+      return <MaleIcon />;
+    }
+
+    if (value === 'mixed' || value === 'mixed litter' || value === 'mixed gender' || value === 'mixed genders') {
+      return <MixedGenderIcon />;
+    }
+
+    return null;
+  };
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
@@ -105,55 +141,71 @@ export default function ListingsPage() {
       kennelClubRegistered: false,
       neutered: false,
     });
+    window.history.replaceState(null, '', '/listings');
   };
 
   const breedOptions = filters.animalType === 'Dogs' ? dogBreeds : filters.animalType === 'Cats' ? catBreeds : [];
 
   const filteredListings = useMemo(() => {
+    const normalize = (value) =>
+      String(value ?? '')
+        .trim()
+        .toLowerCase();
+
+    const isYes = (value) => {
+      const normalized = normalize(value);
+
+      return ['yes', 'true', '1', 'ikc registered', 'kc registered'].includes(normalized);
+    };
+
     let result = [...listings];
 
     if (filters.animalType) {
-      result = result.filter((listing) => listing.animal_type === filters.animalType);
+      result = result.filter((listing) => normalize(listing.animal_type) === normalize(filters.animalType));
+    }
+
+    if (filters.listingType) {
+      result = result.filter((listing) => normalize(listing.listing_type) === normalize(filters.listingType));
     }
 
     if (filters.breed) {
-      result = result.filter((listing) => listing.breed?.toLowerCase().includes(filters.breed.toLowerCase()));
+      result = result.filter((listing) => normalize(listing.breed).includes(normalize(filters.breed)));
     }
 
     if (filters.county) {
-      result = result.filter((listing) => listing.county === filters.county);
+      result = result.filter((listing) => normalize(listing.county) === normalize(filters.county));
     }
 
-    if (filters.minPrice) {
-      result = result.filter((listing) => Number(listing.price) >= Number(filters.minPrice));
+    if (filters.minPrice !== '') {
+      result = result.filter((listing) => Number(listing.price ?? 0) >= Number(filters.minPrice));
     }
 
-    if (filters.maxPrice) {
-      result = result.filter((listing) => Number(listing.price) <= Number(filters.maxPrice));
+    if (filters.maxPrice !== '') {
+      result = result.filter((listing) => Number(listing.price ?? 0) <= Number(filters.maxPrice));
     }
 
     if (filters.age) {
-      result = result.filter((listing) => listing.age?.toLowerCase().includes(filters.age.toLowerCase()));
+      result = result.filter((listing) => normalize(listing.age).includes(normalize(filters.age)));
     }
 
     if (filters.sex) {
-      result = result.filter((listing) => listing.sex === filters.sex);
+      result = result.filter((listing) => normalize(listing.sex) === normalize(filters.sex));
     }
 
     if (filters.vaccinated) {
-      result = result.filter((listing) => listing.vaccinated === 'Yes');
+      result = result.filter((listing) => isYes(listing.vaccinated));
     }
 
     if (filters.microchipped) {
-      result = result.filter((listing) => listing.microchipped === 'Yes');
+      result = result.filter((listing) => isYes(listing.microchipped));
     }
 
     if (filters.kennelClubRegistered) {
-      result = result.filter((listing) => ['IKC Registered', 'KC Registered'].includes(listing.kennel_club_registered));
+      result = result.filter((listing) => isYes(listing.kennel_club_registered));
     }
 
     if (filters.neutered) {
-      result = result.filter((listing) => listing.spayed_neutered === 'Yes');
+      result = result.filter((listing) => isYes(listing.spayed_neutered));
     }
 
     if (sortBy === 'newest') {
@@ -167,18 +219,16 @@ export default function ListingsPage() {
     if (sortBy === 'price-high') {
       result.sort((a, b) => Number(b.price || 0) - Number(a.price || 0));
     }
-    if (filters.listingType) {
-      result = result.filter((listing) => listing.listing_type === filters.listingType);
-    }
 
     return result;
   }, [listings, filters, sortBy]);
+
   const toggleFavorite = async (e, listingId) => {
     e.preventDefault();
     e.stopPropagation();
 
     if (!currentUser) {
-      window.location.href = '/login';
+      window.dispatchEvent(new Event('open-login-modal'));
       return;
     }
 
@@ -472,64 +522,99 @@ export default function ListingsPage() {
                     <a
                       key={listing.id}
                       href={`/listings/${listing.id}`}
-                      className="overflow-hidden rounded-2xl border border-[#E8DFD1] bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-md"
+                      className="group flex h-full flex-col overflow-hidden rounded-2xl border border-(--border-beige) bg-(--secondary-background) shadow-[0_6px_18px_rgba(18,53,36,0.07)] transition hover:-translate-y-1 hover:shadow-[0_10px_26px_rgba(18,53,36,0.11)]"
                     >
-                      <div className="relative h-52 bg-[#DDEDD8]">
+                      {/* Image */}
+                      <div className="relative h-[230px] overflow-hidden bg-(--light-green)">
                         {mainImage ? (
-                          <img src={mainImage} alt={listing.title} className="h-full w-full object-cover" />
+                          <img
+                            src={mainImage}
+                            alt={listing.title}
+                            className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                          />
                         ) : (
-                          <div className="flex h-full items-center justify-center text-4xl">🐾</div>
+                          <div className="flex h-full items-center justify-center text-(--primary-green)">
+                            <PawIcon className="h-12 w-12" />
+                          </div>
                         )}
+
                         <button
                           type="button"
                           onClick={(e) => toggleFavorite(e, listing.id)}
-                          className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white text-xl shadow-sm transition hover:scale-105"
+                          className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 shadow-sm transition hover:scale-110"
                           aria-label="Save listing"
                         >
-                          {favoriteIds.includes(listing.id) ? (
-                            <span className="text-red-500">♥</span>
-                          ) : (
-                            <span className="text-[#123524]">♡</span>
-                          )}
+                          <HeartIcon
+                            className={`h-5 w-5 ${
+                              favoriteIds.includes(listing.id)
+                                ? 'fill-red-500 text-red-500'
+                                : 'text-(--muted-green-text)'
+                            }`}
+                          />
                         </button>
-
-                        {listing.price && (
-                          <span className="absolute left-4 top-4 rounded-lg bg-[#0E4F2A] px-3 py-2 text-sm font-bold text-white">
-                            €{listing.price}
-                          </span>
-                        )}
                       </div>
 
-                      <div className="p-5">
-                        <h2 className="text-lg font-bold text-[#123524]">{listing.title}</h2>
+                      {/* Content */}
+                      <div className="flex flex-1 flex-col bg-(--secondary-background) p-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <h3 className="line-clamp-1 text-lg font-extrabold tracking-tight text-(--primary-green)">
+                            {listing.title}
+                          </h3>
 
-                        <p className="mt-2 text-sm capitalize text-[#5F6F64]">
-                          {listing.animal_type} · {listing.breed || 'Unknown breed'}
-                        </p>
+                          {listing.price !== null && listing.price !== undefined && listing.price !== '' && (
+                            <p className="shrink-0 text-lg font-extrabold text-(--primary-orange)">€{listing.price}</p>
+                          )}
+                        </div>
 
-                        <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold">
+                        {/* Breed */}
+                        <div className="text-sm text-(--muted-green-text)">
+                          <p className="mt-1 line-clamp-1 text-sm font-bold text-black">
+                            {[listing.breed].filter(Boolean).join(' • ')}
+                          </p>
+                        </div>
+
+                        {/* Listing details */}
+                        <div className="mt-3 flex flex-wrap gap-1">
                           {listing.age && (
-                            <span className="rounded-full bg-[#FAF6EC] px-3 py-1 text-[#123524]">{listing.age}</span>
+                            <span className="inline-flex items-center gap-1 rounded-full bg-(--background) px-3 py-1 text-xs font-semibold text-(--primary-green)">
+                              {listing.age}
+                            </span>
                           )}
 
                           {listing.sex && (
-                            <span className="rounded-full bg-[#FAF6EC] px-3 py-1 text-[#123524]">{listing.sex}</span>
+                            <span className="inline-flex items-center gap-1 rounded-full bg-(--background) px-3 py-1 text-xs font-semibold text-(--primary-green)">
+                              <span className="text-sm leading-none">{getSexIcon(listing.sex)}</span>
+                              {listing.sex}
+                            </span>
                           )}
 
                           {listing.county && (
-                            <span className="rounded-full bg-[#FAF6EC] px-3 py-1 text-[#123524]">{listing.county}</span>
-                          )}
-
-                          {['Yes', 'IKC Registered', 'KC Registered'].includes(listing.kennel_club_registered) && (
-                            <span className="rounded-full bg-[#DDEDD8] px-3 py-1 text-[#0E4F2A]">
-                              {listing.kennel_club_registered}
+                            <span className="inline-flex items-center gap-1 rounded-full bg-(--background) px-3 py-1 text-xs font-semibold text-(--primary-green)">
+                              <LocationIcon className="h-3.5 w-3.5 text-(--primary-green)" />
+                              {listing.county}
                             </span>
                           )}
                         </div>
 
-                        <p className="mt-4 line-clamp-2 text-sm leading-6 text-[#5F6F64]">
-                          {listing.description || 'No description added.'}
-                        </p>
+                        {listing.description && (
+                          <p className="mt-4 line-clamp-3 text-sm leading-6 text-(--muted-green-text)">
+                            {listing.description}
+                          </p>
+                        )}
+
+                        {/* Posted date + IKC */}
+                        <div className="mt-auto flex items-center justify-between gap-3 pt-5">
+                          <div className="flex items-center gap-2 text-sm text-(--muted-green-text)">
+                            <CalendarIcon className="h-4 w-4" />
+                            <span>Posted {formatDate(listing.created_at)}</span>
+                          </div>
+
+                          {['Yes', 'IKC Registered', 'KC Registered'].includes(listing.kennel_club_registered) && (
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-(--primary-green) text-[12px] font-extrabold text-white">
+                              IKC
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </a>
                   );

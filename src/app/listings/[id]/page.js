@@ -18,9 +18,13 @@ import {
   CalendarIcon,
   EyeIcon,
   PaperIcon,
-  PawlIcon,
+  PawIcon,
   GroupIcon,
   LocationIcon,
+  HeartIcon,
+  FemaleIcon,
+  MaleIcon,
+  MixedGenderIcon,
 } from '../../../components/Icons';
 
 const formatDate = (value, options) => {
@@ -28,7 +32,23 @@ const formatDate = (value, options) => {
 
   return new Date(value).toLocaleDateString('en-IE', options);
 };
+const getSexIcon = (sex) => {
+  const value = sex?.toLowerCase();
 
+  if (value === 'female') {
+    return <FemaleIcon />;
+  }
+
+  if (value === 'male') {
+    return <MaleIcon />;
+  }
+
+  if (value === 'mixed' || value === 'mixed litter' || value === 'mixed gender' || value === 'mixed genders') {
+    return <MixedGenderIcon />;
+  }
+
+  return null;
+};
 const yesNo = (value) => {
   if (!value) return '-';
   if (value === 'Yes' || value === true) return 'Yes ✅';
@@ -474,10 +494,10 @@ export default function ListingDetailPage() {
                   </h1>
 
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <InfoPill icon={<PawSmallIcon />} text={listing.breed} />
-                    <InfoPill icon={<GroupSmallIcon />} text={listing.sex} />
+                    <InfoPill icon={<PawIcon />} text={listing.breed} />
+                    <InfoPill icon={<GroupIcon />} text={listing.sex} />
                     <InfoPill icon={<CalendarIcon />} text={listing.age} />
-                    <InfoPill icon={<LocationSmallIcon />} text={listing.county} />
+                    <InfoPill icon={<LocationIcon />} text={listing.county} />
                   </div>
 
                   <p className="flex items-center mt-2 font-bold text-xs text-(--muted-green-text)">
@@ -846,12 +866,14 @@ const SafetyCard = () => {
 const LocationMap = ({ locationText }) => {
   if (!locationText) return null;
 
-  const mapUrl = `https://www.google.com/maps?q=${encodeURIComponent(locationText)}&output=embed`;
+  const mapUrl = `https://maps.google.com/maps?hl=en&q=${encodeURIComponent(locationText)}&z=11&t=m&output=embed`;
 
   return (
     <section className="rounded-3xl border border-(--border-beige) bg-white p-5 shadow-sm">
       <div className="flex items-start gap-3">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-(--background)">📍</div>
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-(--background)">
+          <LocationIcon />
+        </div>
 
         <div>
           <h2 className="text-lg font-extrabold text-(--secondary-green)">Location</h2>
@@ -916,44 +938,100 @@ const SimilarAds = ({ listings }) => {
         </a>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
         {listings.map((similar) => {
           const similarPhotos = sortPhotos(similar.listing_photos);
           const mainImage = similarPhotos[0]?.image_url;
 
           const similarTitle = similar.title || `${similar.breed || similar.animal_type || 'Pet'} available`;
 
+          const postedDate = similar.created_at
+            ? formatDate(similar.created_at, {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+              })
+            : 'recently';
+
           return (
             <a
               key={similar.id}
               href={`/listings/${similar.id}`}
-              className="group overflow-hidden rounded-2xl border border-(--border-beige) bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-[0_10px_26px_rgba(18,53,36,0.12)]"
+              className="group flex h-full flex-col overflow-hidden rounded-2xl border border-(--border-beige) bg-(--secondary-background) shadow-[0_6px_18px_rgba(18,53,36,0.07)] transition hover:-translate-y-1 hover:shadow-[0_10px_26px_rgba(18,53,36,0.11)]"
             >
-              <div className="relative h-36 bg-(--light-green)">
+              {/* Image */}
+              <div className="relative h-[230px] overflow-hidden bg-(--light-green)">
                 {mainImage ? (
-                  <img src={mainImage} alt={similarTitle} className="h-full w-full object-cover" />
+                  <img
+                    src={mainImage}
+                    alt={similarTitle}
+                    className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                  />
                 ) : (
-                  <div className="flex h-full items-center justify-center text-3xl">🐾</div>
+                  <div className="flex h-full items-center justify-center text-(--primary-green)">
+                    <PawIcon className="h-12 w-12" />
+                  </div>
                 )}
 
-                <span className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-white/95 text-(--primary-green)">
-                  ♡
+                <span className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 shadow-sm">
+                  <HeartIcon className="h-5 w-5 text-(--muted-green-text)" />
                 </span>
               </div>
 
-              <div className="p-4">
-                <h3 className="line-clamp-2 text-sm font-extrabold text-(--secondary-green)">{similarTitle}</h3>
+              {/* Content */}
+              <div className="flex flex-1 flex-col bg-(--secondary-background) p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <h3 className="line-clamp-1 text-lg font-extrabold tracking-tight text-(--primary-green)">
+                    {similarTitle}
+                  </h3>
 
-                <p className="mt-2 text-xs font-semibold text-(--muted-green-text)">
-                  {[similar.breed, similar.age, similar.county].filter(Boolean).join(' • ')}
-                </p>
+                  {similar.price !== null && similar.price !== undefined && similar.price !== '' && (
+                    <p className="shrink-0 text-lg font-extrabold text-(--primary-orange)">€{similar.price}</p>
+                  )}
+                </div>
 
-                <div className="mt-3 flex items-end justify-between gap-3">
-                  <p className="text-lg font-extrabold text-(--primary-green)">
-                    {similar.price ? `€${similar.price}` : 'See price'}
+                {/* Breed */}
+                <div className="text-sm text-(--muted-green-text)">
+                  <p className="mt-1 line-clamp-1 text-sm font-bold text-black">
+                    {[similar.breed].filter(Boolean).join(' • ')}
                   </p>
+                </div>
 
-                  {similar.price_negotiable && <p className="text-xs font-bold text-(--primary-green)">Negotiable</p>}
+                {/* Listing details */}
+                <div className="mt-3 flex flex-wrap gap-1">
+                  {similar.age && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-(--background) px-3 py-1 text-xs font-semibold text-(--primary-green)">
+                      {similar.age}
+                    </span>
+                  )}
+
+                  {similar.sex && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-(--background) px-3 py-1 text-xs font-semibold text-(--primary-green)">
+                      <span className="text-sm leading-none">{getSexIcon(similar.sex)}</span>
+                      {similar.sex}
+                    </span>
+                  )}
+
+                  {similar.county && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-(--background) px-3 py-1 text-xs font-semibold text-(--primary-green)">
+                      <LocationIcon className="h-3.5 w-3.5 text-(--primary-green)" />
+                      {similar.county}
+                    </span>
+                  )}
+                </div>
+
+                {/* Posted date + IKC */}
+                <div className="mt-auto flex items-center justify-between gap-3 pt-5">
+                  <div className="flex items-center gap-2 text-sm text-(--muted-green-text)">
+                    <CalendarIcon className="h-4 w-4" />
+                    <span>Posted {postedDate}</span>
+                  </div>
+
+                  {['Yes', 'IKC Registered', 'KC Registered'].includes(similar.kennel_club_registered) && (
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-(--primary-green) text-[12px] font-extrabold text-white">
+                      IKC
+                    </div>
+                  )}
                 </div>
               </div>
             </a>

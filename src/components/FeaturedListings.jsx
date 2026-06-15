@@ -216,7 +216,7 @@ const FeaturedListings = () => {
                     <div className="mt-3 flex flex-wrap gap-1">
                       {listing.age && (
                         <span className="inline-flex items-center gap-1 rounded-full bg-(--background) px-3 py-1 text-xs font-semibold text-(--primary-green)">
-                          {listing.age}
+                          <CalendarIcon className="h-3.5 w-3.5 text-(--primary-green)" /> {listing.age}
                         </span>
                       )}
 

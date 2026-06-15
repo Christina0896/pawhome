@@ -183,8 +183,7 @@ export default function PostAdPage() {
     }
 
     const isMixedLitter = formData.sex === 'Mixed Litter';
-    const isDogOrCat = ['dogs', 'cats'].includes(formData.animalType?.toLowerCase());
-
+    const isDogOrCat = ['dogs', 'cats'].includes(formData.animal_type?.toLowerCase());
     if (isDogOrCat && isMixedLitter) {
       if (!formData.litter_size) {
         newErrors.litter_size = 'Please enter the litter size.';
@@ -464,7 +463,7 @@ export default function PostAdPage() {
       </div>
     );
   }
-  const isDogOrCat = ['dogs', 'cats'].includes(formData.animalType?.toLowerCase());
+  const isDogOrCat = ['dogs', 'cats'].includes(formData.animal_type?.toLowerCase());
 
   const isMixedLitter = formData.sex === 'Mixed Litter';
 
@@ -1189,6 +1188,7 @@ export default function PostAdPage() {
                 </div>
               )}
 
+              {/* Litter background */}
               {showLitterFields && (
                 <>
                   <div className="md:col-span-4">
@@ -1197,16 +1197,16 @@ export default function PostAdPage() {
                         {isMixedLitter ? 'Litter Information' : 'Pet Background'}
                       </h3>
 
-                      <p className="mt-1 max-w-2xl text-sm text-[#5F6F64]">
+                      <p className=" max-w-2xl text-sm text-[#5F6F64]">
                         {isMixedLitter
                           ? 'These details help buyers understand the litter and when the pets can leave.'
                           : 'These optional details help buyers understand the pet’s background.'}
                       </p>
 
-                      <div className="grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                      <div className="mt-2 grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                         {/* Litter Size */}
                         <div>
-                          <div className="mb-2 min-h-[38px]">
+                          <div className=" min-h-[38px]">
                             <label className="block text-sm font-semibold text-(--secondary-green)">
                               Litter Size {isMixedLitter && <span className="text-(--primary-orange)">*</span>}
                             </label>
@@ -1241,7 +1241,7 @@ export default function PostAdPage() {
 
                         {/* Available */}
                         <div>
-                          <div className="mb-2 min-h-[38px]">
+                          <div className=" min-h-[38px]">
                             <label className="block text-sm font-semibold text-(--secondary-green)">
                               Available {isMixedLitter && <span className="text-(--primary-orange)">*</span>}
                             </label>
@@ -1276,7 +1276,7 @@ export default function PostAdPage() {
 
                         {/* Date of Birth */}
                         <div>
-                          <div className="mb-2 min-h-[38px]">
+                          <div className=" min-h-[38px]">
                             <label className="block text-sm font-semibold text-(--secondary-green)">
                               Date of Birth <span className="text-(--primary-orange)">*</span>
                             </label>
@@ -1309,7 +1309,7 @@ export default function PostAdPage() {
 
                         {/* Ready to Leave */}
                         <div>
-                          <div className="mb-2 min-h-[38px]">
+                          <div className=" min-h-[38px]">
                             <label className="block text-sm font-semibold text-(--secondary-green)">
                               Ready to Leave <span className="text-(--primary-orange)">*</span>
                             </label>
@@ -1447,7 +1447,7 @@ export default function PostAdPage() {
               </div>
 
               <div className="md:col-span-2">
-                <label className="mb-2 block text-sm font-semibold text-[#123524]">
+                <label className="mb-1 block text-sm font-semibold text-[#123524]">
                   Pet Seller Registration Number
                 </label>
                 <input
@@ -1461,7 +1461,7 @@ export default function PostAdPage() {
               </div>
 
               <div className="md:col-span-2">
-                <label className="mb-2 block text-sm font-semibold text-[#123524]">Licence / Organisation Name</label>
+                <label className="mb-1 block text-sm font-semibold text-[#123524]">Licence / Organisation Name</label>
                 <input
                   type="text"
                   name="organisationName"
@@ -1473,9 +1473,9 @@ export default function PostAdPage() {
               </div>
             </div>
             {/* Description */}
-            <div className="md:col-span-2 xl:col-span-4">
+            <div className="mt-5 md:col-span-2 xl:col-span-4">
               <div className="mb-2 flex items-center justify-between gap-3">
-                <label className="block text-sm font-semibold text-(--secondary-green)">
+                <label className="block text-lg font-semibold text-(--secondary-green)">
                   Description <span className="text-(--primary-orange)">*</span>
                 </label>
 
