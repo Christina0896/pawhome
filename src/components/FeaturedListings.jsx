@@ -3,12 +3,75 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 
+const formatDate = (date) => {
+  if (!date) return 'recently';
+
+  return new Date(date).toLocaleDateString('en-IE', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+};
+
+const getMainImage = (photos) => {
+  const sortedPhotos = [...(photos || [])].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+
+  return sortedPhotos[0]?.image_url;
+};
+
+const getSexIcon = (sex) => {
+  const value = sex?.toLowerCase();
+
+  if (value === 'female') {
+    return (
+      <svg
+        className="h-3.5 w-3.5"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <circle cx="12" cy="8" r="4" />
+        <path d="M12 12v8" />
+        <path d="M8.5 17h7" />
+      </svg>
+    );
+  }
+
+  if (value === 'male') {
+    return (
+      <svg fill="#000000" viewBox="-7 0 32 32" version="1.1" xmlns="http://www.w3.org/2000/svg">
+        <g id="SVGRepo_bgCarrier" strokeWidth="0"></g>
+        <g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round"></g>
+        <g id="SVGRepo_iconCarrier">
+          {' '}
+          <title>male</title>{' '}
+          <path d="M17.56 8.060c0-0.44-0.36-0.88-0.84-0.88h-4.6c-0.48 0-0.84 0.36-0.84 0.84s0.36 0.84 0.84 0.84h2.6l-3.6 3.6c-1.16-0.92-2.64-1.48-4.24-1.48-3.76 0.080-6.88 3.16-6.88 6.96s3.12 6.88 6.88 6.88 6.88-3.080 6.88-6.88c0-1.6-0.56-3.040-1.48-4.24l3.6-3.6v2.76c0 0.48 0.36 0.84 0.84 0.84s0.84-0.36 0.84-0.84c0 0 0-4.8 0-4.8zM6.88 23.14c-2.88 0-5.2-2.32-5.2-5.2s2.32-5.2 5.2-5.2 5.2 2.32 5.2 5.2-2.32 5.2-5.2 5.2z"></path>{' '}
+        </g>
+      </svg>
+    );
+  }
+
+  if (value === 'mixed' || value === 'mixed litter' || value === 'mixed gender' || value === 'mixed genders') {
+    return <span aria-hidden="true">⚥</span>;
+  }
+
+  return null;
+};
+
 const FeaturedListings = () => {
+  // Listing state
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Auth/favorites state
   const [currentUser, setCurrentUser] = useState(null);
   const [favoriteIds, setFavoriteIds] = useState([]);
 
+  // Fetch approved listings and user favorites
   useEffect(() => {
     const fetchFeaturedListings = async () => {
       setLoading(true);
@@ -17,12 +80,12 @@ const FeaturedListings = () => {
         .from('listings')
         .select(
           `
-        *,
-        listing_photos (
-          image_url,
-          sort_order
-        )
-      `,
+          *,
+          listing_photos (
+            image_url,
+            sort_order
+          )
+        `,
         )
         .eq('status', 'approved')
         .order('created_at', { ascending: false })
@@ -62,12 +125,13 @@ const FeaturedListings = () => {
     fetchFeaturedListings();
   }, []);
 
+  // Add/remove listing from favorites
   const toggleFavorite = async (e, listingId) => {
     e.preventDefault();
     e.stopPropagation();
 
     if (!currentUser) {
-      window.location.href = '/login';
+      window.dispatchEvent(new Event('open-login-modal'));
       return;
     }
 
@@ -86,85 +150,46 @@ const FeaturedListings = () => {
       }
 
       setFavoriteIds((prev) => prev.filter((id) => id !== listingId));
-    } else {
-      const { error } = await supabase.from('favorites').insert({
-        user_id: currentUser.id,
-        listing_id: listingId,
-      });
-
-      if (error) {
-        console.error('Add favorite error:', error);
-        return;
-      }
-
-      setFavoriteIds((prev) => [...prev, listingId]);
+      return;
     }
+
+    const { error } = await supabase.from('favorites').insert({
+      user_id: currentUser.id,
+      listing_id: listingId,
+    });
+
+    if (error) {
+      console.error('Add favorite error:', error);
+      return;
+    }
+
+    setFavoriteIds((prev) => [...prev, listingId]);
   };
-  const getSexIcon = (sex) => {
-    const value = sex?.toLowerCase();
 
-    if (value === 'female') {
-      return (
-        <svg
-          className="h-3.5 w-3.5 text-black"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.4"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-        >
-          <circle cx="12" cy="8" r="4" />
-          <path d="M12 12v8" />
-          <path d="M8.5 17h7" />
-        </svg>
-      );
-    }
-
-    if (value === 'male') {
-      return (
-        <span className="text-black" aria-hidden="true">
-          ♂
-        </span>
-      );
-    }
-
-    if (value === 'mixed' || value === 'mixed litter' || value === 'mixed gender' || value === 'mixed genders') {
-      return (
-        <span className="text-black" aria-hidden="true">
-          ⚥
-        </span>
-      );
-    }
-
-    return null;
-  };
   return (
     <section className="w-full bg-(--background) py-12">
       <div className="mx-auto max-w-(--page-max-width) px-6">
+        {/* Section header */}
         <div className="mb-6 flex items-center justify-between">
           <h2 className="text-2xl font-bold tracking-tight text-(--primary-green)">Featured Listings</h2>
 
-          <a href="/listings" className="text-md font-bold text-(--primary-orange) ">
+          <a href="/listings" className="text-sm font-bold text-(--primary-orange) hover:text-(--secondary-orange)">
             View all listings →
           </a>
         </div>
 
         {loading ? (
-          <p className="text-sm text-[#5F6F64]">Loading featured listings...</p>
+          <p className="text-sm text-(--muted-green-text)">Loading featured listings...</p>
         ) : listings.length > 0 ? (
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-4">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
             {listings.map((listing) => {
-              const sortedPhotos = [...(listing.listing_photos || [])].sort((a, b) => a.sort_order - b.sort_order);
-
-              const mainImage = sortedPhotos[0]?.image_url;
+              const mainImage = getMainImage(listing.listing_photos);
 
               return (
                 <a
                   key={listing.id}
                   href={`/listings/${listing.id}`}
-                  className="group overflow-hidden rounded-2xl border border-(--border-beige) bg-(--secundary-background) shadow-[0_6px_18px_rgba(18,53,36,0.07)] transition hover:-translate-y-1 hover:shadow-[0_10px_26px_rgba(18,53,36,0.11)]"
+                  className="group flex h-full flex-col overflow-hidden rounded-2xl border border-(--border-beige) bg-(--secundary-background) shadow-[0_6px_18px_rgba(18,53,36,0.07)] transition hover:-translate-y-1 hover:shadow-[0_10px_26px_rgba(18,53,36,0.11)]"
                 >
                   {/* Image */}
                   <div className="relative h-[230px] overflow-hidden bg-(--light-green)">
@@ -178,7 +203,6 @@ const FeaturedListings = () => {
                       <div className="flex h-full items-center justify-center text-4xl">🐾</div>
                     )}
 
-                    {/* Favourite */}
                     <button
                       type="button"
                       onClick={(e) => toggleFavorite(e, listing.id)}
@@ -194,8 +218,8 @@ const FeaturedListings = () => {
                   </div>
 
                   {/* Content */}
-                  <div className="p-4">
-                    <div className="flex items-start justify-between gap-3">
+                  <div className="flex flex-1 flex-col p-3 bg-(--secondary-background)">
+                    <div className="flex items-start justify-between ">
                       <h3 className="line-clamp-1 text-lg font-extrabold tracking-tight text-(--primary-green)">
                         {listing.title}
                       </h3>
@@ -206,50 +230,16 @@ const FeaturedListings = () => {
                     </div>
 
                     {/* Animal + breed */}
-                    <div className="mt-2 flex items-center gap-2 text-sm text-(--muted-green-text)">
-                      <span className="flex items-center gap-1">
-                        <svg
-                          className="h-4 w-4 text-(--primary-green)"
-                          viewBox="0 0 24 24"
-                          fill="currentColor"
-                          aria-hidden="true"
-                        >
-                          <ellipse cx="7" cy="8" rx="1.3" ry="1.8" />
-                          <ellipse cx="11" cy="6.5" rx="1.3" ry="1.8" />
-                          <ellipse cx="15" cy="6.5" rx="1.3" ry="1.8" />
-                          <ellipse cx="18" cy="8" rx="1.3" ry="1.8" />
-                          <path d="M12 12.5C9.4 12.5 7.1 14.4 6.5 17c-.2 1 .6 2 1.7 2h7.6c1.1 0 1.9-1 1.7-2-.6-2.6-2.9-4.5-5.5-4.5Z" />
-                        </svg>
-                        {listing.animal_type}
-                      </span>
-
-                      {(listing.breed || listing.animal_type) && (
-                        <>
-                          <span>·</span>
-                          <span className="truncate">{listing.breed || listing.animal_type}</span>
-                        </>
-                      )}
+                    <div className="text-sm text-(--muted-green-text)">
+                      <p className="mt-1 line-clamp-1 text-sm  font-bold text-black">
+                        {[listing.breed].filter(Boolean).join(' • ')}
+                      </p>
                     </div>
 
-                    {/* Pills */}
-                    <div className="mt-4 flex flex-wrap gap-2">
+                    {/* Listing details */}
+                    <div className="mt-3 flex flex-wrap gap-1">
                       {listing.age && (
                         <span className="inline-flex items-center gap-1 rounded-full bg-(--background) px-3 py-1 text-xs font-semibold text-(--primary-green)">
-                          <svg
-                            className="h-3.5 w-3.5"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            aria-hidden="true"
-                          >
-                            <rect x="4" y="5" width="16" height="15" rx="2" />
-                            <path d="M8 3v4" />
-                            <path d="M16 3v4" />
-                            <path d="M4 10h16" />
-                          </svg>
                           {listing.age}
                         </span>
                       )}
@@ -281,17 +271,15 @@ const FeaturedListings = () => {
                       )}
                     </div>
 
-                    {/* Description */}
                     {listing.description && (
                       <p className="mt-4 line-clamp-3 text-sm leading-6 text-(--muted-green-text)">
                         {listing.description}
                       </p>
                     )}
 
-                    {/* Posted date */}
-                    <div className="mt-5 flex items-center justify-between gap-3">
-                      {/* Posted date */}
-                      <div className="flex items-center gap-2 text-xs text-(--muted-green-text)">
+                    {/* Posted date + IKC */}
+                    <div className="mt-auto flex items-center justify-between gap-3 pt-5">
+                      <div className="mt-auto flex items-center gap-2 pt-5 text-sm text-(--muted-green-text)">
                         <svg
                           className="h-4 w-4"
                           viewBox="0 0 24 24"
@@ -308,21 +296,11 @@ const FeaturedListings = () => {
                           <path d="M4 10h16" />
                         </svg>
 
-                        <span>
-                          Posted{' '}
-                          {listing.created_at
-                            ? new Date(listing.created_at).toLocaleDateString('en-IE', {
-                                day: 'numeric',
-                                month: 'short',
-                                year: 'numeric',
-                              })
-                            : 'recently'}
-                        </span>
+                        <span>Posted {formatDate(listing.created_at)}</span>
                       </div>
 
-                      {/* IKC badge */}
-                      {listing.kc_registered && (
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-(--primary-green) text-[11px] font-extrabold text-white">
+                      {['Yes', 'IKC Registered', 'KC Registered'].includes(listing.kennel_club_registered) && (
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-(--primary-green) text-[12px] font-extrabold text-white">
                           IKC
                         </div>
                       )}
@@ -333,26 +311,28 @@ const FeaturedListings = () => {
             })}
           </div>
         ) : (
-          <div className="rounded-2xl border border-[#E8DFD1] bg-[#FFFCF5] px-8 py-14 text-center shadow-sm">
-            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-[#DDEDD8] text-4xl">
+          <div className="rounded-2xl border border-(--border-beige) bg-(--secondary-background) px-8 py-14 text-center shadow-sm">
+            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-(--light-green) text-4xl">
               🐾
             </div>
 
-            <h3 className="text-2xl font-bold text-[#123524]">Be one of the first to list a pet on PawHome</h3>
+            <h3 className="text-2xl font-bold text-(--secondary-green)">
+              Be one of the first to list a pet on PawHome
+            </h3>
 
-            <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-[#5F6F64]">
+            <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-(--muted-green-text)">
               PawHome is launching soon. Responsible owners, breeders, and rescues can start by posting the first
               trusted pet listings in Ireland.
             </p>
 
             <div className="mt-7 flex justify-center gap-4">
-              <a href="/post-ad" className="rounded-xl bg-[#0E4F2A] px-6 py-3 text-sm font-semibold text-white">
+              <a href="/post-ad" className="rounded-xl bg-(--primary-green) px-6 py-3 text-sm font-semibold text-white">
                 Post an Ad
               </a>
 
               <a
                 href="/safety"
-                className="rounded-xl border border-[#0E4F2A] px-6 py-3 text-sm font-semibold text-[#0E4F2A]"
+                className="rounded-xl border border-(--primary-green) px-6 py-3 text-sm font-semibold text-(--primary-green)"
               >
                 Learn Safety Rules
               </a>

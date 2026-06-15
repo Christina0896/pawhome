@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Header from '../../components/header';
+import Footer from '../../components/footer';
 import { supabase } from '../../lib/supabaseClient';
 import { counties } from '../../data/countyList';
 import { dogBreeds, catBreeds } from '../../data/petOptions';
@@ -98,6 +99,7 @@ export default function ListingsPage() {
       maxPrice: '',
       age: '',
       sex: '',
+      listingType: '',
       vaccinated: false,
       microchipped: false,
       kennelClubRegistered: false,
@@ -143,7 +145,7 @@ export default function ListingsPage() {
     }
 
     if (filters.microchipped) {
-      result = result.filter((listing) => listing.microchip);
+      result = result.filter((listing) => listing.microchipped === 'Yes');
     }
 
     if (filters.kennelClubRegistered) {
@@ -165,8 +167,8 @@ export default function ListingsPage() {
     if (sortBy === 'price-high') {
       result.sort((a, b) => Number(b.price || 0) - Number(a.price || 0));
     }
-    if (filters.listingType && listing.listing_type !== filters.listingType) {
-      return false;
+    if (filters.listingType) {
+      result = result.filter((listing) => listing.listing_type === filters.listingType);
     }
 
     return result;
@@ -266,6 +268,22 @@ export default function ListingsPage() {
                   <option value="Dogs">Dogs</option>
                   <option value="Cats">Cats</option>
                   <option value="Other Pets">Other Pets</option>
+                </select>
+              </div>
+              {/* listing Type */}
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-[#123524]">Listing Type</label>
+
+                <select
+                  name="listingType"
+                  value={filters.listingType}
+                  onChange={handleFilterChange}
+                  className="h-10 w-full rounded-lg border border-[#E8DFD1] bg-white px-3 text-sm outline-none focus:border-[#0E4F2A]"
+                >
+                  <option value="">All Listing Types</option>
+                  <option value="For Sale">For Sale</option>
+                  <option value="For Adoption">For Adoption</option>
+                  <option value="For Stud">For Stud</option>
                 </select>
               </div>
 
@@ -402,7 +420,7 @@ export default function ListingsPage() {
                     checked={filters.kennelClubRegistered}
                     onChange={handleFilterChange}
                   />
-                  KC / IKC Registered
+                  KC
                 </label>
 
                 <label className="flex items-center gap-2">
@@ -502,7 +520,7 @@ export default function ListingsPage() {
                             <span className="rounded-full bg-[#FAF6EC] px-3 py-1 text-[#123524]">{listing.county}</span>
                           )}
 
-                          {['IKC Registered', 'KC Registered'].includes(listing.kennel_club_registered) && (
+                          {['Yes', 'IKC Registered', 'KC Registered'].includes(listing.kennel_club_registered) && (
                             <span className="rounded-full bg-[#DDEDD8] px-3 py-1 text-[#0E4F2A]">
                               {listing.kennel_club_registered}
                             </span>
@@ -521,6 +539,7 @@ export default function ListingsPage() {
           </section>
         </div>
       </main>
+      <Footer />
     </div>
   );
 }

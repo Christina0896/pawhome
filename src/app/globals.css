@@ -2,15 +2,15 @@
 @import 'tailwindcss';
 
 :root {
-  --background: #fdf7f1;
-  --secundary-background: #fffffff4;
-  --border-beige: #f1e9dc;
+  --background: #faf6ec;
+  --secondary-background: #ffffff;
+  --border-beige: #e8dfd1;
 
   --primary-green: #0e4f2a;
   --secondary-green: #123524;
   --light-green: #ddedd8;
 
-  --primary-orange: #f0700f;
+  --primary-orange: #f97316;
   --secondary-orange: #ea580c;
   --light-orange: #fcead7;
 

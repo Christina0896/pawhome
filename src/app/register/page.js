@@ -84,7 +84,7 @@ export default function RegisterPage() {
 
       <section className="mx-auto max-w-205 rounded-[28px] border border-(--border-beige) bg-white p-8 mt-8 shadow-[0_18px_50px_rgba(18,53,36,0.08)]">
         <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-(--primary-dark-green)">Create Your Account</h1>
+          <h1 className="text-3xl font-bold ">Create Your Account</h1>
 
           <p className="mt-3 text-sm text-(--muted-green-text)">
             Contact sellers, save listings, and post your own ads.
@@ -95,7 +95,7 @@ export default function RegisterPage() {
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
             <div>
               <label className={labelClass}>
-                First Name <span className="text-(--cta-orange)">*</span>
+                First Name <span className="text-(--primary-orange)">*</span>
               </label>
               <input
                 name="firstName"
@@ -110,7 +110,7 @@ export default function RegisterPage() {
 
             <div>
               <label className={labelClass}>
-                Last Name <span className="text-(--cta-orange)">*</span>
+                Last Name <span className="text-(--primary-orange)">*</span>
               </label>
               <input
                 name="lastName"
@@ -127,7 +127,7 @@ export default function RegisterPage() {
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
             <div>
               <label className={labelClass}>
-                Email Address <span className="text-(--orange)">*</span>
+                Email Address <span className="text-(--primary-orange)">*</span>
               </label>
               <input
                 name="email"
@@ -142,7 +142,7 @@ export default function RegisterPage() {
 
             <div>
               <label className={labelClass}>
-                Phone Number <span className="text-(--orange)">*</span>
+                Phone Number <span className="text-(--primary-orange)">*</span>
               </label>
 
               <div className="grid grid-cols-[110px_1fr] gap-3">
@@ -169,7 +169,7 @@ export default function RegisterPage() {
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
             <div>
               <label className={labelClass}>
-                Account Type <span className="text-(--cta-orange)">*</span>
+                Account Type <span className="text-(--primary-orange)">*</span>
               </label>
               <select
                 name="accountType"
@@ -179,16 +179,16 @@ export default function RegisterPage() {
                 className={inputClass}
               >
                 <option value="">Select account type</option>
-                <option value="buyer">Buyer</option>
-                <option value="seller">Seller</option>
-                <option value="breeder">Breeder</option>
-                <option value="shelter">Shelter / Rescue</option>
+                <option value="Buyer">Buyer</option>
+                <option value="Private Seller">Private Seller</option>
+                <option value="Breeder">Breeder</option>
+                <option value="Shelter / Rescue">Shelter / Rescue</option>
               </select>
             </div>
 
             <div>
               <label className={labelClass}>
-                County / Region <span className="text-(--cta-orange)">*</span>
+                County / Region <span className="text-(--primary-orange)">*</span>
               </label>
               <select name="county" value={formData.county} onChange={handleChange} required className={inputClass}>
                 <option value="">Select your county</option>
@@ -203,7 +203,7 @@ export default function RegisterPage() {
 
           <div>
             <label className={labelClass}>
-              Password <span className="text-(--cta-orange)">*</span>
+              Password <span className="text-(--primary-orange)">*</span>
             </label>
             <input
               name="password"
@@ -225,22 +225,16 @@ export default function RegisterPage() {
                 name="terms"
                 type="checkbox"
                 checked={formData.terms}
-                onChange={handleChange} 
+                onChange={handleChange}
                 className="mt-1 h-4 w-4 accent-(--primary-green-hover)"
               />
-              <span>
+              <span className="text-black">
                 I agree to the{' '}
-                <a
-                  href="/terms"
-                  className="font-semibold text-(--primary-green) hover:text-(--orange)"
-                >
+                <a href="/terms" className="font-semibold text-(--primary-green) hover:text-(--primary-orange)">
                   Terms of Service
                 </a>{' '}
                 and{' '}
-                <a
-                  href="/privacy"
-                  className="font-semibold text-(--primary-green) hover:text-(--orange)"
-                >
+                <a href="/privacy" className="font-semibold text-(--primary-green) hover:text-(--primary-orange)">
                   Privacy Policy
                 </a>
                 .
@@ -260,15 +254,13 @@ export default function RegisterPage() {
           </div>
 
           {message && (
-            <p className="rounded-xl bg-(--light-orange) px-4 py-3 text-sm text-(--primary-dark-green)">
-              {message}
-            </p>
+            <p className="rounded-xl bg-(--light-orange) px-4 py-3 text-sm text-(--primary-dark-green)">{message}</p>
           )}
 
           <button
             type="submit"
             disabled={loading}
-            className="mt-2 w-full rounded-xl bg-(--orange) px-5 py-3.5 text-sm font-bold text-white shadow-[0_8px_18px_rgba(249,115,22,0.22)] transition hover:bg-[var(--cta-orange-hover)] disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-2 w-full rounded-xl bg-(--primary-orange) px-5 py-3.5 text-sm font-bold text-white shadow-[0_8px_18px_rgba(249,115,22,0.22)] transition hover:bg-[var(--secondary-orange)] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {loading ? 'Creating account...' : 'Create Account'}
           </button>
@@ -276,7 +268,7 @@ export default function RegisterPage() {
 
         <p className="mt-6 text-center text-sm text-(--muted-green-text)">
           Already have an account?{' '}
-          <a href="/" className="font-semibold text-(--primary-dark-green) hover:text-(--orange)">
+          <a href="/" className="font-semibold text-(--primary-green) hover:text-(--primary-orange)">
             Login
           </a>
         </p>

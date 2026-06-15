@@ -82,17 +82,24 @@ export default function PostAdPage() {
   const [loading, setLoading] = useState(true);
   const [errors, setErrors] = useState({});
   const [formData, setFormData] = useState({
+    title: '',
     animalType: 'Dogs',
     breed: '',
     age: '',
     sex: '',
+    litter_size: '',
+    available_litter_count: '',
+    date_of_birth: '',
+    ready_to_leave: '',
+    mother_can_be_seen: '',
+    father_can_be_seen: '',
     price: '',
     price_negotiable: 'true',
     county: '',
     city: '',
-    sellerType: '',
+    sellerType: 'Private Seller',
     listingType: '',
-    microchip: '',
+    microchipped: '',
     registrationNumber: '',
     vaccinated: '',
     wormed: '',
@@ -100,7 +107,6 @@ export default function PostAdPage() {
     spayedNeutered: '',
     healthTested: '',
     KCIKCRegistered: '',
-    breedingRights: '',
     provenStud: '',
     studFee: '',
     healthTestDetails: '',
@@ -155,8 +161,8 @@ export default function PostAdPage() {
       newErrors.seller_type = 'Please select the seller type.';
     }
 
-    if (formData.animal_type === 'Dogs' && !formData.microchip_number?.trim()) {
-      newErrors.microchip_number = 'Microchip number is required for dog listings.';
+    if (formData.animal_type === 'Dogs' && !formData.microchipped) {
+      newErrors.microchipped = 'Please confirm if the dog is microchipped.';
     }
 
     if (!formData.description || formData.description.trim().length < 80) {
@@ -171,10 +177,23 @@ export default function PostAdPage() {
       newErrors.photos = 'Please upload at least one photo.';
     }
 
+    const isMixedLitter = formData.sex === 'Mixed Litter';
+    const isDogOrCat = ['dogs', 'cats'].includes(formData.animalType?.toLowerCase());
+
+    if (isDogOrCat && isMixedLitter) {
+      if (!formData.litter_size) {
+        newErrors.litter_size = 'Please enter the litter size.';
+      }
+
+      if (!formData.available_litter_count) {
+        newErrors.available_litter_count = 'Please enter how many are available.';
+      }
+    }
     setErrors(newErrors);
 
     return Object.keys(newErrors).length === 0;
   };
+
   useEffect(() => {
     const checkUser = async () => {
       const {
@@ -221,6 +240,8 @@ export default function PostAdPage() {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
+
+  const priceRequired = formData.listing_type === 'For Sale' || formData.listing_type === 'For Stud';
 
   const [animalType, setAnimalType] = useState('Dogs');
   const [breedInput, setBreedInput] = useState('');
@@ -318,40 +339,61 @@ export default function PostAdPage() {
 
     const contactPhone = `${userMetadata.phone_code || ''} ${userMetadata.phone || ''}`.trim();
     const sellerMemberSince = user.created_at;
-
+    if (formData.price === '' || Number(formData.price) < 0) {
+      setErrors((prev) => ({
+        ...prev,
+        price: 'Price is required.',
+      }));
+      return;
+    }
     // 1. Insert listing first
     const { data: listingData, error: listingError } = await supabase
       .from('listings')
       .insert({
         user_id: user.id,
-        title: formData.breed || formData.animalType,
+
+        title: formData.title,
+        animal_type: formData.animalType,
         listing_type: formData.listingType,
         animal_type: formData.animalType,
         breed: formData.breed,
-        county: formData.county,
-        city: formData.city,
+
         age: formData.age,
         sex: formData.sex,
-        price: formData.price || null,
-        listing_type: formData.listingType,
-        seller_type: formData.sellerType,
-        seller_member_since: user.created_at,
-        contact_phone: contactPhone,
-        microchip: formData.microchip,
-        registration_number: formData.registrationNumber,
+
+        county: formData.county,
+        city: formData.city,
+
+        seller_name:
+          `${user.user_metadata?.first_name || ''} ${user.user_metadata?.last_name || ''}`.trim() || 'Seller',
+
+        seller_type: formData.seller_type || 'Private Owner',
+
+        price: formData.price === '' ? null : Number(formData.price),
+        price_negotiable: Boolean(formData.price_negotiable),
+
+        microchipped: formData.microchipped,
         vaccinated: formData.vaccinated,
         wormed: formData.wormed,
-        vet_checked: formData.vetChecked,
-        spayed_neutered: formData.spayedNeutered,
-        health_tested: formData.healthTested,
-        kennel_club_registered: formData.kennelClubRegistered,
+        vet_checked: formData.vet_checked,
+        spayed_neutered: formData.spayed_neutered,
+        health_tested: formData.health_tested,
+        kennel_club_registered: formData.kc_registered,
         breeding_rights: formData.breedingRights,
-        proven_stud: formData.provenStud,
-        stud_fee: formData.studFee || null,
-        health_test_details: formData.healthTestDetails,
-        breeding_notes: formData.breedingNotes,
-        seller_registration_number: formData.sellerRegistrationNumber,
+
+        litter_size: formData.litter_size || null,
+        available_litter_count: formData.available_litter_count || null,
+        date_of_birth: formData.date_of_birth || null,
+        ready_to_leave: formData.ready_to_leave || null,
+        mother_can_be_seen: formData.mother_can_be_seen || null,
+        father_can_be_seen: formData.father_can_be_seen || null,
+
+        registration_number: formData.registrationNumber,
         organisation_name: formData.organisationName,
+
+        seller_member_since: user.created_at,
+        contact_phone: contactPhone,
+
         description: formData.description,
         status: 'pending',
       })
@@ -359,8 +401,16 @@ export default function PostAdPage() {
       .single();
 
     if (listingError) {
-      console.error('Listing insert error:', listingError);
-      setErrors({ submit: 'Could not submit listing. Please try again.' });
+      console.error('Listing insert error full:', listingError);
+      console.error('Message:', listingError.message);
+      console.error('Details:', listingError.details);
+      console.error('Hint:', listingError.hint);
+      console.error('Code:', listingError.code);
+
+      setErrors({
+        submit: listingError.message || listingError.details || 'Could not submit listing. Please try again.',
+      });
+
       return;
     }
 
@@ -390,8 +440,10 @@ export default function PostAdPage() {
           sort_order: i,
         });
       }
+      const sellerName = `${user.user_metadata?.first_name || ''} ${user.user_metadata?.last_name || ''}`.trim();
 
       // 3. Save photo URLs into listing_photos table
+
       const { error: photoDbError } = await supabase.from('listing_photos').insert(photoRows);
 
       if (photoDbError) {
@@ -416,7 +468,12 @@ export default function PostAdPage() {
       </div>
     );
   }
+  const isDogOrCat = ['dogs', 'cats'].includes(formData.animalType?.toLowerCase());
 
+  const isMixedLitter = formData.sex === 'Mixed Litter';
+
+  const showLitterFields = isDogOrCat;
+  const labelClass = 'mb-2 block text-sm font-bold text-(--secondary-green)';
   return (
     <div className="min-h-screen bg-[#FAF6EC]">
       <Header />
@@ -518,6 +575,30 @@ export default function PostAdPage() {
                 }}
               />
 
+              {/* Title */}
+              <div className="">
+                <label className="mb-4 block text-sm font-bold text-(--secondary-green)">
+                  Listing Title <span className="text-(--primary-orange)">*</span>
+                </label>
+
+                <input
+                  name="title"
+                  type="text"
+                  value={formData.title}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      title: e.target.value,
+                    }))
+                  }
+                  placeholder="Example: Beautiful family-raised Akita puppies"
+                  required
+                  maxLength={80}
+                  className="h-[45px] w-full rounded-xl border border-(--border-beige) bg-white px-4 text-sm text-(--secondary-green) outline-none transition focus:border-(--primary-green) focus:ring-4 focus:ring-[rgba(14,79,42,0.10)]"
+                />
+
+                <p className="mt-2 text-xs text-(--muted-green-text)">This is the title buyers will see.</p>
+              </div>
               {/* Breed */}
               <div className="relative data-dropdown-root">
                 <div className=" min-h-[38px]">
@@ -691,58 +772,6 @@ export default function PostAdPage() {
                 }}
               />
 
-              {/* Price */}
-              <div>
-                <div className=" min-h-[38px]">
-                  <label className="block text-sm font-semibold text-(--secondary-green)">
-                    Price{' '}
-                    {(formData.listing_type === 'For Sale' || formData.listing_type === 'For Stud') && (
-                      <span className="text-(--primary-orange)">*</span>
-                    )}
-                  </label>
-
-                  <p className=" min-h-[16px] text-xs text-red-500">{errors.price || ''}</p>
-                </div>
-
-                <div
-                  className={`flex h-[45px] w-full items-center rounded-xl border bg-white px-4 transition ${
-                    errors.price
-                      ? 'border-red-400 focus-within:border-red-500'
-                      : 'border-(--border-beige) focus-within:border-(--primary-green)'
-                  }`}
-                >
-                  <span className="mr-3 text-(--secondary-green)">€</span>
-
-                  <input
-                    type="number"
-                    name="price"
-                    value={formData.price}
-                    onChange={(e) => {
-                      handleFormChange(e);
-                      setErrors({ ...errors, price: '' });
-                    }}
-                    placeholder="Guide price"
-                    className="h-full min-w-0 flex-1 bg-transparent text-sm text-(--secondary-green) outline-none placeholder:text-(--muted-green-text)"
-                  />
-                </div>
-
-                <label className="mt-2 mx-2 flex cursor-pointer items-center gap-3 text-sm text-(--secondary-green)">
-                  <input
-                    type="checkbox"
-                    name="price_negotiable"
-                    checked={formData.price_negotiable}
-                    onChange={(e) => {
-                      setFormData({
-                        ...formData,
-                        price_negotiable: e.target.checked,
-                      });
-                    }}
-                    className="h-4 w-4 rounded border-(--border-beige) accent-(--primary-green)"
-                  />
-                  Price negotiable
-                </label>
-              </div>
-
               {/* County */}
               <CustomSelect
                 id="county"
@@ -823,6 +852,64 @@ export default function PostAdPage() {
                 }}
               />
 
+              {/* Price */}
+              <div>
+                <label className="mb-4.5 block text-sm font-semibold text-(--secondary-green)">
+                  Price <span className="text-(--primary-orange)">*</span>
+                </label>
+
+                <div
+                  className={`flex h-[45px] w-full items-center overflow-hidden rounded-xl border bg-white text-sm text-(--secondary-green) transition focus-within:ring-4 focus-within:ring-[rgba(14,79,42,0.10)] ${
+                    errors.price
+                      ? 'border-red-400 focus-within:border-red-500'
+                      : 'border-(--border-beige) focus-within:border-(--primary-green)'
+                  }`}
+                >
+                  <div className="flex h-full items-center border-r border-(--border-beige) px-3 font-bold text-(--muted-green-text)">
+                    €
+                  </div>
+
+                  <input
+                    name="price"
+                    type="number"
+                    min="0"
+                    step="50"
+                    required
+                    value={formData.price}
+                    onChange={(e) => {
+                      setFormData((prev) => ({
+                        ...prev,
+                        price: e.target.value,
+                      }));
+
+                      setErrors((prev) => ({
+                        ...prev,
+                        price: '',
+                      }));
+                    }}
+                    placeholder="e.g. 1200"
+                    className="h-full min-w-0 flex-1 bg-white px-3 text-sm text-(--secondary-green) outline-none"
+                  />
+
+                  <label className="flex h-full shrink-0 cursor-pointer items-center gap-2 border-l border-(--border-beige) px-3 text-xs font-bold text-(--muted-green-text)">
+                    <input
+                      type="checkbox"
+                      checked={formData.price_negotiable}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          price_negotiable: e.target.checked,
+                        }))
+                      }
+                      className="h-4 w-4 accent-(--primary-green)"
+                    />
+                    Negotiable
+                  </label>
+                </div>
+
+                {errors.price && <p className="mt-2 text-xs font-medium text-red-500">{errors.price}</p>}
+              </div>
+
               {/* IKC / KC Registered */}
               <CustomSelect
                 id="kc_registered"
@@ -860,34 +947,59 @@ export default function PostAdPage() {
                 </div>
               </div>
 
-              {/* Microchip */}
-              <div className="md:col-span-2">
-                <div className=" min-h-[38px]">
-                  <label className="block text-sm font-semibold text-(--secondary-green)">
-                    Microchip Number{' '}
-                    {formData.animal_type === 'Dogs' && <span className="text-(--primary-orange)">*</span>}
-                  </label>
-                  <p className=" min-h-[16px] text-xs text-red-500">{errors.microchip_number || ''}</p>
+              {/* Microchipped */}
+              {['dogs', 'cats'].includes(formData.animal_type?.toLowerCase()) && (
+                <div>
+                  <div className=" min-h-[38px]">
+                    <label className="block text-sm font-semibold text-(--secondary-green)">
+                      Microchipped{' '}
+                      {formData.animal_type?.toLowerCase() === 'dogs' && (
+                        <span className="text-(--primary-orange)">*</span>
+                      )}
+                    </label>
+
+                    <p className="min-h-[16px] text-xs text-red-500">{errors.microchipped || ''}</p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const nextValue = formData.microchipped === 'Yes' ? '' : 'Yes';
+
+                      setFormData({
+                        ...formData,
+                        microchipped: nextValue,
+                      });
+
+                      setErrors({
+                        ...errors,
+                        microchipped: '',
+                      });
+                    }}
+                    className={`flex h-[45px] w-full items-center justify-between rounded-xl border px-4 text-sm font-semibold transition ${
+                      formData.microchipped === 'Yes'
+                        ? 'border-(--primary-green) bg-(--light-green) text-(--secondary-green)'
+                        : errors.microchipped
+                          ? 'border-red-400 bg-white text-(--secondary-green)'
+                          : 'border-(--border-beige) bg-white text-(--muted-green-text) hover:border-(--primary-green)'
+                    }`}
+                  >
+                    <span>
+                      {formData.animal_type?.toLowerCase() === 'cats' ? 'Cat is microchipped' : 'Dog is microchipped'}
+                    </span>
+
+                    <span
+                      className={`flex h-5 w-5 items-center justify-center rounded-full border text-xs ${
+                        formData.microchipped === 'Yes'
+                          ? 'border-(--primary-green) bg-(--primary-green) text-white'
+                          : 'border-(--border-beige) bg-white'
+                      }`}
+                    >
+                      {formData.microchipped === 'Yes' ? '✓' : ''}
+                    </span>
+                  </button>
                 </div>
-                <input
-                  type="text"
-                  name="microchip_number"
-                  value={formData.microchip_number}
-                  onChange={(e) => {
-                    handleFormChange(e);
-                    setErrors({
-                      ...errors,
-                      microchip_number: '',
-                    });
-                  }}
-                  placeholder={formData.animal_type === 'Dogs' ? 'Required for dog listings' : 'Optional'}
-                  className={`h-[45px] w-full rounded-xl border bg-white px-4 text-sm text-(--secondary-green) outline-none ring-0 transition placeholder:text-(--muted-green-text) focus:outline-none focus:ring-0 ${
-                    errors.microchip_number
-                      ? 'border-red-400 focus:border-red-500'
-                      : 'border-(--border-beige) focus:border-(--primary-green)'
-                  }`}
-                />
-              </div>
+              )}
 
               {/* Vaccinated */}
               <CustomSelect
@@ -993,25 +1105,6 @@ export default function PostAdPage() {
                   setErrors({ ...errors, health_tested: '' });
                 }}
               />
-              {/* Breeding Rights */}
-              <CustomSelect
-                id="breeding_rights"
-                label="Breeding Rights"
-                value={formData.breeding_rights}
-                placeholder="Select"
-                error={errors.breeding_rights}
-                openDropdown={openDropdown}
-                setOpenDropdown={setOpenDropdown}
-                options={[
-                  { label: 'Yes', value: 'Yes' },
-                  { label: 'No', value: 'No' },
-                  { label: 'Not applicable', value: 'Not applicable' },
-                ]}
-                onChange={(value) => {
-                  setFormData({ ...formData, breeding_rights: value });
-                  setErrors({ ...errors, breeding_rights: '' });
-                }}
-              />
 
               {formData.listing_type === 'For Stud' && (
                 <div className="col-span-full rounded-2xl border border-(--border-beige) bg-(--background) p-5">
@@ -1098,6 +1191,189 @@ export default function PostAdPage() {
                     </div>
                   </div>
                 </div>
+              )}
+
+              {showLitterFields && (
+                <>
+                  <div className="md:col-span-4">
+                    <div className="mt-4 border-t border-[#E8DFD1] pt-6">
+                      <h3 className="text-lg font-bold text-[#123524]">
+                        {isMixedLitter ? 'Litter Information' : 'Pet Background'}
+                      </h3>
+
+                      <p className="mt-1 max-w-2xl text-sm text-[#5F6F64]">
+                        {isMixedLitter
+                          ? 'These details help buyers understand the litter and when the pets can leave.'
+                          : 'These optional details help buyers understand the pet’s background.'}
+                      </p>
+
+                      <div className="grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                        {/* Litter Size */}
+                        <div>
+                          <div className="mb-2 min-h-[38px]">
+                            <label className="block text-sm font-semibold text-(--secondary-green)">
+                              Litter Size {isMixedLitter && <span className="text-(--primary-orange)">*</span>}
+                            </label>
+
+                            <p className="min-h-[16px] text-xs text-red-500">{errors.litter_size || ''}</p>
+                          </div>
+
+                          <input
+                            type="number"
+                            name="litter_size"
+                            value={formData.litter_size}
+                            onChange={(e) => {
+                              setFormData({
+                                ...formData,
+                                litter_size: e.target.value,
+                              });
+
+                              setErrors({
+                                ...errors,
+                                litter_size: '',
+                              });
+                            }}
+                            min="1"
+                            placeholder="e.g. 6"
+                            className={`h-[45px] w-full rounded-xl border bg-white px-4 text-sm text-(--secondary-green) outline-none transition ${
+                              errors.litter_size
+                                ? 'border-red-400'
+                                : 'border-(--border-beige) focus:border-(--primary-green)'
+                            }`}
+                          />
+                        </div>
+
+                        {/* Available */}
+                        <div>
+                          <div className="mb-2 min-h-[38px]">
+                            <label className="block text-sm font-semibold text-(--secondary-green)">
+                              Available {isMixedLitter && <span className="text-(--primary-orange)">*</span>}
+                            </label>
+
+                            <p className="min-h-[16px] text-xs text-red-500">{errors.available_litter_count || ''}</p>
+                          </div>
+
+                          <input
+                            type="number"
+                            name="available_litter_count"
+                            value={formData.available_litter_count}
+                            onChange={(e) => {
+                              setFormData({
+                                ...formData,
+                                available_litter_count: e.target.value,
+                              });
+
+                              setErrors({
+                                ...errors,
+                                available_litter_count: '',
+                              });
+                            }}
+                            min="1"
+                            placeholder="e.g. 3"
+                            className={`h-[45px] w-full rounded-xl border bg-white px-4 text-sm text-(--secondary-green) outline-none transition ${
+                              errors.available_litter_count
+                                ? 'border-red-400'
+                                : 'border-(--border-beige) focus:border-(--primary-green)'
+                            }`}
+                          />
+                        </div>
+
+                        {/* Date of Birth */}
+                        <div>
+                          <div className="mb-2 min-h-[38px]">
+                            <label className="block text-sm font-semibold text-(--secondary-green)">
+                              Date of Birth <span className="text-(--primary-orange)">*</span>
+                            </label>
+
+                            <p className="min-h-[16px] text-xs text-red-500">{errors.date_of_birth || ''}</p>
+                          </div>
+
+                          <input
+                            type="date"
+                            name="date_of_birth"
+                            value={formData.date_of_birth}
+                            onChange={(e) => {
+                              setFormData({
+                                ...formData,
+                                date_of_birth: e.target.value,
+                              });
+
+                              setErrors({
+                                ...errors,
+                                date_of_birth: '',
+                              });
+                            }}
+                            className={`h-[45px] w-full rounded-xl border bg-white px-4 text-sm text-(--secondary-green) outline-none transition ${
+                              errors.date_of_birth
+                                ? 'border-red-400'
+                                : 'border-(--border-beige) focus:border-(--primary-green)'
+                            }`}
+                          />
+                        </div>
+
+                        {/* Ready to Leave */}
+                        <div>
+                          <div className="mb-2 min-h-[38px]">
+                            <label className="block text-sm font-semibold text-(--secondary-green)">
+                              Ready to Leave <span className="text-(--primary-orange)">*</span>
+                            </label>
+
+                            <p className="min-h-[16px] text-xs text-red-500">{errors.ready_to_leave || ''}</p>
+                          </div>
+
+                          <input
+                            type="date"
+                            name="ready_to_leave"
+                            value={formData.ready_to_leave}
+                            onChange={(e) => {
+                              setFormData({
+                                ...formData,
+                                ready_to_leave: e.target.value,
+                              });
+
+                              setErrors({
+                                ...errors,
+                                ready_to_leave: '',
+                              });
+                            }}
+                            className={`h-[45px] w-full rounded-xl border bg-white px-4 text-sm text-(--secondary-green) outline-none transition ${
+                              errors.ready_to_leave
+                                ? 'border-red-400'
+                                : 'border-(--border-beige) focus:border-(--primary-green)'
+                            }`}
+                          />
+                        </div>
+
+                        {/* Mother Can Be Seen */}
+                        <CustomSelect
+                          id="mother_can_be_seen"
+                          label="Mother Can Be Seen"
+                          required
+                          value={formData.mother_can_be_seen}
+                          placeholder="Select"
+                          error={errors.mother_can_be_seen}
+                          openDropdown={openDropdown}
+                          setOpenDropdown={setOpenDropdown}
+                          options={[
+                            { label: 'Yes', value: 'Yes' },
+                            { label: 'No', value: 'No' },
+                          ]}
+                          onChange={(value) => {
+                            setFormData({
+                              ...formData,
+                              mother_can_be_seen: value,
+                            });
+
+                            setErrors({
+                              ...errors,
+                              mother_can_be_seen: '',
+                            });
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </>
               )}
 
               {/* Photos */}
@@ -1199,39 +1475,38 @@ export default function PostAdPage() {
                   className="w-full rounded-xl border border-[#E8DFD1] bg-white px-4 py-3 text-sm outline-none focus:border-[#0E4F2A]"
                 />
               </div>
+            </div>
+            {/* Description */}
+            <div className="md:col-span-2 xl:col-span-4">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <label className="block text-sm font-semibold text-(--secondary-green)">
+                  Description <span className="text-(--primary-orange)">*</span>
+                </label>
 
-              {/* Description */}
-              <div className="col-span-full">
-                <div className="mb-2 flex items-center justify-between gap-3">
-                  <label className="block text-sm font-semibold text-(--secondary-green)">
-                    Description <span className="text-(--primary-orange)">*</span>
-                  </label>
-
-                  {errors.description && <p className="text-xs font-medium text-red-500">{errors.description}</p>}
-                </div>
-
-                <textarea
-                  name="description"
-                  value={formData.description}
-                  onChange={(e) => {
-                    if (e.target.value.length <= 800) {
-                      handleFormChange(e);
-                      setErrors({ ...errors, description: '' });
-                    }
-                  }}
-                  minLength={80}
-                  maxLength={800}
-                  rows={7}
-                  placeholder="Tell buyers about the pet’s personality, age, health, temperament, living situation, and what kind of home would suit them best."
-                  className={`min-h-[180px] w-full resize-y rounded-2xl border bg-white px-4 py-3 text-sm text-(--secondary-green) outline-none ring-0 transition placeholder:text-(--muted-green-text) focus:outline-none focus:ring-0 ${
-                    errors.description
-                      ? 'border-red-400 focus:border-red-500'
-                      : 'border-(--border-beige) focus:border-(--primary-green)'
-                  }`}
-                />
-
-                <div className="mt-1 flex justify-end text-xs text-(--muted-green-text)">Minimum 80 characters.</div>
+                {errors.description && <p className="text-xs font-medium text-red-500">{errors.description}</p>}
               </div>
+
+              <textarea
+                name="description"
+                value={formData.description}
+                onChange={(e) => {
+                  if (e.target.value.length <= 800) {
+                    handleFormChange(e);
+                    setErrors({ ...errors, description: '' });
+                  }
+                }}
+                minLength={80}
+                maxLength={800}
+                rows={7}
+                placeholder="Tell buyers about the pet’s personality, age, health, temperament, living situation, and what kind of home would suit them best."
+                className={`min-h-[180px] w-full resize-y rounded-xl border bg-white px-4 py-3 text-sm text-(--secondary-green) outline-none ring-0 transition placeholder:text-(--muted-green-text) focus:outline-none focus:ring-0 ${
+                  errors.description
+                    ? 'border-red-400 focus:border-red-500'
+                    : 'border-(--border-beige) focus:border-(--primary-green)'
+                }`}
+              />
+
+              <div className="mt-1 flex justify-end text-xs text-(--muted-green-text)">Minimum 80 characters.</div>
             </div>
 
             {/* Footer Buttons */}
