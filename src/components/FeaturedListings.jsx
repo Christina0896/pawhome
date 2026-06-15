@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { FemaleIcon, MaleIcon, MixedGenderIcon, LocationIcon, CalendarIcon } from './Icons';
 
 const formatDate = (date) => {
   if (!date) return 'recently';
@@ -23,40 +24,15 @@ const getSexIcon = (sex) => {
   const value = sex?.toLowerCase();
 
   if (value === 'female') {
-    return (
-      <svg
-        className="h-3.5 w-3.5"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        <circle cx="12" cy="8" r="4" />
-        <path d="M12 12v8" />
-        <path d="M8.5 17h7" />
-      </svg>
-    );
+    return <FemaleIcon />;
   }
 
   if (value === 'male') {
-    return (
-      <svg fill="#000000" viewBox="-7 0 32 32" version="1.1" xmlns="http://www.w3.org/2000/svg">
-        <g id="SVGRepo_bgCarrier" strokeWidth="0"></g>
-        <g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round"></g>
-        <g id="SVGRepo_iconCarrier">
-          {' '}
-          <title>male</title>{' '}
-          <path d="M17.56 8.060c0-0.44-0.36-0.88-0.84-0.88h-4.6c-0.48 0-0.84 0.36-0.84 0.84s0.36 0.84 0.84 0.84h2.6l-3.6 3.6c-1.16-0.92-2.64-1.48-4.24-1.48-3.76 0.080-6.88 3.16-6.88 6.96s3.12 6.88 6.88 6.88 6.88-3.080 6.88-6.88c0-1.6-0.56-3.040-1.48-4.24l3.6-3.6v2.76c0 0.48 0.36 0.84 0.84 0.84s0.84-0.36 0.84-0.84c0 0 0-4.8 0-4.8zM6.88 23.14c-2.88 0-5.2-2.32-5.2-5.2s2.32-5.2 5.2-5.2 5.2 2.32 5.2 5.2-2.32 5.2-5.2 5.2z"></path>{' '}
-        </g>
-      </svg>
-    );
+    return <MaleIcon />;
   }
 
   if (value === 'mixed' || value === 'mixed litter' || value === 'mixed gender' || value === 'mixed genders') {
-    return <span aria-hidden="true">⚥</span>;
+    return <MixedGenderIcon />;
   }
 
   return null;
@@ -253,19 +229,7 @@ const FeaturedListings = () => {
 
                       {listing.county && (
                         <span className="inline-flex items-center gap-1 rounded-full bg-(--background) px-3 py-1 text-xs font-semibold text-(--primary-green)">
-                          <svg
-                            className="h-3.5 w-3.5 text-(--primary-green)"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2.3"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            aria-hidden="true"
-                          >
-                            <path d="M12 21s7-5.2 7-12a7 7 0 0 0-14 0c0 6.8 7 12 7 12Z" />
-                            <circle cx="12" cy="9" r="2.5" />
-                          </svg>
+                          <LocationIcon className="h-3.5 w-3.5 text-(--primary-green)" />
                           {listing.county}
                         </span>
                       )}
@@ -280,21 +244,7 @@ const FeaturedListings = () => {
                     {/* Posted date + IKC */}
                     <div className="mt-auto flex items-center justify-between gap-3 pt-5">
                       <div className="mt-auto flex items-center gap-2 pt-5 text-sm text-(--muted-green-text)">
-                        <svg
-                          className="h-4 w-4"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          aria-hidden="true"
-                        >
-                          <rect x="4" y="5" width="16" height="15" rx="2" />
-                          <path d="M8 3v4" />
-                          <path d="M16 3v4" />
-                          <path d="M4 10h16" />
-                        </svg>
+                        <CalendarIcon className="h-4 w-4" />
 
                         <span>Posted {formatDate(listing.created_at)}</span>
                       </div>

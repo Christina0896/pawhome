@@ -83,36 +83,41 @@ export default function PostAdPage() {
   const [errors, setErrors] = useState({});
   const [formData, setFormData] = useState({
     title: '',
-    animalType: 'Dogs',
+    listing_type: '',
+    animal_type: 'Dogs',
     breed: '',
     age: '',
     sex: '',
+
     litter_size: '',
     available_litter_count: '',
     date_of_birth: '',
     ready_to_leave: '',
     mother_can_be_seen: '',
     father_can_be_seen: '',
+
     price: '',
-    price_negotiable: 'true',
+    price_negotiable: false,
+
     county: '',
     city: '',
-    sellerType: 'Private Seller',
-    listingType: '',
+
+    seller_type: '',
+    sellerRegistrationNumber: '',
+    organisationName: '',
+
     microchipped: '',
     registrationNumber: '',
     vaccinated: '',
     wormed: '',
-    vetChecked: '',
-    spayedNeutered: '',
-    healthTested: '',
-    KCIKCRegistered: '',
-    provenStud: '',
-    studFee: '',
-    healthTestDetails: '',
-    breedingNotes: '',
-    sellerRegistrationNumber: '',
-    organisationName: '',
+    vet_checked: '',
+    spayed_neutered: '',
+    health_tested: '',
+    kc_registered: '',
+
+    proven_stud: '',
+    stud_terms: '',
+
     description: '',
   });
   const handleFormChange = (e) => {
@@ -243,14 +248,6 @@ export default function PostAdPage() {
 
   const priceRequired = formData.listing_type === 'For Sale' || formData.listing_type === 'For Stud';
 
-  const [animalType, setAnimalType] = useState('Dogs');
-  const [breedInput, setBreedInput] = useState('');
-  const [showBreedDropdown, setShowBreedDropdown] = useState(false);
-
-  const breedOptions = animalType === 'Dogs' ? dogBreeds : animalType === 'Cats' ? catBreeds : [];
-
-  const filteredBreeds = breedOptions.filter((breed) => breed.toLowerCase().includes(breedInput.toLowerCase()));
-
   const breedSuggestions =
     formData.animal_type === 'Dogs'
       ? dogBreeds
@@ -353,9 +350,8 @@ export default function PostAdPage() {
         user_id: user.id,
 
         title: formData.title,
-        animal_type: formData.animalType,
-        listing_type: formData.listingType,
-        animal_type: formData.animalType,
+        animal_type: formData.animal_type,
+        listing_type: formData.listing_type,
         breed: formData.breed,
 
         age: formData.age,
@@ -369,8 +365,8 @@ export default function PostAdPage() {
 
         seller_type: formData.seller_type || 'Private Owner',
 
-        price: formData.price === '' ? null : Number(formData.price),
-        price_negotiable: Boolean(formData.price_negotiable),
+        price: Number(formData.price),
+        price_negotiable: formData.price_negotiable,
 
         microchipped: formData.microchipped,
         vaccinated: formData.vaccinated,

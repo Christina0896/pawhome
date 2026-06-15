@@ -151,10 +151,10 @@ const Footer = () => {
 
               <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
                 {safetyTips.map((tip) => (
-                  <div key={tip.title} className="flex items-start gap-3">
+                  <div key={tip.title} className="flex  gap-3">
                     <img src={tip.icon} alt="" className="mt-0.5 h-6 w-6 shrink-0 opacity-90" />
 
-                    <p className="text-sm font-medium leading-5 text-white/90">{tip.title}</p>
+                    <p className=" text-sm font-medium leading-5 text-white/90">{tip.title}</p>
                   </div>
                 ))}
               </div>

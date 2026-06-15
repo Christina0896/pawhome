@@ -1,4 +1,5 @@
 import SearchBar from './searchbar';
+import { UnderlineIcon, ShieldCheckIcon, LockIcon, UsersIcon, HeadsetIcon } from './Icons';
 
 export default function Hero() {
   return (
@@ -57,19 +58,7 @@ export default function Hero() {
           {/* Verified Listings */}
           <div className="flex h-20.5 items-center gap-4 rounded-xl border border-(--border-beige) px-5 py-3 shadow-[0_8px_24px_rgba(18,53,36,0.06)]">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-(--light-green)">
-              <svg
-                className="h-7 w-7 text-(--primary-green)"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <path d="M12 3L5 6v5c0 4.5 3 8.5 7 10 4-1.5 7-5.5 7-10V6l-7-3Z" />
-                <path d="M8.8 12.2 11 14.4l4.5-4.6" />
-              </svg>
+              <ShieldCheckIcon className="h-7 w-7 text-(--primary-green)" />
             </div>
 
             <div>
@@ -83,21 +72,7 @@ export default function Hero() {
           {/* Safe & Secure */}
           <div className="flex h-20.5 items-center gap-4 rounded-xl border border-(--border-beige)  px-5 py-3 shadow-[0_2px_6px_rgba(18,53,36,0.1)]">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-(--light-orange)">
-              <svg
-                className="h-7 w-7 text-(--primary-orange)"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <rect x="5" y="10" width="14" height="10" rx="2" />
-                <path d="M8 10V7.5A4 4 0 0 1 12 3.5a4 4 0 0 1 4 4V10" />
-                <path d="M12 15v2" />
-                <circle cx="12" cy="14" r="1" fill="currentColor" stroke="none" />
-              </svg>
+              <LockIcon className="h-7 w-7 text-(--primary-orange)" />
             </div>
 
             <div>
@@ -109,23 +84,7 @@ export default function Hero() {
           {/* Responsible Community */}
           <div className="flex h-20.5 items-center gap-4 rounded-xl border border-(--border-beige)  px-5 py-3 shadow-[0_8px_24px_rgba(18,53,36,0.06)] ">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-(--light-green)">
-              <svg
-                className="h-7 w-7 text-(--primary-green)"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <circle cx="12" cy="8" r="3" />
-                <path d="M6.5 19c.5-3.2 2.6-5 5.5-5s5 1.8 5.5 5" />
-                <circle cx="5.5" cy="10" r="2" />
-                <path d="M2.5 18c.3-2.2 1.5-3.5 3.3-3.8" />
-                <circle cx="18.5" cy="10" r="2" />
-                <path d="M21.5 18c-.3-2.2-1.5-3.5-3.3-3.8" />
-              </svg>
+              <UsersIcon className="h-7 w-7 text-(--primary-green)" />
             </div>
 
             <div>
@@ -137,22 +96,7 @@ export default function Hero() {
           {/* Helpful Support */}
           <div className="flex h-[82px] items-center gap-4 rounded-xl border border-(--border-beige)  px-5 py-3 shadow-[0_2px_6px_rgba(18,53,36,0.1)]">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-(--light-orange)">
-              <svg
-                className="h-7 w-7 text-(--primary-orange)"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <path d="M4 13a8 8 0 0 1 16 0" />
-                <path d="M4 13v3a2 2 0 0 0 2 2h1v-7H6a2 2 0 0 0-2 2Z" />
-                <path d="M20 13v3a2 2 0 0 1-2 2h-1v-7h1a2 2 0 0 1 2 2Z" />
-                <path d="M15 20h-3" />
-                <path d="M18 18c0 1.1-.9 2-2 2h-1" />
-              </svg>
+              <HeadsetIcon className="h-7 w-7 text-(--primary-orange)" />
             </div>
 
             <div>

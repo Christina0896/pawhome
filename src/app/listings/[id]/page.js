@@ -1,5 +1,4 @@
 'use client';
-
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Header from '../../../components/header';
@@ -19,10 +18,9 @@ import {
   CalendarIcon,
   EyeIcon,
   PaperIcon,
-  PawSmallIcon,
-  GroupSmallIcon,
-  CalendarSmallIcon,
-  LocationSmallIcon,
+  PawlIcon,
+  GroupIcon,
+  LocationIcon,
 } from '../../../components/Icons';
 
 const formatDate = (value, options) => {
@@ -429,7 +427,7 @@ export default function ListingDetailPage() {
       icon: <AvailableIcon />,
     },
     { label: 'Date of Birth', value: dateOfBirth, icon: <BirthIcon /> },
-    { label: 'Ready to Leave', value: readyToLeave, icon: <CalendarSmallIcon /> },
+    { label: 'Ready to Leave', value: readyToLeave, icon: <CalendarIcon /> },
     {
       label: 'Mother Can Be Seen',
       value: yesNo(listing.mother_can_be_seen),
@@ -478,13 +476,13 @@ export default function ListingDetailPage() {
                   <div className="mt-3 flex flex-wrap gap-2">
                     <InfoPill icon={<PawSmallIcon />} text={listing.breed} />
                     <InfoPill icon={<GroupSmallIcon />} text={listing.sex} />
-                    <InfoPill icon={<CalendarSmallIcon />} text={listing.age} />
+                    <InfoPill icon={<CalendarIcon />} text={listing.age} />
                     <InfoPill icon={<LocationSmallIcon />} text={listing.county} />
                   </div>
 
                   <p className="flex items-center mt-2 font-bold text-xs text-(--muted-green-text)">
                     <span className="p-1">
-                      <CalendarSmallIcon />
+                      <CalendarIcon />
                     </span>{' '}
                     Posted {postedDate}
                   </p>

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { dogBreeds, catBreeds, otherPetTypes } from '../data/petOptions';
 import { counties } from '../data/countyList';
+import { PawIcon, BreedIcon, LocationIcon, ListingTypeIcon, SearchIcon } from './Icons';
 
 const animalOptions = [
   { label: 'All Animals', value: '' },
@@ -32,68 +33,6 @@ const labelClass = 'block text-sm font-bold leading-tight text-(--secondary-gree
 const valueClass = 'mt-0.5 block truncate text-sm font-medium text-(--muted-green-text)';
 
 const ArrowIcon = () => <span className="shrink-0 text-xs text-(--primary-green)">▼</span>;
-
-const PawIcon = () => (
-  <svg className="h-5 w-5 shrink-0 text-(--primary-green)" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-    <circle cx="5.5" cy="9.5" r="2" />
-    <circle cx="9.5" cy="5.8" r="2" />
-    <circle cx="14.5" cy="5.8" r="2" />
-    <circle cx="18.5" cy="9.5" r="2" />
-    <path d="M7.5 16.2c0-2.6 2-4.7 4.5-4.7s4.5 2.1 4.5 4.7c0 1.7-1.1 2.8-2.6 2.8-.8 0-1.2-.3-1.9-.3s-1.1.3-1.9.3c-1.5 0-2.6-1.1-2.6-2.8z" />
-  </svg>
-);
-
-const BreedIcon = () => (
-  <svg
-    className="h-5 w-5 shrink-0 text-(--primary-green)"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2.3"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden="true"
-  >
-    <path d="M4 19c2.4-4 5.2-6 8-6s5.6 2 8 6" />
-    <path d="M12 13V7" />
-    <path d="M8 7h8" />
-    <path d="M7 5h10" />
-  </svg>
-);
-
-const LocationIcon = () => (
-  <svg
-    className="h-5 w-5 shrink-0 text-(--primary-green)"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2.3"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden="true"
-  >
-    <path d="M12 21s7-5.2 7-12a7 7 0 0 0-14 0c0 6.8 7 12 7 12Z" />
-    <circle cx="12" cy="9" r="2.5" />
-  </svg>
-);
-
-const ListingTypeIcon = () => (
-  <svg
-    className="h-5 w-5 shrink-0 text-(--primary-green)"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2.3"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden="true"
-  >
-    <path d="M4 6h16" />
-    <path d="M4 12h16" />
-    <path d="M4 18h10" />
-    <circle cx="18" cy="18" r="2" />
-  </svg>
-);
 
 const SearchBar = () => {
   // Refs
@@ -167,7 +106,7 @@ const SearchBar = () => {
       <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_1fr_1fr_1fr_190px]">
         {/* Animal Type */}
         <div className={fieldClass}>
-          <PawIcon />
+          <PawIcon className="h-5 w-5 shrink-0 text-(--primary-green)" />
 
           <button
             type="button"
@@ -207,7 +146,7 @@ const SearchBar = () => {
 
         {/* Breed / Pet Type */}
         <div className={fieldClass}>
-          <BreedIcon />
+          <BreedIcon className="h-5 w-5 shrink-0 text-(--primary-green)" />
 
           <div className="min-w-0 flex-1">
             <span className={labelClass}>{animalType === 'Other Pets' ? 'Pet Type' : 'Breed'}</span>
@@ -321,7 +260,7 @@ const SearchBar = () => {
 
         {/* County */}
         <div className={fieldClass}>
-          <LocationIcon />
+          <LocationIcon className="h-5 w-5 shrink-0 text-(--primary-green)" />
 
           <button
             type="button"
@@ -371,7 +310,7 @@ const SearchBar = () => {
 
         {/* Ad Type */}
         <div className={fieldClass}>
-          <ListingTypeIcon />
+          <ListingTypeIcon className="h-5 w-5 shrink-0 text-(--primary-green)" />
 
           <button
             type="button"
@@ -414,19 +353,7 @@ const SearchBar = () => {
           onClick={handleSearch}
           className="flex h-[52px] items-center justify-center gap-3 rounded-xl bg-(--primary-orange) px-6 text-base font-bold text-white shadow-sm transition hover:bg-(--secondary-orange)"
         >
-          <svg
-            className="h-5 w-5"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.4"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <circle cx="11" cy="11" r="7" />
-            <path d="M20 20L16.5 16.5" />
-          </svg>
+          <SearchIcon className="h-5 w-5" />
 
           <span>Search</span>
         </button>
