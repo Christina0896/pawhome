@@ -94,8 +94,6 @@ export default function PostAdPage() {
     date_of_birth: '',
     ready_to_leave: '',
     mother_can_be_seen: '',
-    father_can_be_seen: '',
-
     price: '',
     price_negotiable: false,
 
@@ -219,7 +217,9 @@ export default function PostAdPage() {
       }
       const userMetadata = user.user_metadata || {};
 
-      const contactPhone = `${userMetadata.phone_code || ''} ${userMetadata.phone || ''}`.trim();
+      const contactPhone = `${userMetadata.phone_code || ''} ${
+        userMetadata.phone_number || userMetadata.phone || ''
+      }`.trim();
 
       setUser(user);
       setLoading(false);
@@ -333,7 +333,9 @@ export default function PostAdPage() {
     }
     const userMetadata = user.user_metadata || {};
 
-    const contactPhone = `${userMetadata.phone_code || ''} ${userMetadata.phone || ''}`.trim();
+    const contactPhone = `${userMetadata.phone_code || ''} ${
+      userMetadata.phone_number || userMetadata.phone || ''
+    }`.trim();
     const sellerMemberSince = user.created_at;
     if (formData.price === '' || Number(formData.price) < 0) {
       setErrors((prev) => ({
@@ -381,7 +383,6 @@ export default function PostAdPage() {
         date_of_birth: formData.date_of_birth || null,
         ready_to_leave: formData.ready_to_leave || null,
         mother_can_be_seen: formData.mother_can_be_seen || null,
-        father_can_be_seen: formData.father_can_be_seen || null,
 
         registration_number: formData.registrationNumber,
         organisation_name: formData.organisationName,

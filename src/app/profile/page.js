@@ -27,6 +27,18 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [avatarUploading, setAvatarUploading] = useState(false);
 
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileMessage, setProfileMessage] = useState('');
+  const [profileForm, setProfileForm] = useState({
+    first_name: '',
+    last_name: '',
+    account_type: 'Buyer',
+    phone_code: '+353',
+    phone_number: '',
+    county: '',
+    password: '',
+  });
+
   // Load user profile and listings
   useEffect(() => {
     const loadProfile = async () => {
@@ -43,6 +55,18 @@ export default function ProfilePage() {
       }
 
       setUser(user);
+
+      const userMetadata = user.user_metadata || {};
+
+      setProfileForm({
+        first_name: userMetadata.first_name || '',
+        last_name: userMetadata.last_name || '',
+        account_type: userMetadata.account_type || 'Buyer',
+        phone_code: userMetadata.phone_code || '+353',
+        phone_number: userMetadata.phone_number || userMetadata.phone || '',
+        county: userMetadata.county || '',
+        password: '',
+      });
 
       const { data: listingsData, error: listingsError } = await supabase
         .from('listings')
@@ -74,7 +98,7 @@ export default function ProfilePage() {
 
   const fullName = `${metadata.first_name || ''} ${metadata.last_name || ''}`.trim();
 
-  const phone = `${metadata.phone_code || ''} ${metadata.phone_number || ''}`.trim();
+  const phone = `${metadata.phone_code || ''} ${metadata.phone_number || metadata.phone || ''}`.trim();
 
   const emailVerified = Boolean(metadata.email_verified || user?.email_confirmed_at);
   const phoneVerified = Boolean(metadata.phone_verified);
@@ -151,6 +175,69 @@ export default function ProfilePage() {
     setUser(data.user);
   };
 
+  const handleProfileFormChange = (e) => {
+    const { name, value } = e.target;
+
+    setProfileForm((current) => ({
+      ...current,
+      [name]: value,
+    }));
+
+    setProfileMessage('');
+  };
+
+  const handleSaveSettings = async (e) => {
+    e.preventDefault();
+
+    if (!user) return;
+
+    setProfileSaving(true);
+    setProfileMessage('');
+
+    const updatedMetadata = {
+      ...metadata,
+      first_name: profileForm.first_name.trim(),
+      last_name: profileForm.last_name.trim(),
+      account_type: profileForm.account_type,
+      phone_code: profileForm.phone_code.trim(),
+      phone_number: profileForm.phone_number.trim(),
+      county: profileForm.county.trim(),
+    };
+
+    const updatePayload = {
+      data: updatedMetadata,
+    };
+
+    if (profileForm.password.trim()) {
+      if (profileForm.password.trim().length < 8) {
+        setProfileSaving(false);
+        setProfileMessage('Password must be at least 8 characters.');
+        return;
+      }
+
+      updatePayload.password = profileForm.password.trim();
+    }
+
+    const { data, error } = await supabase.auth.updateUser(updatePayload);
+
+    setProfileSaving(false);
+
+    if (error) {
+      console.error('Profile update error:', error);
+      setProfileMessage(error.message || 'Could not save settings.');
+      return;
+    }
+
+    setUser(data.user);
+
+    setProfileForm((current) => ({
+      ...current,
+      password: '',
+    }));
+
+    setProfileMessage('Settings saved.');
+  };
+
   const handleDeleteListing = async (listingId) => {
     const confirmDelete = window.confirm('Are you sure you want to delete this listing? This action cannot be undone.');
 
@@ -220,43 +307,142 @@ export default function ProfilePage() {
               <p className="font-bold text-(--secondary-green)">{memberSince}</p>
             </div>
 
-            <div className="mt-6 space-y-3">
-              <ProfileInfoItem label="Account Type" value={metadata.account_type || 'Buyer'} />
+            <form onSubmit={handleSaveSettings} className="mt-6 space-y-4">
+              <ProfileEditField
+                label="First Name"
+                name="first_name"
+                value={profileForm.first_name}
+                onChange={handleProfileFormChange}
+                required
+              />
 
-              <ProfileInfoItem label="First Name" value={metadata.first_name || '-'} />
+              <ProfileEditField
+                label="Last Name"
+                name="last_name"
+                value={profileForm.last_name}
+                onChange={handleProfileFormChange}
+                required
+              />
 
-              <ProfileInfoItem label="Last Name" value={metadata.last_name || '-'} />
+              <div>
+                <label className="mb-2 block text-sm font-bold text-(--secondary-green)">Account Type</label>
 
-              <ProfileInfoItem label="Email" value={user?.email || '-'} verified={emailVerified} />
+                <select
+                  name="account_type"
+                  value={profileForm.account_type}
+                  onChange={handleProfileFormChange}
+                  className="h-12 w-full rounded-xl border border-(--border-beige) bg-white px-4 text-sm font-semibold text-(--secondary-green) outline-none transition focus:border-(--primary-green) focus:ring-4 focus:ring-[rgba(14,79,42,0.10)]"
+                >
+                  <option value="Buyer">Buyer</option>
+                  <option value="Private Owner">Private Owner</option>
+                  <option value="Breeder">Breeder</option>
+                  <option value="Shelter / Rescue">Shelter / Rescue</option>
+                </select>
+              </div>
 
-              <ProfileInfoItem label="Phone" value={phone || '-'} verified={phoneVerified} showNotVerified />
+              <div>
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <label className="block text-sm font-bold text-(--secondary-green)">Email</label>
 
-              <ProfileInfoItem label="County" value={metadata.county || '-'} />
-            </div>
+                  {emailVerified ? (
+                    <VerifiedBadge />
+                  ) : (
+                    <span className="rounded-full bg-orange-100 px-2.5 py-1 text-[11px] font-bold text-orange-700">
+                      Not verified
+                    </span>
+                  )}
+                </div>
 
-            <div className="mt-6 grid gap-3">
-              <a
-                href="/post-ad"
-                className="flex h-12 items-center justify-center rounded-xl bg-(--primary-green) text-sm font-bold text-white transition hover:scale-105"
-              >
-                Post an Ad
-              </a>
+                <input
+                  value={user?.email || ''}
+                  disabled
+                  className="h-12 w-full cursor-not-allowed rounded-xl border border-(--border-beige) bg-(--background) px-4 text-sm font-semibold text-(--muted-green-text) outline-none"
+                />
+              </div>
 
-              <button
-                type="button"
-                className="flex h-12 items-center justify-center rounded-xl border border-(--border-beige) bg-white text-sm font-bold text-(--secondary-green) transition hover:border-(--primary-green)"
-              >
-                Edit Profile
-              </button>
+              <div>
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <label className="block text-sm font-bold text-(--secondary-green)">Phone</label>
 
-              <button
-                type="button"
-                onClick={handleDeleteProfile}
-                className="flex h-12 items-center justify-center rounded-xl border border-red-100 bg-red-50 text-sm font-bold text-red-600 transition hover:bg-red-100"
-              >
-                Delete Profile
-              </button>
-            </div>
+                  {phoneVerified ? (
+                    <VerifiedBadge />
+                  ) : (
+                    <span className="rounded-full bg-orange-100 px-2.5 py-1 text-[11px] font-bold text-orange-700">
+                      Not verified
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-[105px_1fr] gap-3">
+                  <select
+                    name="phone_code"
+                    value={profileForm.phone_code}
+                    onChange={handleProfileFormChange}
+                    className="h-12 rounded-xl border border-(--border-beige) bg-white px-3 text-sm font-semibold text-(--secondary-green) outline-none transition focus:border-(--primary-green) focus:ring-4 focus:ring-[rgba(14,79,42,0.10)]"
+                  >
+                    <option value="+353">+353</option>
+                    <option value="+44">+44</option>
+                    <option value="+49">+49</option>
+                    <option value="+351">+351</option>
+                    <option value="+33">+33</option>
+                    <option value="+34">+34</option>
+                  </select>
+
+                  <input
+                    name="phone_number"
+                    value={profileForm.phone_number}
+                    onChange={handleProfileFormChange}
+                    placeholder="871234567"
+                    className="h-12 w-full rounded-xl border border-(--border-beige) bg-white px-4 text-sm font-semibold text-(--secondary-green) outline-none transition focus:border-(--primary-green) focus:ring-4 focus:ring-[rgba(14,79,42,0.10)]"
+                  />
+                </div>
+              </div>
+
+              <ProfileEditField
+                label="County"
+                name="county"
+                value={profileForm.county}
+                onChange={handleProfileFormChange}
+                placeholder="Westmeath"
+              />
+
+              <ProfileEditField
+                label="New Password"
+                name="password"
+                type="password"
+                value={profileForm.password}
+                onChange={handleProfileFormChange}
+                placeholder="Leave empty to keep current password"
+              />
+
+              {profileMessage && (
+                <p
+                  className={`text-sm font-bold ${
+                    profileMessage === 'Settings saved.' ? 'text-green-700' : 'text-red-600'
+                  }`}
+                >
+                  {profileMessage}
+                </p>
+              )}
+
+              <div className="grid gap-3 pt-2">
+                <button
+                  type="submit"
+                  disabled={profileSaving}
+                  className="flex h-12 items-center justify-center rounded-xl bg-(--primary-green) text-sm font-bold text-white transition hover:scale-105 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {profileSaving ? 'Saving...' : 'Save Settings'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleDeleteProfile}
+                  className="flex h-12 items-center justify-center rounded-xl border border-red-100 bg-red-50 text-sm font-bold text-red-600 transition hover:bg-red-100"
+                >
+                  Delete Profile
+                </button>
+              </div>
+            </form>
           </aside>
 
           {/* Right listings panel */}
@@ -349,6 +535,27 @@ const ProfileAvatar = ({ user, metadata, fullName, avatarUploading, handleAvatar
           Remove profile picture
         </button>
       )}
+    </div>
+  );
+};
+
+const ProfileEditField = ({ label, name, value, onChange, type = 'text', placeholder = '', required = false }) => {
+  return (
+    <div>
+      <label className="mb-2 block text-sm font-bold text-(--secondary-green)">
+        {label}
+        {required && <span className="text-(--primary-orange)"> *</span>}
+      </label>
+
+      <input
+        name={name}
+        type={type}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        required={required}
+        className="h-12 w-full rounded-xl border border-(--border-beige) bg-white px-4 text-sm font-semibold text-(--secondary-green) outline-none transition focus:border-(--primary-green) focus:ring-4 focus:ring-[rgba(14,79,42,0.10)]"
+      />
     </div>
   );
 };
@@ -488,7 +695,7 @@ const ProfileListingCard = ({ listing, handleDeleteListing }) => {
 
           <a
             href={`/profile/listings/${listing.id}/edit`}
-            className="rounded-xl bg-(--primary-green) px-3 py-2 text-center text-sm font-bold text-white transition hover:scale-105"
+            className="flex h-10 items-center justify-center rounded-xl bg-(--primary-green) text-sm font-bold text-white transition hover:scale-105"
           >
             Edit
           </a>

@@ -65,6 +65,57 @@ export default function ListingDetailPage() {
   const params = useParams();
   const listingId = params.id;
 
+  const handleShowPhoneNumber = async () => {
+    if (!listing?.id) return;
+
+    setPhoneVisible(true);
+
+    const { data, error } = await supabase.rpc('increment_listing_phone_clicks', {
+      listing_id_input: listing.id,
+    });
+
+    if (error) {
+      console.warn('Phone click tracking failed:', error);
+      return;
+    }
+
+    setListing((current) => {
+      if (!current) return current;
+
+      return {
+        ...current,
+        phone_clicks: data ?? current.phone_clicks ?? 0,
+      };
+    });
+  };
+  const trackListingView = async (listingIdToTrack) => {
+    if (!listingIdToTrack) return;
+
+    const storageKey = `pawhome-viewed-${listingIdToTrack}`;
+
+    if (sessionStorage.getItem(storageKey)) return;
+
+    sessionStorage.setItem(storageKey, 'true');
+
+    const { data, error } = await supabase.rpc('increment_listing_views', {
+      listing_id_input: listingIdToTrack,
+    });
+
+    if (error) {
+      console.warn('View tracking failed:', error);
+      return;
+    }
+
+    setListing((current) => {
+      if (!current) return current;
+
+      return {
+        ...current,
+        views: data ?? current.views ?? 0,
+      };
+    });
+  };
+
   const [listing, setListing] = useState(null);
   const [photos, setPhotos] = useState([]);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
@@ -75,9 +126,6 @@ export default function ListingDetailPage() {
   const [currentUser, setCurrentUser] = useState(null);
   const [isFavourite, setIsFavourite] = useState(false);
   const [imageModalOpen, setImageModalOpen] = useState(false);
-
-  const [sellerReviews, setSellerReviews] = useState([]);
-  const [reviewsModalOpen, setReviewsModalOpen] = useState(false);
 
   const [reportModalOpen, setReportModalOpen] = useState(false);
   const [reportReason, setReportReason] = useState('');
@@ -122,22 +170,33 @@ export default function ListingDetailPage() {
       }
 
       const sortedPhotos = sortPhotos(data.listing_photos);
-      const newViews = (data.views_count || 0) + 1;
 
-      setListing({
-        ...data,
-        views_count: newViews,
-      });
-
+      setListing(data);
       setPhotos(sortedPhotos);
       setSelectedPhotoIndex(0);
 
-      await supabase
-        .from('listings')
-        .update({
-          views_count: newViews,
-        })
-        .eq('id', listingId);
+      const viewStorageKey = `pawhome-viewed-${data.id}`;
+
+      if (!sessionStorage.getItem(viewStorageKey)) {
+        sessionStorage.setItem(viewStorageKey, 'true');
+
+        const { data: newViewCount, error: viewError } = await supabase.rpc('increment_listing_views', {
+          listing_id_input: data.id,
+        });
+
+        if (viewError) {
+          console.warn('View tracking failed:', viewError);
+        } else {
+          setListing((current) => {
+            if (!current) return current;
+
+            return {
+              ...current,
+              views: newViewCount ?? current.views ?? 0,
+            };
+          });
+        }
+      }
 
       const {
         data: { user },
@@ -154,20 +213,6 @@ export default function ListingDetailPage() {
           .maybeSingle();
 
         setIsFavourite(Boolean(favouriteData));
-      }
-
-      const { data: reviewsData, error: reviewsError } = await supabase
-        .from('seller_reviews')
-        .select('rating, comment, created_at')
-        .eq('seller_user_id', data.user_id)
-        .eq('status', 'approved')
-        .order('created_at', { ascending: false });
-
-      if (reviewsError) {
-        console.warn('Seller reviews not available:', reviewsError.message);
-        setSellerReviews([]);
-      } else {
-        setSellerReviews(reviewsData || []);
       }
 
       const { data: similarData, error: similarError } = await supabase
@@ -214,23 +259,27 @@ export default function ListingDetailPage() {
   };
 
   const handleShowPhone = async () => {
+    if (!listing?.id) return;
+
     setPhoneVisible(true);
 
-    if (!listing) return;
-
-    const newCount = (listing.phone_clicks_count || 0) + 1;
-
-    setListing({
-      ...listing,
-      phone_clicks_count: newCount,
+    const { data: newPhoneClickCount, error } = await supabase.rpc('increment_listing_phone_clicks', {
+      listing_id_input: listing.id,
     });
 
-    await supabase
-      .from('listings')
-      .update({
-        phone_clicks_count: newCount,
-      })
-      .eq('id', listing.id);
+    if (error) {
+      console.warn('Phone click tracking failed:', error);
+      return;
+    }
+
+    setListing((current) => {
+      if (!current) return current;
+
+      return {
+        ...current,
+        phone_clicks: newPhoneClickCount ?? current.phone_clicks ?? 0,
+      };
+    });
   };
 
   const handleToggleFavourite = async () => {
@@ -371,13 +420,6 @@ export default function ListingDetailPage() {
       </div>
     );
   }
-
-  const reviewCount = sellerReviews.length;
-
-  const averageRating =
-    reviewCount > 0
-      ? (sellerReviews.reduce((sum, review) => sum + Number(review.rating || 0), 0) / reviewCount).toFixed(1)
-      : '0.0';
 
   const title = listing.title || `${listing.breed || listing.animal_type || 'Pet'} available`;
 
@@ -680,13 +722,9 @@ export default function ListingDetailPage() {
           <aside className="h-fit space-y-5 lg:sticky lg:top-24">
             <SellerCard
               listing={listing}
-              averageRating={averageRating}
-              reviewCount={reviewCount}
               sellerMemberSince={sellerMemberSince}
               phoneVisible={phoneVisible}
-              handleShowPhone={handleShowPhone}
-              setReviewsModalOpen={setReviewsModalOpen}
-              setReportModalOpen={setReportModalOpen}
+              onShowPhoneNumber={handleShowPhoneNumber}
               setReportSuccess={setReportSuccess}
             />
 
@@ -724,15 +762,6 @@ export default function ListingDetailPage() {
         />
       )}
 
-      {reviewsModalOpen && (
-        <ReviewsModal
-          sellerReviews={sellerReviews}
-          averageRating={averageRating}
-          reviewCount={reviewCount}
-          setReviewsModalOpen={setReviewsModalOpen}
-        />
-      )}
-
       <Footer />
     </div>
   );
@@ -740,12 +769,9 @@ export default function ListingDetailPage() {
 
 const SellerCard = ({
   listing,
-  averageRating,
-  reviewCount,
   sellerMemberSince,
   phoneVisible,
-  handleShowPhone,
-  setReviewsModalOpen,
+  onShowPhoneNumber,
   setReportModalOpen,
   setReportSuccess,
 }) => {
@@ -774,32 +800,27 @@ const SellerCard = ({
 
         <button
           type="button"
-          onClick={handleShowPhone}
-          className="mt-6 w-full rounded-xl bg-(--primary-orange) px-5 py-4 text-sm font-extrabold text-white shadow-sm transition hover:scale-[1.02] hover:bg-(--secondary-orange)"
+          onClick={onShowPhoneNumber}
+          className="mt-6 flex h-14 w-full items-center justify-center rounded-xl bg-(--primary-orange) text-sm font-extrabold text-white transition hover:bg-(--secondary-orange)"
         >
           ☎ {phoneVisible ? listing.contact_phone || listing.phone || 'Phone not provided' : 'Show Phone Number'}
         </button>
       </div>
 
       <div className="grid grid-cols-3 border-t border-(--border-beige) text-center text-xs">
-        <button
-          type="button"
-          onClick={() => setReviewsModalOpen(true)}
-          className="border-r border-(--border-beige) px-3 py-4 transition hover:bg-(--background)"
-        >
-          <p className="font-extrabold text-(--secondary-green)">⭐ {averageRating}</p>
-
-          <p className="mt-1 text-(--muted-green-text)">{reviewCount === 1 ? '1 review' : `${reviewCount} reviews`}</p>
-        </button>
-
         <div className="border-r border-(--border-beige) px-3 py-4">
-          <p className="font-extrabold text-(--secondary-green)">{listing.views_count || 0}</p>
+          <p className="font-extrabold text-(--secondary-green)">{listing.views || 0}</p>
           <p className="mt-1 text-(--muted-green-text)">views</p>
         </div>
 
-        <div className="px-3 py-4">
+        <div className="border-r border-(--border-beige) px-3 py-4">
           <p className="font-extrabold text-(--secondary-green)">{listing.favourites_count || 0}</p>
           <p className="mt-1 text-(--muted-green-text)">favourites</p>
+        </div>
+
+        <div className="px-3 py-4">
+          <p className="font-extrabold text-(--secondary-green)">{listing.phone_clicks || 0}</p>
+          <p className="mt-1 text-(--muted-green-text)">phone clicks</p>
         </div>
       </div>
 
@@ -1212,71 +1233,6 @@ const ReportModal = ({
             >
               Close
             </button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
-const ReviewsModal = ({ sellerReviews, averageRating, reviewCount, setReviewsModalOpen }) => {
-  return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 px-4">
-      <div className="relative w-full max-w-[620px] rounded-3xl border border-(--border-beige) bg-white p-6 shadow-2xl">
-        <button
-          type="button"
-          onClick={() => setReviewsModalOpen(false)}
-          className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full border border-(--border-beige) text-lg font-bold text-(--secondary-green) hover:bg-(--background)"
-        >
-          ×
-        </button>
-
-        <h2 className="text-2xl font-extrabold text-(--secondary-green)">Seller Reviews</h2>
-
-        <p className="mt-2 text-sm text-(--muted-green-text)">
-          {reviewCount > 0
-            ? `Average rating ${averageRating} from ${reviewCount} review${reviewCount === 1 ? '' : 's'}.`
-            : 'This seller has no reviews yet.'}
-        </p>
-
-        {sellerReviews.length === 0 ? (
-          <div className="mt-6 rounded-2xl bg-(--background) p-6 text-center">
-            <div className="text-3xl">⭐</div>
-
-            <p className="mt-3 text-sm font-bold text-(--secondary-green)">No reviews yet</p>
-
-            <p className="mt-1 text-sm text-(--muted-green-text)">
-              Reviews will appear here after buyers leave feedback.
-            </p>
-          </div>
-        ) : (
-          <div className="mt-6 max-h-[420px] space-y-4 overflow-y-auto pr-1">
-            {sellerReviews.map((review, index) => (
-              <div
-                key={`${review.created_at}-${index}`}
-                className="rounded-2xl border border-(--border-beige) bg-(--background) p-4"
-              >
-                <div className="flex items-center justify-between gap-4">
-                  <p className="text-lg font-extrabold text-(--secondary-green)">
-                    {'⭐'.repeat(Number(review.rating || 0))}
-                  </p>
-
-                  <p className="text-xs font-semibold text-(--muted-green-text)">
-                    {review.created_at
-                      ? new Date(review.created_at).toLocaleDateString('en-IE', {
-                          day: '2-digit',
-                          month: 'short',
-                          year: 'numeric',
-                        })
-                      : ''}
-                  </p>
-                </div>
-
-                <p className="mt-3 text-sm leading-6 text-(--secondary-green)">
-                  {review.comment || 'No written comment.'}
-                </p>
-              </div>
-            ))}
           </div>
         )}
       </div>

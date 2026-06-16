@@ -131,20 +131,6 @@ const Footer = () => {
               </a>
             </FooterCard>
 
-            {/* Responsible Pet Buying */}
-            <FooterCard title="Responsible Pet Buying">
-              <p className="mt-4 text-sm leading-6 text-(--muted-green-text)">
-                Follow our guide to help ensure you and your new pet have the best start together.
-              </p>
-
-              <a
-                href="/BuyingSafely"
-                className="mt-5 inline-flex items-center justify-center rounded-xl border border-(--primary-green) px-5 py-2.5 text-sm font-bold text-(--primary-green) transition hover:bg-(--primary-green) hover:text-white"
-              >
-                Read the Guide
-              </a>
-            </FooterCard>
-
             {/* Safety */}
             <div className="rounded-2xl bg-(--primary-green) p-6 text-white shadow-[0_8px_24px_rgba(18,53,36,0.10)]">
               <h3 className="text-lg font-bold">Safety First, Always</h3>
