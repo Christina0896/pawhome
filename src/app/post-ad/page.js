@@ -84,10 +84,13 @@ export default function PostAdPage() {
   const [formData, setFormData] = useState({
     title: '',
     listing_type: '',
-    animal_type: 'Dogs',
+    animal_type: '',
     breed: '',
     age: '',
     sex: '',
+
+    male_count: '',
+    female_count: '',
 
     litter_size: '',
     available_litter_count: '',
@@ -182,6 +185,7 @@ export default function PostAdPage() {
 
     const isMixedLitter = formData.sex === 'Mixed Litter';
     const isDogOrCat = ['dogs', 'cats'].includes(formData.animal_type?.toLowerCase());
+
     if (isDogOrCat && isMixedLitter) {
       if (!formData.litter_size) {
         newErrors.litter_size = 'Please enter the litter size.';
@@ -190,7 +194,33 @@ export default function PostAdPage() {
       if (!formData.available_litter_count) {
         newErrors.available_litter_count = 'Please enter how many are available.';
       }
+
+      const litterSize = Number(formData.litter_size || 0);
+      const availableLitterCount = Number(formData.available_litter_count || 0);
+      const boys = Number(formData.male_count || 0);
+      const girls = Number(formData.female_count || 0);
+
+      if (availableLitterCount > litterSize) {
+        newErrors.available_litter_count = 'Available cannot be higher than litter size.';
+      }
+
+      if (boys + girls !== availableLitterCount) {
+        newErrors.male_count = 'Boys and girls together must match the available count.';
+        newErrors.female_count = 'Boys and girls together must match the available count.';
+      }
+      if (!formData.date_of_birth) {
+        newErrors.date_of_birth = 'Please enter the litter date of birth.';
+      }
+
+      if (!formData.ready_to_leave) {
+        newErrors.ready_to_leave = 'Please enter when the litter is ready to leave.';
+      }
+
+      if (readyToLeaveTooEarly) {
+        newErrors.ready_to_leave = `This litter is too young to leave. Minimum age is ${minimumLegalAgeWeeks} weeks.`;
+      }
     }
+
     setErrors(newErrors);
 
     return Object.keys(newErrors).length === 0;
@@ -380,6 +410,10 @@ export default function PostAdPage() {
 
         litter_size: formData.litter_size || null,
         available_litter_count: formData.available_litter_count || null,
+        male_count: formData.sex === 'Mixed Litter' ? Number(formData.male_count || 0) : 0,
+
+        female_count: formData.sex === 'Mixed Litter' ? Number(formData.female_count || 0) : 0,
+
         date_of_birth: formData.date_of_birth || null,
         ready_to_leave: formData.ready_to_leave || null,
         mother_can_be_seen: formData.mother_can_be_seen || null,
@@ -468,8 +502,55 @@ export default function PostAdPage() {
 
   const isMixedLitter = formData.sex === 'Mixed Litter';
 
-  const showLitterFields = isDogOrCat;
+  const showLitterInfo = isMixedLitter && ['dogs', 'cats'].includes(formData.animal_type?.toLowerCase());
+
   const labelClass = 'mb-2 block text-sm font-bold text-(--secondary-green)';
+  const getMinimumLegalAgeWeeks = () => {
+    const animalType = String(formData.animal_type || '')
+      .trim()
+      .toLowerCase();
+    const petType = String(formData.breed || '')
+      .trim()
+      .toLowerCase();
+
+    if (animalType === 'dogs' || animalType === 'cats') return 8;
+
+    if (petType.includes('rabbit')) return 6;
+
+    if (
+      petType.includes('guinea pig') ||
+      petType.includes('gerbil') ||
+      petType.includes('hamster') ||
+      petType.includes('mouse') ||
+      petType.includes('mice') ||
+      petType.includes('rat')
+    ) {
+      return 4;
+    }
+
+    if (petType.includes('ferret')) return 8;
+
+    return null;
+  };
+
+  const addWeeksToDate = (dateString, weeks) => {
+    if (!dateString || !weeks) return '';
+
+    const date = new Date(dateString);
+    date.setDate(date.getDate() + weeks * 7);
+
+    return date.toISOString().split('T')[0];
+  };
+
+  const minimumLegalAgeWeeks = getMinimumLegalAgeWeeks();
+
+  const minimumReadyToLeaveDate = addWeeksToDate(formData.date_of_birth, minimumLegalAgeWeeks);
+
+  const readyToLeaveTooEarly =
+    formData.ready_to_leave &&
+    minimumReadyToLeaveDate &&
+    new Date(formData.ready_to_leave) < new Date(minimumReadyToLeaveDate);
+
   return (
     <div className="min-h-screen bg-[#FAF6EC]">
       <Header />
@@ -576,7 +657,6 @@ export default function PostAdPage() {
                 <label className="mb-4 block text-sm font-bold text-(--secondary-green)">
                   Listing Title <span className="text-(--primary-orange)">*</span>
                 </label>
-
                 <input
                   name="title"
                   type="text"
@@ -592,8 +672,6 @@ export default function PostAdPage() {
                   maxLength={80}
                   className="h-[45px] w-full rounded-xl border border-(--border-beige) bg-white px-4 text-sm text-(--secondary-green) outline-none transition focus:border-(--primary-green) focus:ring-4 focus:ring-[rgba(14,79,42,0.10)]"
                 />
-
-                <p className="mt-2 text-xs text-(--muted-green-text)">This is the title buyers will see.</p>
               </div>
               {/* Breed */}
               <div className="relative data-dropdown-root">
@@ -869,7 +947,6 @@ export default function PostAdPage() {
                     name="price"
                     type="number"
                     min="0"
-                    step="50"
                     required
                     value={formData.price}
                     onChange={(e) => {
@@ -1190,187 +1267,158 @@ export default function PostAdPage() {
               )}
 
               {/* Litter background */}
-              {showLitterFields && (
-                <>
-                  <div className="md:col-span-4">
-                    <div className="mt-4 border-t border-[#E8DFD1] pt-6">
-                      <h3 className="text-lg font-bold text-[#123524]">
-                        {isMixedLitter ? 'Litter Information' : 'Pet Background'}
-                      </h3>
+              {showLitterInfo && (
+                <section className="col-span-full mt-6 rounded-2xl border border-(--border-beige) bg-white p-6">
+                  <h2 className="text-xl font-extrabold text-(--secondary-green)">Litter Info</h2>
 
-                      <p className=" max-w-2xl text-sm text-[#5F6F64]">
-                        {isMixedLitter
-                          ? 'These details help buyers understand the litter and when the pets can leave.'
-                          : 'These optional details help buyers understand the pet’s background.'}
-                      </p>
+                  <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    <div>
+                      <label className="mb-2 block text-sm font-bold text-(--secondary-green)">Litter Size</label>
 
-                      <div className="mt-2 grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                        {/* Litter Size */}
-                        <div>
-                          <div className=" min-h-[38px]">
-                            <label className="block text-sm font-semibold text-(--secondary-green)">
-                              Litter Size {isMixedLitter && <span className="text-(--primary-orange)">*</span>}
-                            </label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={formData.litter_size}
+                        onChange={(e) =>
+                          setFormData((current) => ({
+                            ...current,
+                            litter_size: e.target.value,
+                          }))
+                        }
+                        placeholder="e.g. 6"
+                        className="h-12 w-full rounded-xl border border-(--border-beige) bg-white px-4 text-sm font-semibold text-(--secondary-green) outline-none transition focus:border-(--primary-green)"
+                      />
 
-                            <p className="min-h-[16px] text-xs text-red-500">{errors.litter_size || ''}</p>
-                          </div>
+                      {errors.litter_size && (
+                        <p className="mt-1 text-xs font-semibold text-red-600">{errors.litter_size}</p>
+                      )}
+                    </div>
 
-                          <input
-                            type="number"
-                            name="litter_size"
-                            value={formData.litter_size}
-                            onChange={(e) => {
-                              setFormData({
-                                ...formData,
-                                litter_size: e.target.value,
-                              });
+                    <div>
+                      <label className="mb-2 block text-sm font-bold text-(--secondary-green)">Available</label>
 
-                              setErrors({
-                                ...errors,
-                                litter_size: '',
-                              });
-                            }}
-                            min="1"
-                            placeholder="e.g. 6"
-                            className={`h-[45px] w-full rounded-xl border bg-white px-4 text-sm text-(--secondary-green) outline-none transition ${
-                              errors.litter_size
-                                ? 'border-red-400'
-                                : 'border-(--border-beige) focus:border-(--primary-green)'
-                            }`}
-                          />
-                        </div>
+                      <input
+                        type="number"
+                        min="0"
+                        max={formData.litter_size || undefined}
+                        value={formData.available_litter_count}
+                        onChange={(e) =>
+                          setFormData((current) => ({
+                            ...current,
+                            available_litter_count: e.target.value,
+                          }))
+                        }
+                        placeholder="e.g. 4"
+                        className="h-12 w-full rounded-xl border border-(--border-beige) bg-white px-4 text-sm font-semibold text-(--secondary-green) outline-none transition focus:border-(--primary-green)"
+                      />
 
-                        {/* Available */}
-                        <div>
-                          <div className=" min-h-[38px]">
-                            <label className="block text-sm font-semibold text-(--secondary-green)">
-                              Available {isMixedLitter && <span className="text-(--primary-orange)">*</span>}
-                            </label>
+                      {errors.available_litter_count && (
+                        <p className="mt-1 text-xs font-semibold text-red-600">{errors.available_litter_count}</p>
+                      )}
+                    </div>
 
-                            <p className="min-h-[16px] text-xs text-red-500">{errors.available_litter_count || ''}</p>
-                          </div>
+                    <div>
+                      <label className="mb-2 block text-sm font-bold text-(--secondary-green)">Number of Boys</label>
 
-                          <input
-                            type="number"
-                            name="available_litter_count"
-                            value={formData.available_litter_count}
-                            onChange={(e) => {
-                              setFormData({
-                                ...formData,
-                                available_litter_count: e.target.value,
-                              });
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.male_count}
+                        onChange={(e) =>
+                          setFormData((current) => ({
+                            ...current,
+                            male_count: e.target.value,
+                          }))
+                        }
+                        placeholder="e.g. 3"
+                        className="h-12 w-full rounded-xl border border-(--border-beige) bg-white px-4 text-sm font-semibold text-(--secondary-green) outline-none transition focus:border-(--primary-green)"
+                      />
 
-                              setErrors({
-                                ...errors,
-                                available_litter_count: '',
-                              });
-                            }}
-                            min="1"
-                            placeholder="e.g. 3"
-                            className={`h-[45px] w-full rounded-xl border bg-white px-4 text-sm text-(--secondary-green) outline-none transition ${
-                              errors.available_litter_count
-                                ? 'border-red-400'
-                                : 'border-(--border-beige) focus:border-(--primary-green)'
-                            }`}
-                          />
-                        </div>
+                      {errors.male_count && (
+                        <p className="mt-1 text-xs font-semibold text-red-600">{errors.male_count}</p>
+                      )}
+                    </div>
 
-                        {/* Date of Birth */}
-                        <div>
-                          <div className=" min-h-[38px]">
-                            <label className="block text-sm font-semibold text-(--secondary-green)">
-                              Date of Birth <span className="text-(--primary-orange)">*</span>
-                            </label>
+                    <div>
+                      <label className="mb-2 block text-sm font-bold text-(--secondary-green)">Number of Girls</label>
 
-                            <p className="min-h-[16px] text-xs text-red-500">{errors.date_of_birth || ''}</p>
-                          </div>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.female_count}
+                        onChange={(e) =>
+                          setFormData((current) => ({
+                            ...current,
+                            female_count: e.target.value,
+                          }))
+                        }
+                        placeholder="e.g. 3"
+                        className="h-12 w-full rounded-xl border border-(--border-beige) bg-white px-4 text-sm font-semibold text-(--secondary-green) outline-none transition focus:border-(--primary-green)"
+                      />
 
-                          <input
-                            type="date"
-                            name="date_of_birth"
-                            value={formData.date_of_birth}
-                            onChange={(e) => {
-                              setFormData({
-                                ...formData,
-                                date_of_birth: e.target.value,
-                              });
+                      {errors.female_count && (
+                        <p className="mt-1 text-xs font-semibold text-red-600">{errors.female_count}</p>
+                      )}
+                    </div>
 
-                              setErrors({
-                                ...errors,
-                                date_of_birth: '',
-                              });
-                            }}
-                            className={`h-[45px] w-full rounded-xl border bg-white px-4 text-sm text-(--secondary-green) outline-none transition ${
-                              errors.date_of_birth
-                                ? 'border-red-400'
-                                : 'border-(--border-beige) focus:border-(--primary-green)'
-                            }`}
-                          />
-                        </div>
+                    <div>
+                      <label className="mb-2 block text-sm font-bold text-(--secondary-green)">Date of Birth</label>
 
-                        {/* Ready to Leave */}
-                        <div>
-                          <div className=" min-h-[38px]">
-                            <label className="block text-sm font-semibold text-(--secondary-green)">
-                              Ready to Leave <span className="text-(--primary-orange)">*</span>
-                            </label>
+                      <input
+                        type="date"
+                        value={formData.date_of_birth}
+                        onChange={(e) =>
+                          setFormData((current) => ({
+                            ...current,
+                            date_of_birth: e.target.value,
+                            ready_to_leave:
+                              e.target.value && minimumLegalAgeWeeks
+                                ? addWeeksToDate(e.target.value, minimumLegalAgeWeeks)
+                                : current.ready_to_leave,
+                          }))
+                        }
+                        className="h-12 w-full rounded-xl border border-(--border-beige) bg-white px-4 text-sm font-semibold text-(--secondary-green) outline-none transition focus:border-(--primary-green)"
+                      />
 
-                            <p className="min-h-[16px] text-xs text-red-500">{errors.ready_to_leave || ''}</p>
-                          </div>
+                      {errors.date_of_birth && (
+                        <p className="mt-1 text-xs font-semibold text-red-600">{errors.date_of_birth}</p>
+                      )}
+                    </div>
 
-                          <input
-                            type="date"
-                            name="ready_to_leave"
-                            value={formData.ready_to_leave}
-                            onChange={(e) => {
-                              setFormData({
-                                ...formData,
-                                ready_to_leave: e.target.value,
-                              });
+                    <div>
+                      <label className="mb-2 block text-sm font-bold text-(--secondary-green)">Ready to Leave</label>
 
-                              setErrors({
-                                ...errors,
-                                ready_to_leave: '',
-                              });
-                            }}
-                            className={`h-[45px] w-full rounded-xl border bg-white px-4 text-sm text-(--secondary-green) outline-none transition ${
-                              errors.ready_to_leave
-                                ? 'border-red-400'
-                                : 'border-(--border-beige) focus:border-(--primary-green)'
-                            }`}
-                          />
-                        </div>
+                      <input
+                        type="date"
+                        min={minimumReadyToLeaveDate || undefined}
+                        value={formData.ready_to_leave}
+                        onChange={(e) =>
+                          setFormData((current) => ({
+                            ...current,
+                            ready_to_leave: e.target.value,
+                          }))
+                        }
+                        className="h-12 w-full rounded-xl border border-(--border-beige) bg-white px-4 text-sm font-semibold text-(--secondary-green) outline-none transition focus:border-(--primary-green)"
+                      />
 
-                        {/* Mother Can Be Seen */}
-                        <CustomSelect
-                          id="mother_can_be_seen"
-                          label="Mother Can Be Seen"
-                          required
-                          value={formData.mother_can_be_seen}
-                          placeholder="Select"
-                          error={errors.mother_can_be_seen}
-                          openDropdown={openDropdown}
-                          setOpenDropdown={setOpenDropdown}
-                          options={[
-                            { label: 'Yes', value: 'Yes' },
-                            { label: 'No', value: 'No' },
-                          ]}
-                          onChange={(value) => {
-                            setFormData({
-                              ...formData,
-                              mother_can_be_seen: value,
-                            });
+                      {minimumReadyToLeaveDate && (
+                        <p className="mt-1 text-xs font-semibold text-(--muted-green-text)">
+                          Minimum legal ready date: {minimumReadyToLeaveDate}
+                        </p>
+                      )}
 
-                            setErrors({
-                              ...errors,
-                              mother_can_be_seen: '',
-                            });
-                          }}
-                        />
-                      </div>
+                      {readyToLeaveTooEarly && (
+                        <p className="mt-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700">
+                          This litter is too young to leave. Minimum age is {minimumLegalAgeWeeks} weeks.
+                        </p>
+                      )}
+
+                      {errors.ready_to_leave && (
+                        <p className="mt-1 text-xs font-semibold text-red-600">{errors.ready_to_leave}</p>
+                      )}
                     </div>
                   </div>
-                </>
+                </section>
               )}
 
               {/* Photos */}

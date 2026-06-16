@@ -1,37 +1,22 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import ContactModal from './ContactModal';
 import { supabase } from '../lib/supabaseClient';
+import { ShieldCheckIcon, ArrowIcon, PawIcon } from './Icons';
 
-const safetyTips = [
-  {
-    title: 'Meet pets in a public place',
-    icon: '/svg/public-place.svg',
-  },
-  {
-    title: 'Always see the pet with the owner',
-    icon: '/svg/pet-owner.svg',
-  },
-  {
-    title: 'Check microchip and registration',
-    icon: '/svg/microchip.svg',
-  },
-  {
-    title: 'Report suspicious listings',
-    icon: '/svg/report.svg',
-  },
-];
+const MapIcon = () => (
+  <svg viewBox="0 0 48 48" fill="none" className="h-10 w-10">
+    <path d="M15 9 6 13v26l9-4 18 4 9-4V9l-9 4-18-4Z" stroke="currentColor" strokeWidth="3" strokeLinejoin="round" />
+    <path d="M15 9v26M33 13v26" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+  </svg>
+);
 
 const Footer = () => {
-  // Footer data
   const [topCounties, setTopCounties] = useState([]);
   const [topBreeds, setTopBreeds] = useState([]);
-
-  // UI state
   const [showContactModal, setShowContactModal] = useState(false);
 
-  // Fetch top counties and breeds from approved listings
   useEffect(() => {
     const fetchFooterData = async () => {
       const { data, error } = await supabase.from('listings').select('county, breed').eq('status', 'approved');
@@ -56,12 +41,12 @@ const Footer = () => {
 
       const sortedCounties = Object.entries(countyCounts)
         .sort((a, b) => b[1] - a[1])
-        .slice(0, 5)
+        .slice(0, 9)
         .map(([county, count]) => ({ county, count }));
 
       const sortedBreeds = Object.entries(breedCounts)
         .sort((a, b) => b[1] - a[1])
-        .slice(0, 5)
+        .slice(0, 9)
         .map(([breed, count]) => ({ breed, count }));
 
       setTopCounties(sortedCounties);
@@ -71,103 +56,166 @@ const Footer = () => {
     fetchFooterData();
   }, []);
 
+  const countyItems = topCounties;
+  const breedItems = topBreeds;
+
   return (
     <>
-      <footer className="bg-(--background) px-4 pb-0 pt-10 sm:px-6">
-        <div className="mx-auto max-w-(--page-max-width)">
-          {/* Footer cards */}
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
-            {/* Browse by County */}
-            <FooterCard title="Browse by County">
-              {topCounties.length === 0 ? (
-                <p className="mt-4 text-sm text-(--muted-green-text)">No county listings yet.</p>
-              ) : (
-                <div className="mt-4 space-y-2 text-sm text-(--secondary-green)">
-                  {topCounties.map((item) => (
-                    <a
-                      key={item.county}
-                      href={`/listings?county=${encodeURIComponent(item.county)}`}
-                      className="flex items-center justify-between gap-4 hover:text-(--primary-green) hover:underline"
-                    >
-                      <span>{item.county}</span>
-                      <span className="text-xs text-(--muted-green-text)">{item.count}</span>
-                    </a>
-                  ))}
+      <footer className=" w-full bg-(--background)">
+        <div className="mx-auto max-w-[var(--page-max-width)] px-4 pb-15">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <div className="flex min-h-[128px] items-center gap-6 rounded-2xl border border-(--border-beige) bg-white/70 px-6 py-5 shadow-[0_6px_18px_rgba(18,53,36,0.06)]">
+              <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-[#DDE6D0] text-[#8A9A7A]">
+                <MapIcon />
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <h3 className="text-lg font-extrabold text-(--secondary-green)">Browse by County</h3>
+
+                <div className="mt-3 grid grid-cols-2 gap-x-8 gap-y-1 text-sm font-semibold text-(--secondary-green) sm:grid-cols-3">
+                  {countyItems.length > 0 ? (
+                    countyItems.map((item) => (
+                      <a
+                        key={item.county}
+                        href={`/listings?county=${encodeURIComponent(item.county)}`}
+                        className="flex items-center truncate transition hover:text-(--primary-orange)"
+                      >
+                        <span className="truncate">{item.county}</span>
+                        <span className="ml-1 text-xs font-bold text-(--muted-green-text)">({item.count})</span>
+                      </a>
+                    ))
+                  ) : (
+                    <p className="col-span-3 text-sm text-(--muted-green-text)">No counties yet</p>
+                  )}
                 </div>
-              )}
 
-              <a
-                href="/listings"
-                className="mt-6 inline-block text-sm font-bold text-(--primary-green) hover:text-(--primary-orange)"
-              >
-                View all counties →
-              </a>
-            </FooterCard>
-
-            {/* Browse by Breed */}
-            <FooterCard title="Browse by Breed">
-              {topBreeds.length === 0 ? (
-                <p className="mt-4 text-sm text-(--muted-green-text)">No breed listings yet.</p>
-              ) : (
-                <div className="mt-4 space-y-2 text-sm text-(--secondary-green)">
-                  {topBreeds.map((item) => (
-                    <a
-                      key={item.breed}
-                      href={`/listings?breed=${encodeURIComponent(item.breed)}`}
-                      className="flex items-center justify-between gap-4 hover:text-(--primary-green) hover:underline"
-                    >
-                      <span>{item.breed}</span>
-                      <span className="text-xs text-(--muted-green-text)">{item.count}</span>
-                    </a>
-                  ))}
-                </div>
-              )}
-
-              <a
-                href="/listings"
-                className="mt-6 inline-block text-sm font-bold text-(--primary-green) hover:text-(--primary-orange)"
-              >
-                View all breeds →
-              </a>
-            </FooterCard>
-
-            {/* Safety */}
-            <div className="rounded-2xl bg-(--primary-green) p-6 text-white shadow-[0_8px_24px_rgba(18,53,36,0.10)]">
-              <h3 className="text-lg font-bold">Safety First, Always</h3>
-
-              <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
-                {safetyTips.map((tip) => (
-                  <div key={tip.title} className="flex  gap-3">
-                    <img src={tip.icon} alt="" className="mt-0.5 h-6 w-6 shrink-0 opacity-90" />
-
-                    <p className=" text-sm font-medium leading-5 text-white/90">{tip.title}</p>
-                  </div>
-                ))}
+                <a
+                  href="/listings"
+                  className="mt-4 inline-flex items-center gap-2 text-sm font-extrabold text-(--primary-green) transition hover:text-(--primary-orange)"
+                >
+                  View all counties <ArrowIcon />
+                </a>
               </div>
             </div>
+
+            <div className="flex min-h-[128px] items-center gap-6 rounded-2xl border border-(--border-beige) bg-[#FFF4EA] px-6 py-5 shadow-[0_6px_18px_rgba(18,53,36,0.06)]">
+              <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-(--primary-orange) text-white">
+                <PawIcon className="h-10 w-20 " />
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <h3 className="text-lg font-extrabold text-(--secondary-green)">Browse by Breed</h3>
+
+                <div className="mt-3 grid grid-cols-2 gap-x-8 gap-y-1 text-sm font-semibold text-(--secondary-green) sm:grid-cols-3">
+                  {breedItems.length > 0 ? (
+                    breedItems.map((item) => (
+                      <a
+                        key={item.breed}
+                        href={`/listings?breed=${encodeURIComponent(item.breed)}`}
+                        className="flex items-center truncate transition hover:text-(--primary-orange)"
+                      >
+                        <span className="truncate">{item.breed}</span>
+                        <span className="ml-1 text-xs font-bold text-(--muted-green-text)">({item.count})</span>
+                      </a>
+                    ))
+                  ) : (
+                    <p className="col-span-3 text-sm text-(--muted-green-text)">No breeds yet</p>
+                  )}
+                </div>
+
+                <a
+                  href="/listings"
+                  className="mt-4 inline-flex items-center gap-2 text-sm font-extrabold text-(--primary-orange) transition hover:text-(--secondary-orange)"
+                >
+                  View all breeds <ArrowIcon />
+                </a>
+              </div>
+            </div>
+
+            <div className="relative flex h-full min-h-[128px] items-center overflow-hidden rounded-2xl border border-(--border-beige) bg-[#F4F5E8] px-3.5 py-5 shadow-[0_6px_18px_rgba(18,53,36,0.06)]">
+              <div className="z-10 flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-[#E2E5C7] text-(--primary-green)">
+                <ShieldCheckIcon />
+              </div>
+
+              <div className="z-10 ml-6 max-w-[300px] pr-[75px]">
+                <h3 className="text-lg font-extrabold text-(--secondary-green)">Safety Tips</h3>
+
+                <p className="mt-2 text-sm font-semibold leading-5 text-(--secondary-green)">
+                  Tips for meeting, buying and bringing your new pet home safely.
+                </p>
+
+                <a
+                  href="/buying-safely"
+                  className="mt-3 inline-flex items-center gap-2 text-sm font-extrabold text-(--primary-green) transition hover:text-(--primary-orange)"
+                >
+                  Read our safety guide <ArrowIcon />
+                </a>
+              </div>
+
+              <img
+                className="pointer-events-none absolute bottom-1 right-1 hidden h-[100px] w-[140px] object-contain opacity-60 md:block"
+                src="/img/miniLogo.png"
+                alt=""
+              />
+            </div>
           </div>
+        </div>
 
-          {/* Footer bottom */}
-          <div className="mt-8 border-t border-(--border-beige) py-5">
-            <div className="flex flex-col items-center justify-between gap-4 text-sm text-(--muted-green-text) md:flex-row">
-              <p>© {new Date().getFullYear()} PawHome. All rights reserved.</p>
+        <div className="bg-(--primary-green)">
+          <div className="mx-auto grid max-w-[var(--page-max-width)] grid-cols-1 gap-8 px-10 py-7 text-white md:grid-cols-2 lg:grid-cols-[220px_minmax(420px,1.7fr)_150px_150px_240px]">
+            <div>
+              <img src="/img/logo.png" alt="PawHome Logo" className="h-20 w-auto object-contain md:h-25" />
+            </div>
 
-              <div className="flex flex-wrap items-center justify-center gap-5">
+            <div>
+              <h4 className="text-sm font-extrabold text-white">About PawHome</h4>
+              <p className="mt-4 max-w-[300px] text-sm font-medium leading-6 text-white/80">
+                PawHome is Ireland&apos;s trusted pet marketplace connecting loving homes with wonderful pets.
+              </p>
+            </div>
+
+            <div>
+              <h4 className="text-sm font-extrabold text-white">Quick Links</h4>
+              <div className="mt-4 space-y-2 text-sm font-medium text-white/80">
+                <a href="/listings" className="block hover:text-white">
+                  Shelters
+                </a>
+                <a href="/breed-guide" className="block hover:text-white">
+                  Breed Guide
+                </a>
+                <a href="/buying-safely" className="block hover:text-white">
+                  Safety Tips
+                </a>
+              </div>
+            </div>
+
+            <div>
+              <h4 className="text-sm font-extrabold text-white">&nbsp;</h4>
+              <div className="mt-4 space-y-2 text-sm font-medium text-white/80">
                 <button
                   type="button"
                   onClick={() => setShowContactModal(true)}
-                  className="cursor-pointer hover:text-(--primary-green)"
+                  className="block text-left hover:text-white"
                 >
                   Contact Us
                 </button>
-
-                <a href="/terms" className="hover:text-(--primary-green)">
-                  Terms & Conditions
+                <a href="/terms" className="block hover:text-white">
+                  Terms of Use
                 </a>
-
-                <a href="/AboutUs" className="hover:text-(--primary-green)">
-                  About Us
+                <a href="/privacy" className="block hover:text-white">
+                  Privacy Policy
                 </a>
+              </div>
+            </div>
+
+            <div>
+              <div className="mt-5 flex items-center gap-3 rounded-xl border border-[#4F8D63] bg-[#155F35] px-4 py-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-(--primary-green)">
+                  <ShieldCheckIcon />
+                </div>
+                <p className=" text-xs font-extrabold leading-5 text-white">
+                  Proudly supporting animal welfare in Ireland
+                </p>
               </div>
             </div>
           </div>
@@ -176,16 +224,6 @@ const Footer = () => {
 
       {showContactModal && <ContactModal onClose={() => setShowContactModal(false)} />}
     </>
-  );
-};
-
-const FooterCard = ({ title, children }) => {
-  return (
-    <div className="rounded-2xl border border-(--border-beige) bg-(--secondary-background) p-6 shadow-[0_8px_24px_rgba(18,53,36,0.06)]">
-      <h3 className="text-lg font-bold text-(--secondary-green)">{title}</h3>
-
-      {children}
-    </div>
   );
 };
 

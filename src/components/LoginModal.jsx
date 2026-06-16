@@ -49,7 +49,7 @@ const LoginModal = ({ onClose }) => {
     }
 
     setMessage('Login successful. Redirecting...');
-    window.location.href = '/post-ad';
+    window.location.href = '/';
   };
 
   // Send password reset email

@@ -181,7 +181,7 @@ export default function ListingDetailPage() {
         sessionStorage.setItem(viewStorageKey, 'true');
 
         const { data: newViewCount, error: viewError } = await supabase.rpc('increment_listing_views', {
-          listing_id_input: data.id,
+          listing_id_input: Number(data.id),
         });
 
         if (viewError) {
@@ -264,7 +264,7 @@ export default function ListingDetailPage() {
     setPhoneVisible(true);
 
     const { data: newPhoneClickCount, error } = await supabase.rpc('increment_listing_phone_clicks', {
-      listing_id_input: listing.id,
+      listing_id_input: Number(listing.id),
     });
 
     if (error) {
@@ -502,6 +502,14 @@ export default function ListingDetailPage() {
     },
   ];
 
+  const isMixedLitter =
+    String(listing?.sex || '')
+      .trim()
+      .toLowerCase() === 'mixed litter';
+
+  const maleCount = Number(listing?.male_count || 0);
+  const femaleCount = Number(listing?.female_count || 0);
+
   return (
     <div className="min-h-screen bg-(--background)">
       <Header />
@@ -536,10 +544,29 @@ export default function ListingDetailPage() {
                   </h1>
 
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <InfoPill icon={<PawIcon />} text={listing.breed} />
-                    <InfoPill icon={<GroupIcon />} text={listing.sex} />
-                    <InfoPill icon={<CalendarIcon />} text={listing.age} />
-                    <InfoPill icon={<LocationIcon />} text={listing.county} />
+                    {listing.breed && <InfoPill icon={<PawIcon />} text={listing.breed} />}
+
+                    {listing.sex && listing.sex !== 'Mixed Litter' && (
+                      <InfoPill icon={getSexIcon(listing.sex)} text={listing.sex} />
+                    )}
+
+                    {listing.sex === 'Mixed Litter' && (
+                      <>
+                        <InfoPill
+                          icon={<MaleIcon className="h-5 w-5 text-(--primary-green)" />}
+                          text={`${listing.male_count || 0} boys`}
+                        />
+
+                        <InfoPill
+                          icon={<FemaleIcon className="h-5 w-5 text-(--primary-green)" />}
+                          text={`${listing.female_count || 0} girls`}
+                        />
+                      </>
+                    )}
+
+                    {listing.age && <InfoPill icon={<CalendarIcon />} text={listing.age} />}
+
+                    {listing.county && <InfoPill icon={<LocationIcon />} text={listing.county} />}
                   </div>
 
                   <p className="flex items-center mt-2 font-bold text-xs text-(--muted-green-text)">
