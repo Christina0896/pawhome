@@ -1,3 +1,8 @@
+import { Suspense } from 'react';
+import Header from '../../components/header';
+import Footer from '../../components/footer';
+import ListingsClient from './ListingsClient';
+
 export default function ListingsPage() {
   return (
     <Suspense
@@ -13,7 +18,7 @@ export default function ListingsPage() {
         </div>
       }
     >
-      <ListingsPageContent />
+      <ListingsClient />
     </Suspense>
   );
 }
