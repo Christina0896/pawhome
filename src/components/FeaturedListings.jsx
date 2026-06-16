@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { FemaleIcon, MaleIcon, MixedGenderIcon, LocationIcon, CalendarIcon } from './Icons';
+import { useCallback, useEffect, useState } from 'react';
+import usePageResume from '../hooks/usePageResume';
 
 const formatDate = (date) => {
   if (!date) return 'recently';
@@ -47,43 +48,51 @@ const FeaturedListings = () => {
   const [currentUser, setCurrentUser] = useState(null);
   const [favoriteIds, setFavoriteIds] = useState([]);
 
-  // Fetch approved listings and user favorites
-  useEffect(() => {
-    const fetchFeaturedListings = async () => {
-      setLoading(true);
+  const fetchFeaturedListings = useCallback(async () => {
+    setLoading(true);
 
+    try {
       const { data: listingsData, error: listingsError } = await supabase
         .from('listings')
         .select(
           `
-          *,
-          listing_photos (
-            image_url,
-            sort_order
-          )
-        `,
+        *,
+        listing_photos (
+          image_url,
+          sort_order
+        )
+      `,
         )
         .eq('status', 'approved')
         .order('created_at', { ascending: false })
         .limit(4);
 
       if (listingsError) {
-        console.error('Featured listings error:', listingsError);
+        console.warn('Featured listings error:', listingsError);
         setListings([]);
-        setLoading(false);
         return;
       }
 
       setListings(listingsData || []);
-      setLoading(false);
 
       const {
         data: { user },
+        error: userError,
       } = await supabase.auth.getUser();
 
-      setCurrentUser(user);
+      if (userError) {
+        console.warn('Featured auth error:', userError);
+        setCurrentUser(null);
+        setFavoriteIds([]);
+        return;
+      }
 
-      if (!user) return;
+      setCurrentUser(user || null);
+
+      if (!user) {
+        setFavoriteIds([]);
+        return;
+      }
 
       const { data: favoritesData, error: favoritesError } = await supabase
         .from('favorites')
@@ -91,15 +100,27 @@ const FeaturedListings = () => {
         .eq('user_id', user.id);
 
       if (favoritesError) {
-        console.error('Featured favorites error:', favoritesError);
+        console.warn('Featured favorites error:', favoritesError);
+        setFavoriteIds([]);
         return;
       }
 
       setFavoriteIds((favoritesData || []).map((fav) => fav.listing_id));
-    };
-
-    fetchFeaturedListings();
+    } catch (err) {
+      console.warn('Featured listings crashed:', err);
+      setListings([]);
+      setFavoriteIds([]);
+      setCurrentUser(null);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchFeaturedListings();
+  }, [fetchFeaturedListings]);
+
+  usePageResume(fetchFeaturedListings);
 
   // Add/remove listing from favorites
   const toggleFavorite = async (e, listingId) => {

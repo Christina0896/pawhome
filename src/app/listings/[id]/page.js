@@ -71,7 +71,7 @@ export default function ListingDetailPage() {
     setPhoneVisible(true);
 
     const { data, error } = await supabase.rpc('increment_listing_phone_clicks', {
-      listing_id_input: listing.id,
+      listing_id_input: Number(listing.id),
     });
 
     if (error) {
@@ -146,24 +146,32 @@ export default function ListingDetailPage() {
   };
 
   useEffect(() => {
+    let isMounted = true;
+
     const loadListing = async () => {
       setLoading(true);
+      setListing(null);
+      setPhotos([]);
+      setSelectedPhotoIndex(0);
+      setPhoneVisible(false);
 
       const { data, error } = await supabase
         .from('listings')
         .select(
           `
-          *,
-          listing_photos (
-            image_url,
-            sort_order
-          )
-        `,
+        *,
+        listing_photos (
+          image_url,
+          sort_order
+        )
+      `,
         )
         .eq('id', listingId)
         .single();
 
-      if (error) {
+      if (!isMounted) return;
+
+      if (error || !data) {
         console.error('Listing fetch error:', error);
         setLoading(false);
         return;
@@ -175,6 +183,11 @@ export default function ListingDetailPage() {
       setPhotos(sortedPhotos);
       setSelectedPhotoIndex(0);
 
+      // Important: stop loading immediately after the listing itself is ready
+      setLoading(false);
+
+      // Everything below runs after the page is already visible
+
       const viewStorageKey = `pawhome-viewed-${data.id}`;
 
       if (!sessionStorage.getItem(viewStorageKey)) {
@@ -184,9 +197,7 @@ export default function ListingDetailPage() {
           listing_id_input: Number(data.id),
         });
 
-        if (viewError) {
-          console.warn('View tracking failed:', viewError);
-        } else {
+        if (!viewError && isMounted) {
           setListing((current) => {
             if (!current) return current;
 
@@ -202,6 +213,8 @@ export default function ListingDetailPage() {
         data: { user },
       } = await supabase.auth.getUser();
 
+      if (!isMounted) return;
+
       setCurrentUser(user);
 
       if (user) {
@@ -212,24 +225,28 @@ export default function ListingDetailPage() {
           .eq('listing_id', listingId)
           .maybeSingle();
 
-        setIsFavourite(Boolean(favouriteData));
+        if (isMounted) {
+          setIsFavourite(Boolean(favouriteData));
+        }
       }
 
       const { data: similarData, error: similarError } = await supabase
         .from('listings')
         .select(
           `
-          *,
-          listing_photos (
-            image_url,
-            sort_order
-          )
-        `,
+        *,
+        listing_photos (
+          image_url,
+          sort_order
+        )
+      `,
         )
         .eq('status', 'approved')
         .neq('id', listingId)
         .or(`breed.eq.${data.breed},animal_type.eq.${data.animal_type}`)
         .limit(5);
+
+      if (!isMounted) return;
 
       if (similarError) {
         console.warn('Similar listings not available:', similarError.message);
@@ -237,13 +254,15 @@ export default function ListingDetailPage() {
       } else {
         setSimilarListings(similarData || []);
       }
-
-      setLoading(false);
     };
 
     if (listingId) {
       loadListing();
     }
+
+    return () => {
+      isMounted = false;
+    };
   }, [listingId]);
 
   const handlePreviousPhoto = () => {
