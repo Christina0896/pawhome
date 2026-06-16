@@ -4,15 +4,7 @@ import React, { useEffect, useState } from 'react';
 import ContactModal from './ContactModal';
 import { supabase } from '../lib/supabaseClient';
 import { ShieldCheckIcon, ArrowIcon, PawIcon } from './Icons';
-import BrowseCards from './BrowseCards';
 import Link from 'next/link';
-
-const MapIcon = () => (
-  <svg viewBox="0 0 48 48" fill="none" className="h-10 w-10">
-    <path d="M15 9 6 13v26l9-4 18 4 9-4V9l-9 4-18-4Z" stroke="currentColor" strokeWidth="3" strokeLinejoin="round" />
-    <path d="M15 9v26M33 13v26" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
-  </svg>
-);
 
 const Footer = () => {
   const [topCounties, setTopCounties] = useState([]);
@@ -64,7 +56,6 @@ const Footer = () => {
   return (
     <>
       <footer className=" w-full bg-(--background)">
-        <BrowseCards />
         <div className="bg-(--primary-green)">
           <div className="mx-auto grid max-w-[var(--page-max-width)] grid-cols-1 gap-8 px-10 py-7 text-white md:grid-cols-2 lg:grid-cols-[220px_minmax(420px,1.7fr)_150px_150px_240px]">
             <div>

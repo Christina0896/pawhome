@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import Header from '../../components/header';
 import Footer from '../../components/footer';
 import { supabase } from '../../lib/supabaseClient';
@@ -17,7 +17,7 @@ import {
   PawIcon,
 } from '../../components/Icons';
 
-export default function ListingsPage() {
+function ListingsPageContent() {
   const formatDate = (date) => {
     if (!date) return 'recently';
 
@@ -288,7 +288,7 @@ export default function ListingsPage() {
 
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-[280px_1fr]">
           {/* Filters */}
-          <Linkside className="h-fit rounded-2xl border border-[#E8DFD1] bg-white p-5 shadow-sm">
+          <aside className="h-fit rounded-2xl border border-[#E8DFD1] bg-white p-5 shadow-sm">
             <div className="mb-5 flex items-center justify-between">
               <h2 className="text-lg font-bold text-[#123524]">Filters</h2>
 
@@ -479,7 +479,7 @@ export default function ListingsPage() {
                 </label>
               </div>
             </div>
-          </Linkside>
+          </aside>
 
           {/* Listings */}
           <section>

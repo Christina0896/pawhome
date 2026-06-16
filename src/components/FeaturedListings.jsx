@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabaseClient';
 import { FemaleIcon, MaleIcon, MixedGenderIcon, LocationIcon, CalendarIcon } from './Icons';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
+import BrowseCards from './BrowseCards';
 import Link from 'next/link';
 
 const formatDate = (date) => {
@@ -218,8 +219,8 @@ const FeaturedListings = () => {
   };
 
   return (
-    <section className="w-full bg-(--background) py-12">
-      <div className="mx-auto max-w-(--page-max-width) px-6">
+    <section className="w-full bg-(--background) py-5 ">
+      <div className="mx-auto max-w-(--page-max-width) px-6 mb-20">
         {/* Section header */}
         <div className="mb-6 flex items-center justify-between">
           <h2 className="text-2xl font-bold tracking-tight text-(--primary-green)">Featured Listings</h2>
@@ -351,7 +352,10 @@ const FeaturedListings = () => {
             </p>
 
             <div className="mt-7 flex justify-center gap-4">
-              <Link href="/post-ad" className="rounded-xl bg-(--primary-green) px-6 py-3 text-sm font-semibold text-white">
+              <Link
+                href="/post-ad"
+                className="rounded-xl bg-(--primary-green) px-6 py-3 text-sm font-semibold text-white"
+              >
                 Post an Ad
               </Link>
 
@@ -364,6 +368,9 @@ const FeaturedListings = () => {
             </div>
           </div>
         )}
+      </div>
+      <div>
+        <BrowseCards />
       </div>
     </section>
   );
