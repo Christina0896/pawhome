@@ -1,5 +1,3 @@
-'use client';
-
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import Header from '../../components/header';
 import Footer from '../../components/footer';
@@ -19,6 +17,8 @@ import {
 } from '../../components/Icons';
 
 function ListingsPageContent() {
+  const searchParams = useSearchParams();
+
   const formatDate = (date) => {
     if (!date) return 'recently';
 
@@ -50,7 +50,6 @@ function ListingsPageContent() {
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
   const [favoriteIds, setFavoriteIds] = useState([]);
-  const searchParams = useSearchParams();
 
   const [filters, setFilters] = useState({
     animalType: searchParams.get('animalType') || '',
@@ -262,6 +261,7 @@ function ListingsPageContent() {
       setFavoriteIds((prev) => [...prev, listingId]);
     }
   };
+
   return (
     <div className="min-h-screen bg-[#FAF6EC]">
       <Header />
@@ -627,5 +627,24 @@ function ListingsPageContent() {
       </main>
       <Footer />
     </div>
+  );
+}
+export default function ListingsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#FAF6EC]">
+          <Header />
+
+          <main className="mx-auto max-w-[1500px] px-6 py-10">
+            <p className="text-sm font-semibold text-[#5F6F64]">Loading listings...</p>
+          </main>
+
+          <Footer />
+        </div>
+      }
+    >
+      <ListingsPageContent />
+    </Suspense>
   );
 }
