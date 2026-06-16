@@ -5,6 +5,7 @@ import Header from '../../components/header';
 import { supabase } from '../../lib/supabaseClient';
 import { counties } from '../../data/countyList';
 import { dogBreeds, catBreeds, otherPetTypes } from '../../data/petOptions';
+import Link from 'next/link'
 
 const REQUIRE_VERIFICATION_TO_POST = false;
 
@@ -558,9 +559,9 @@ export default function PostAdPage() {
       <main className="mx-auto max-w-[1500px] px-6 py-8">
         {/* Breadcrumb */}
         <div className="mb-6 text-sm text-[#5F6F64]">
-          <a href="/" className="hover:text-[#0E4F2A]">
+          <Link href="/" className="hover:text-[#0E4F2A]">
             Home
-          </a>
+          </Link>
           <span className="mx-2">›</span>
           <span>Post an Ad</span>
         </div>

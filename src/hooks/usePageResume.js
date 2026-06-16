@@ -6,25 +6,31 @@ export default function usePageResume(callback) {
   useEffect(() => {
     if (!callback) return;
 
-    const handlePageShow = (event) => {
-      // Browser restored page from back/forward cache
-      if (event.persisted) {
+    const run = () => {
+      setTimeout(() => {
         callback();
-      }
+      }, 0);
     };
 
+    const handlePageShow = () => run();
+    const handlePopState = () => run();
+    const handleFocus = () => run();
+
     const handleVisibilityChange = () => {
-      // User comes back to this tab/page
       if (document.visibilityState === 'visible') {
-        callback();
+        run();
       }
     };
 
     window.addEventListener('pageshow', handlePageShow);
+    window.addEventListener('popstate', handlePopState);
+    window.addEventListener('focus', handleFocus);
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       window.removeEventListener('pageshow', handlePageShow);
+      window.removeEventListener('popstate', handlePopState);
+      window.removeEventListener('focus', handleFocus);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [callback]);

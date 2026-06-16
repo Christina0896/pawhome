@@ -268,9 +268,9 @@ export default function ListingsPage() {
       <main className="mx-auto max-w-[1500px] px-6 py-10">
         {/* Breadcrumb */}
         <div className="mb-6 text-sm text-[#5F6F64]">
-          <a href="/" className="hover:text-[#0E4F2A]">
+          <Link href="/" className="hover:text-[#0E4F2A]">
             Home
-          </a>
+          </Link>
           <span className="mx-2">›</span>
           <span>Listings</span>
         </div>
@@ -288,7 +288,7 @@ export default function ListingsPage() {
 
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-[280px_1fr]">
           {/* Filters */}
-          <aside className="h-fit rounded-2xl border border-[#E8DFD1] bg-white p-5 shadow-sm">
+          <Linkside className="h-fit rounded-2xl border border-[#E8DFD1] bg-white p-5 shadow-sm">
             <div className="mb-5 flex items-center justify-between">
               <h2 className="text-lg font-bold text-[#123524]">Filters</h2>
 
@@ -479,7 +479,7 @@ export default function ListingsPage() {
                 </label>
               </div>
             </div>
-          </aside>
+          </Linkside>
 
           {/* Listings */}
           <section>
@@ -519,7 +519,7 @@ export default function ListingsPage() {
                   const mainImage = sortedPhotos[0]?.image_url;
 
                   return (
-                    <a
+                    <Link
                       key={listing.id}
                       href={`/listings/${listing.id}`}
                       className="group flex h-full flex-col overflow-hidden rounded-2xl border border-(--border-beige) bg-(--secondary-background) shadow-[0_6px_18px_rgba(18,53,36,0.07)] transition hover:-translate-y-1 hover:shadow-[0_10px_26px_rgba(18,53,36,0.11)]"
@@ -616,7 +616,7 @@ export default function ListingsPage() {
                           )}
                         </div>
                       </div>
-                    </a>
+                    </Link>
                   );
                 })}
               </div>

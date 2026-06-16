@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Header from '../../components/header';
 import Footer from '../../components/footer';
 import ContactModal from '../../components/ContactModal';
+import Link from 'next/link'
 
 const featureCards = [
   {
@@ -123,19 +124,19 @@ export default function AboutPage() {
               </p>
 
               <div className="mt-8 flex flex-wrap gap-3">
-                <a
+                <Link
                   href="/listings"
                   className="rounded-xl bg-(--primary-orange) px-6 py-3 text-sm font-bold text-white transition hover:scale-105 hover:bg-(--secondary-orange)"
                 >
                   Browse listings
-                </a>
+                </Link>
 
-                <a
+                <Link
                   href="/post-ad"
                   className="rounded-xl bg-(--primary-green) px-6 py-3 text-sm font-bold text-white transition hover:scale-105 hover:bg-(--secondary-green)"
                 >
                   Post an ad
-                </a>
+                </Link>
               </div>
             </div>
 

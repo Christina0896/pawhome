@@ -7,6 +7,7 @@ import Footer from '../../../../../components/footer';
 import { supabase } from '../../../../../lib/supabaseClient';
 import { counties } from '../../../../../data/countyList';
 import { dogBreeds, catBreeds, otherPetTypes } from '../../../../../data/petOptions';
+import Link from 'next/link'
 
 const emptyForm = {
   title: '',
@@ -499,9 +500,9 @@ export default function EditListingPage() {
 
       <main className="mx-auto max-w-[1440px] px-6 py-10">
         <div className="mb-6 text-sm text-(--muted-green-text)">
-          <a href="/profile" className="hover:text-(--primary-green)">
+          <Link href="/profile" className="hover:text-(--primary-green)">
             Profile
-          </a>
+          </Link>
           <span className="mx-2">›</span>
           <span>Edit Listing</span>
         </div>
@@ -518,12 +519,12 @@ export default function EditListingPage() {
             </div>
 
             <div className="flex gap-3">
-              <a
+              <Link
                 href="/profile"
                 className="flex h-11 items-center justify-center rounded-xl border border-(--border-beige) px-5 text-sm font-bold text-(--secondary-green) transition hover:border-(--primary-green)"
               >
                 Cancel
-              </a>
+              </Link>
 
               <button
                 type="submit"
@@ -897,12 +898,12 @@ export default function EditListingPage() {
           </section>
 
           <div className="mt-8 flex flex-col-reverse gap-3 border-t border-(--border-beige) pt-6 sm:flex-row sm:justify-end">
-            <a
+            <Link
               href="/profile"
               className="flex h-12 items-center justify-center rounded-xl border border-(--border-beige) px-6 text-sm font-bold text-(--secondary-green) transition hover:border-(--primary-green)"
             >
               Cancel
-            </a>
+            </Link>
 
             <button
               type="submit"

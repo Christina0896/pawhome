@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Header from '../../components/header';
 import Footer from '../../components/footer';
 import { supabase } from '../../lib/supabaseClient';
+import Link from 'next/link';
 
 export default function FavoritesPage() {
   const [favorites, setFavorites] = useState([]);
@@ -72,12 +73,12 @@ export default function FavoritesPage() {
 
             <p className="mt-3 text-sm text-[#5F6F64]">Save listings by clicking the heart icon.</p>
 
-            <a
+            <Link
               href="/listings"
               className="mt-6 inline-flex rounded-xl bg-[#0E4F2A] px-6 py-3 text-sm font-semibold text-white"
             >
               Browse Listings
-            </a>
+            </Link>
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-6 md:grid-cols-3 lg:grid-cols-4">
@@ -88,7 +89,7 @@ export default function FavoritesPage() {
               const mainImage = sortedPhotos[0]?.image_url;
 
               return (
-                <a
+                <Link
                   key={favorite.id}
                   href={`/listings/${listing.id}`}
                   className="overflow-hidden rounded-2xl border border-[#E8DFD1] bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-md"
@@ -124,7 +125,7 @@ export default function FavoritesPage() {
                       )}
                     </div>
                   </div>
-                </a>
+                </Link>
               );
             })}
           </div>

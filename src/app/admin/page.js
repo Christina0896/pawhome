@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Header from '../../components/header';
 import Footer from '../../components/footer';
 import { supabase } from '../../lib/supabaseClient';
+import Link from 'next/link'
 
 const ADMIN_EMAILS = [
   'cristinabandeira82@gmail.com',
@@ -290,7 +291,7 @@ const deleteReport = async (reportId) => {
         {/* Page content */}
         {selectedStatus === 'reports' ? (
           loading ? (
-            <AdminMessageCard text="Loading reports..." />
+            <LinkdminMessageCard text="Loading reports..." />
           ) : reports.length === 0 ? (
             <EmptyState selectedStatus="reports" />
           ) : (
@@ -308,7 +309,7 @@ const deleteReport = async (reportId) => {
             </div>
           )
         ) : loading ? (
-          <AdminMessageCard text="Loading listings..." />
+          <LinkdminMessageCard text="Loading listings..." />
         ) : listings.length === 0 ? (
           <EmptyState selectedStatus={selectedStatus} />
         ) : (
@@ -360,7 +361,7 @@ const ListingReviewCard = ({ listing, selectedStatus, updateListingStatus, delet
         : '-';
 
   return (
-    <article className="overflow-hidden rounded-3xl border border-(--border-beige) bg-white shadow-sm">
+    <Linkrticle className="overflow-hidden rounded-3xl border border-(--border-beige) bg-white shadow-sm">
       <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr]">
         {/* Listing image */}
         <div className="relative h-64 bg-(--light-green) lg:h-full">
@@ -437,7 +438,7 @@ const ListingReviewCard = ({ listing, selectedStatus, updateListingStatus, delet
             </p>
           </div>
 
-          <AdminActions
+          <LinkdminActions
             listingId={listing.id}
             selectedStatus={selectedStatus}
             updateListingStatus={updateListingStatus}
@@ -445,7 +446,7 @@ const ListingReviewCard = ({ listing, selectedStatus, updateListingStatus, delet
           />
         </div>
       </div>
-    </article>
+    </Linkrticle>
   );
 };
 
@@ -453,7 +454,7 @@ const ReportReviewCard = ({ report, markReportReviewed, deleteReport, updateList
   const listing = report.listings;
 
   return (
-    <article className="overflow-hidden rounded-3xl border border-red-100 bg-white shadow-sm">
+    <Linkrticle className="overflow-hidden rounded-3xl border border-red-100 bg-white shadow-sm">
       <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr]">
         <div className="relative h-64 bg-(--light-green) lg:h-full">
           {report.mainImage ? (
@@ -521,14 +522,14 @@ const ReportReviewCard = ({ report, markReportReviewed, deleteReport, updateList
           <div className="mt-6 flex flex-col gap-3 border-t border-(--border-beige) pt-5 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-wrap gap-2">
               {report.listing_id && (
-                <a
+                <Link
                   href={`/listings/${report.listing_id}`}
                   target="_blank"
                   rel="noreferrer"
                   className="rounded-xl border border-(--border-beige) bg-white px-5 py-3 text-sm font-bold text-(--secondary-green) transition hover:border-(--primary-green)"
                 >
                   Preview Listing
-                </a>
+                </Link>
               )}
 
               <button
@@ -572,7 +573,7 @@ const ReportReviewCard = ({ report, markReportReviewed, deleteReport, updateList
           </div>
         </div>
       </div>
-    </article>
+    </Linkrticle>
   );
 };
 
@@ -636,14 +637,14 @@ const AdminActions = ({ listingId, selectedStatus, updateListingStatus, deleteLi
   return (
     <div className="mt-6 flex flex-col gap-3 border-t border-(--border-beige) pt-5 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex flex-wrap gap-2">
-        <a
+        <Link
           href={`/listings/${listingId}`}
           target="_blank"
           rel="noreferrer"
           className="rounded-xl border border-(--border-beige) bg-white px-5 py-3 text-sm font-bold text-(--secondary-green) transition hover:border-(--primary-green)"
         >
           Preview Ad
-        </a>
+        </Link>
 
         {selectedStatus !== 'approved' && (
           <button

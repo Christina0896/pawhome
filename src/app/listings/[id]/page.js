@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Header from '../../../components/header';
 import Footer from '../../../components/footer';
+import Link from 'next/link';
 import { supabase } from '../../../lib/supabaseClient';
 import {
   AgeIcon,
@@ -426,12 +427,12 @@ export default function ListingDetailPage() {
           <div className="rounded-3xl border border-(--border-beige) bg-white p-10 text-center">
             <h1 className="text-2xl font-extrabold text-(--secondary-green)">Listing not found</h1>
 
-            <a
+            <Link
               href="/listings"
               className="mt-6 inline-flex rounded-xl bg-(--primary-green) px-6 py-3 text-sm font-bold text-white"
             >
               Back to listings
-            </a>
+            </Link>
           </div>
         </main>
 
@@ -536,15 +537,15 @@ export default function ListingDetailPage() {
       <main className="mx-auto max-w-(--page-max-width) px-6 py-8">
         {/* Breadcrumb */}
         <div className="mb-6 flex flex-wrap items-center gap-2 text-xs text-(--muted-green-text)">
-          <a href="/" className="hover:text-(--primary-green)">
+          <Link href="/" className="hover:text-(--primary-green)">
             Home
-          </a>
+          </Link>
 
           <span>›</span>
 
-          <a href="/listings" className="hover:text-(--primary-green)">
+          <Link href="/listings" className="hover:text-(--primary-green)">
             Listings
-          </a>
+          </Link>
 
           <span>›</span>
 
@@ -920,12 +921,12 @@ const SafetyCard = () => {
         ))}
       </ul>
 
-      <a
+      <Link
         href="/safety"
         className="mt-6 flex h-11 items-center justify-center rounded-xl border border-(--primary-green) text-sm font-bold text-(--primary-green) transition hover:bg-(--primary-green) hover:text-white"
       >
         Learn more about safe buying
-      </a>
+      </Link>
     </section>
   );
 };
@@ -1000,9 +1001,9 @@ const SimilarAds = ({ listings }) => {
       <div className="mb-4 flex items-center justify-between gap-4">
         <h2 className="text-2xl font-extrabold text-(--secondary-green)">Similar Ads</h2>
 
-        <a href="/listings" className="text-sm font-bold text-(--primary-green) hover:text-(--primary-orange)">
+        <Link href="/listings" className="text-sm font-bold text-(--primary-green) hover:text-(--primary-orange)">
           View all listings →
-        </a>
+        </Link>
       </div>
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
@@ -1021,7 +1022,7 @@ const SimilarAds = ({ listings }) => {
             : 'recently';
 
           return (
-            <a
+            <Link
               key={similar.id}
               href={`/listings/${similar.id}`}
               className="group flex h-full flex-col overflow-hidden rounded-2xl border border-(--border-beige) bg-(--secondary-background) shadow-[0_6px_18px_rgba(18,53,36,0.07)] transition hover:-translate-y-1 hover:shadow-[0_10px_26px_rgba(18,53,36,0.11)]"
@@ -1101,7 +1102,7 @@ const SimilarAds = ({ listings }) => {
                   )}
                 </div>
               </div>
-            </a>
+            </Link>
           );
         })}
       </div>

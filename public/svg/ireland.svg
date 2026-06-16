@@ -56,7 +56,7 @@
      type="text/css"
      id="style4">
 		/* you can change these to suit your needs */
-		#eire, #north { fill: #393; }
+		#eire, #north { fill: #993333; }
 		#sea, #lakes { fill: #9EC7F3; }
 		#boundary { fill: none; stroke: black;  }
 	</style>

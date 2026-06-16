@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabaseClient';
 import ContactModal from './ContactModal';
 import LoginModal from './LoginModal';
 import { HeartIcon } from './Icons';
+import Link from 'next/link'
 
 const Header = () => {
   const [user, setUser] = useState(null);
@@ -100,19 +101,19 @@ const Header = () => {
       <header className=" top-0 z-999 border-b border-(--border-beige) bg-(--background)">
         <nav className="mx-auto flex h-16 max-w-(--page-max-width) items-center justify-between px-4 md:px-6">
           {/* Logo */}
-          <a href="/" className="flex items-center">
+          <Link href="/" className="flex items-center">
             <img src="/img/logo.png" alt="PawHome Logo" className="h-16 w-auto object-contain md:h-15" />
-          </a>
+          </Link>
 
           {/* Desktop navigation */}
           <div className="hidden items-center gap-15 font-bold text-(--primary-green) lg:flex">
-            <a href="/shelters" className="inline-block transition duration-200 hover:scale-110">
+            <Link href="/shelters" className="inline-block transition duration-200 hover:scale-110">
               Shelters
-            </a>
+            </Link>
 
-            <a href="/BreedGuide" className="inline-block transition duration-200 hover:scale-110 ">
+            <Link href="/BreedGuide" className="inline-block transition duration-200 hover:scale-110 ">
               Breed Guide
-            </a>
+            </Link>
 
             <button
               type="button"
@@ -121,9 +122,9 @@ const Header = () => {
             >
               Contact Us
             </button>
-            <a href="/AboutUs" className="inline-block transition duration-200 hover:scale-110 ">
+            <Link href="/AboutUs" className="inline-block transition duration-200 hover:scale-110 ">
               About Us
-            </a>
+            </Link>
           </div>
 
           {/* Desktop right side */}
@@ -140,12 +141,12 @@ const Header = () => {
               <div className="h-5 w-20 rounded " />
             ) : user ? (
               <>
-                <a
+                <Link
                   href="/profile"
                   className="inline-block font-bold text-(--primary-green) transition duration-200 hover:scale-110 cursor-pointer"
                 >
                   Profile
-                </a>
+                </Link>
 
                 <button
                   type="button"
@@ -165,14 +166,14 @@ const Header = () => {
                   Login
                 </button>
 
-                <a
+                <Link
                   href="/register"
                   type="button"
                   onClick={handleRegisterClick}
                   className="inline-block font-bold text-(--primary-green) transition duration-200 hover:scale-110 cursor-pointer "
                 >
                   Register
-                </a>
+                </Link>
               </>
             )}
 
@@ -209,17 +210,17 @@ const Header = () => {
         {mobileMenuOpen && (
           <div className="border-t border-(--border-beige) bg-white px-4 py-5 lg:hidden">
             <div className="mx-auto flex max-w-[1500px] flex-col gap-4 font-semibold text-(--primary-green)">
-              <a href="/shelters" onClick={() => setMobileMenuOpen(false)} className="">
+              <Link href="/shelters" onClick={() => setMobileMenuOpen(false)} className="">
                 Shelters
-              </a>
+              </Link>
 
-              <a href="/BuyingSafely" onClick={() => setMobileMenuOpen(false)} className="">
+              <Link href="/BuyingSafely" onClick={() => setMobileMenuOpen(false)} className="">
                 Buying Safely
-              </a>
+              </Link>
 
-              <a href="/BreedGuide" onClick={() => setMobileMenuOpen(false)} className="">
+              <Link href="/BreedGuide" onClick={() => setMobileMenuOpen(false)} className="">
                 Breed Guide
-              </a>
+              </Link>
 
               <button
                 type="button"
@@ -238,9 +239,9 @@ const Header = () => {
                 <div className="h-5 w-24 rounded " />
               ) : user ? (
                 <>
-                  <a href="/profile" onClick={() => setMobileMenuOpen(false)} className="">
+                  <Link href="/profile" onClick={() => setMobileMenuOpen(false)} className="">
                     Profile
-                  </a>
+                  </Link>
 
                   <button
                     type="button"
@@ -263,13 +264,13 @@ const Header = () => {
                     Login
                   </button>
 
-                  <a
+                  <Link
                     href="/register"
                     onClick={() => setMobileMenuOpen(false)}
                     className="rounded-xl  bg-white px-4 py-3 text-center text-sm font-bold text-[var(--primary-green)] transition hover:border-[var(--primary-green)]"
                   >
                     Register
-                  </a>
+                  </Link>
                 </>
               )}
 

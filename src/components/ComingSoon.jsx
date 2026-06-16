@@ -1,5 +1,6 @@
 import Header from "./header";
 import Footer from "./footer";
+import Link from 'next/link'
 
 export default function ComingSoon({ title = "Working on it" }) {
   return (
@@ -21,12 +22,12 @@ export default function ComingSoon({ title = "Working on it" }) {
             PawHome.
           </p>
 
-          <a
+          <Link
             href="/"
             className="mt-8 inline-flex rounded-xl bg-[#0E4F2A] px-6 py-3 text-sm font-semibold text-white"
           >
             Back to Home
-          </a>
+          </Link>
         </div>
       </main>
 

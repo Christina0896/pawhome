@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Header from '../../components/header';
 import Footer from '../../components/footer';
 import { supabase } from '../../lib/supabaseClient';
+import Link from 'next/link'
 
 const allowedAvatarTypes = ['image/jpeg', 'image/png', 'image/webp'];
 
@@ -292,7 +293,7 @@ export default function ProfilePage() {
 
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-[340px_1fr]">
           {/* Left profile panel */}
-          <aside className="h-fit rounded-3xl border border-(--border-beige) bg-white p-6 shadow-[0_8px_24px_rgba(18,53,36,0.05)] lg:sticky lg:top-24">
+          <Linkside className="h-fit rounded-3xl border border-(--border-beige) bg-white p-6 shadow-[0_8px_24px_rgba(18,53,36,0.05)] lg:sticky lg:top-24">
             <ProfileAvatar
               user={user}
               metadata={metadata}
@@ -443,7 +444,7 @@ export default function ProfilePage() {
                 </button>
               </div>
             </form>
-          </aside>
+          </Linkside>
 
           {/* Right listings panel */}
           <section className="rounded-3xl border border-(--border-beige) bg-white p-6 shadow-[0_8px_24px_rgba(18,53,36,0.05)]">
@@ -454,12 +455,12 @@ export default function ProfilePage() {
                 <p className="mt-1 text-sm text-(--muted-green-text)">View, edit, or delete your submitted ads.</p>
               </div>
 
-              <a
+              <Link
                 href="/post-ad"
                 className="inline-flex items-center justify-center rounded-xl bg-(--primary-orange) px-5 py-3 text-sm font-bold text-white transition hover:scale-105 hover:bg-(--secondary-orange)"
               >
                 Post new ad
-              </a>
+              </Link>
             </div>
 
             {myListings.length === 0 ? (
@@ -611,12 +612,12 @@ const EmptyListings = () => {
         Once you submit an ad, it will appear here. You can manage it from your profile.
       </p>
 
-      <a
+      <Link
         href="/post-ad"
         className="mt-6 inline-flex rounded-xl bg-(--primary-orange) px-6 py-3 text-sm font-bold text-white transition hover:scale-105"
       >
         Post your first ad
-      </a>
+      </Link>
     </div>
   );
 };
@@ -686,19 +687,19 @@ const ProfileListingCard = ({ listing, handleDeleteListing }) => {
         )}
 
         <div className="mt-auto grid grid-cols-3 gap-2 pt-5">
-          <a
+          <Link
             href={`/listings/${listing.id}`}
             className="rounded-xl border border-(--border-beige) px-3 py-2 text-center text-sm font-bold text-(--secondary-green) transition hover:border-(--primary-green)"
           >
             View
-          </a>
+          </Link>
 
-          <a
+          <Link
             href={`/profile/listings/${listing.id}/edit`}
             className="flex h-10 items-center justify-center rounded-xl bg-(--primary-green) text-sm font-bold text-white transition hover:scale-105"
           >
             Edit
-          </a>
+          </Link>
 
           <button
             type="button"

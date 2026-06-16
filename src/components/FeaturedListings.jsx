@@ -2,8 +2,9 @@
 
 import { supabase } from '../lib/supabaseClient';
 import { FemaleIcon, MaleIcon, MixedGenderIcon, LocationIcon, CalendarIcon } from './Icons';
-import { useCallback, useEffect, useState } from 'react';
-import usePageResume from '../hooks/usePageResume';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { usePathname } from 'next/navigation';
+import Link from 'next/link';
 
 const formatDate = (date) => {
   if (!date) return 'recently';
@@ -48,11 +49,24 @@ const FeaturedListings = () => {
   const [currentUser, setCurrentUser] = useState(null);
   const [favoriteIds, setFavoriteIds] = useState([]);
 
+  const pathname = usePathname();
+  const requestIdRef = useRef(0);
+
   const fetchFeaturedListings = useCallback(async () => {
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
+
     setLoading(true);
 
+    // Safety: never allow endless loading
+    const loadingTimeout = setTimeout(() => {
+      if (requestIdRef.current === requestId) {
+        setLoading(false);
+      }
+    }, 5000);
+
     try {
-      const { data: listingsData, error: listingsError } = await supabase
+      const { data, error } = await supabase
         .from('listings')
         .select(
           `
@@ -67,60 +81,100 @@ const FeaturedListings = () => {
         .order('created_at', { ascending: false })
         .limit(4);
 
-      if (listingsError) {
-        console.warn('Featured listings error:', listingsError);
+      if (requestIdRef.current !== requestId) return;
+
+      if (error) {
+        console.warn('Featured listings error:', error);
         setListings([]);
         return;
       }
 
-      setListings(listingsData || []);
+      setListings(data || []);
+    } catch (err) {
+      if (requestIdRef.current !== requestId) return;
 
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
+      console.warn('Featured listings crashed:', err);
+      setListings([]);
+    } finally {
+      clearTimeout(loadingTimeout);
 
-      if (userError) {
-        console.warn('Featured auth error:', userError);
-        setCurrentUser(null);
-        setFavoriteIds([]);
-        return;
+      if (requestIdRef.current === requestId) {
+        setLoading(false);
       }
+    }
+  }, []);
 
-      setCurrentUser(user || null);
+  const fetchFavouriteIds = useCallback(async () => {
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      const user = session?.user || null;
+
+      setCurrentUser(user);
 
       if (!user) {
         setFavoriteIds([]);
         return;
       }
 
-      const { data: favoritesData, error: favoritesError } = await supabase
-        .from('favorites')
-        .select('listing_id')
-        .eq('user_id', user.id);
+      const { data, error } = await supabase.from('favorites').select('listing_id').eq('user_id', user.id);
 
-      if (favoritesError) {
-        console.warn('Featured favorites error:', favoritesError);
+      if (error) {
+        console.warn('Featured favourites error:', error);
         setFavoriteIds([]);
         return;
       }
 
-      setFavoriteIds((favoritesData || []).map((fav) => fav.listing_id));
+      setFavoriteIds((data || []).map((fav) => fav.listing_id));
     } catch (err) {
-      console.warn('Featured listings crashed:', err);
-      setListings([]);
-      setFavoriteIds([]);
+      console.warn('Featured favourites crashed:', err);
       setCurrentUser(null);
-    } finally {
-      setLoading(false);
+      setFavoriteIds([]);
     }
   }, []);
 
-  useEffect(() => {
+  const refreshFeaturedSection = useCallback(() => {
     fetchFeaturedListings();
-  }, [fetchFeaturedListings]);
+    fetchFavouriteIds();
+  }, [fetchFeaturedListings, fetchFavouriteIds]);
 
-  usePageResume(fetchFeaturedListings);
+  useEffect(() => {
+    refreshFeaturedSection();
+  }, [refreshFeaturedSection, pathname]);
+
+  useEffect(() => {
+    const handlePageShow = () => {
+      refreshFeaturedSection();
+    };
+
+    const handlePopState = () => {
+      refreshFeaturedSection();
+    };
+
+    const handleFocus = () => {
+      refreshFeaturedSection();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshFeaturedSection();
+      }
+    };
+
+    window.addEventListener('pageshow', handlePageShow);
+    window.addEventListener('popstate', handlePopState);
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('pageshow', handlePageShow);
+      window.removeEventListener('popstate', handlePopState);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [refreshFeaturedSection]);
 
   // Add/remove listing from favorites
   const toggleFavorite = async (e, listingId) => {
@@ -170,9 +224,9 @@ const FeaturedListings = () => {
         <div className="mb-6 flex items-center justify-between">
           <h2 className="text-2xl font-bold tracking-tight text-(--primary-green)">Featured Listings</h2>
 
-          <a href="/listings" className="text-sm font-bold text-(--primary-orange) hover:text-(--secondary-orange)">
+          <Link href="/listings" className="text-sm font-bold text-(--primary-orange) hover:text-(--secondary-orange)">
             View all listings →
-          </a>
+          </Link>
         </div>
 
         {loading ? (
@@ -183,7 +237,7 @@ const FeaturedListings = () => {
               const mainImage = getMainImage(listing.listing_photos);
 
               return (
-                <a
+                <Link
                   key={listing.id}
                   href={`/listings/${listing.id}`}
                   className="group flex h-full flex-col overflow-hidden rounded-2xl border border-(--border-beige) bg-(--secundary-background) shadow-[0_6px_18px_rgba(18,53,36,0.07)] transition hover:-translate-y-1 hover:shadow-[0_10px_26px_rgba(18,53,36,0.11)]"
@@ -277,7 +331,7 @@ const FeaturedListings = () => {
                       )}
                     </div>
                   </div>
-                </a>
+                </Link>
               );
             })}
           </div>
@@ -297,16 +351,16 @@ const FeaturedListings = () => {
             </p>
 
             <div className="mt-7 flex justify-center gap-4">
-              <a href="/post-ad" className="rounded-xl bg-(--primary-green) px-6 py-3 text-sm font-semibold text-white">
+              <Link href="/post-ad" className="rounded-xl bg-(--primary-green) px-6 py-3 text-sm font-semibold text-white">
                 Post an Ad
-              </a>
+              </Link>
 
-              <a
+              <Link
                 href="/safety"
                 className="rounded-xl border border-(--primary-green) px-6 py-3 text-sm font-semibold text-(--primary-green)"
               >
                 Learn Safety Rules
-              </a>
+              </Link>
             </div>
           </div>
         )}

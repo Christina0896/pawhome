@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import Link from 'next/link'
 
 const LoginModal = ({ onClose }) => {
   // Modal mode: login form or password reset form
@@ -161,12 +162,12 @@ const LoginModal = ({ onClose }) => {
 
             <p className="mt-6 text-center text-sm text-(--muted-green-text)">
               No account yet?{' '}
-              <a
+              <Link
                 href="/register"
                 className="cursor-pointer font-semibold text-(--primary-orange) transition hover:text-(--secondary-orange)"
               >
                 Register
-              </a>
+              </Link>
             </p>
           </>
         )}

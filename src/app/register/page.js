@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Header from '../../components/header';
 import { counties } from '../../data/countyList';
 import { supabase } from '../../lib/supabaseClient';
+import Link from 'next/link'
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -230,13 +231,13 @@ export default function RegisterPage() {
               />
               <span className="text-black">
                 I agree to the{' '}
-                <a href="/terms" className="font-semibold text-(--primary-green) hover:text-(--primary-orange)">
+                <Link href="/terms" className="font-semibold text-(--primary-green) hover:text-(--primary-orange)">
                   Terms of Service
-                </a>{' '}
+                </Link>{' '}
                 and{' '}
-                <a href="/privacy" className="font-semibold text-(--primary-green) hover:text-(--primary-orange)">
+                <Link href="/privacy" className="font-semibold text-(--primary-green) hover:text-(--primary-orange)">
                   Privacy Policy
-                </a>
+                </Link>
                 .
               </span>
             </label>
@@ -268,9 +269,9 @@ export default function RegisterPage() {
 
         <p className="mt-6 text-center text-sm text-(--muted-green-text)">
           Already have an account?{' '}
-          <a href="/" className="font-semibold text-(--primary-green) hover:text-(--primary-orange)">
+          <Link href="/" className="font-semibold text-(--primary-green) hover:text-(--primary-orange)">
             Login
-          </a>
+          </Link>
         </p>
       </section>
     </>
