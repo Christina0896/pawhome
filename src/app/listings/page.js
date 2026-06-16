@@ -6,6 +6,7 @@ import Footer from '../../components/footer';
 import { supabase } from '../../lib/supabaseClient';
 import { counties } from '../../data/countyList';
 import { dogBreeds, catBreeds } from '../../data/petOptions';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import {
   FemaleIcon,
