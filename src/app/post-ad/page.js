@@ -5,7 +5,7 @@ import Header from '../../components/header';
 import { supabase } from '../../lib/supabaseClient';
 import { counties } from '../../data/countyList';
 import { dogBreeds, catBreeds, otherPetTypes } from '../../data/petOptions';
-import Link from 'next/link'
+import Link from 'next/link';
 
 const REQUIRE_VERIFICATION_TO_POST = false;
 
@@ -368,7 +368,8 @@ export default function PostAdPage() {
       userMetadata.phone_number || userMetadata.phone || ''
     }`.trim();
     const sellerMemberSince = user.created_at;
-    if (formData.price === '' || Number(formData.price) < 0) {
+
+    if (priceRequired && (!formData.price || Number(formData.price) <= 0)) {
       setErrors((prev) => ({
         ...prev,
         price: 'Price is required.',
@@ -397,7 +398,7 @@ export default function PostAdPage() {
 
         seller_type: formData.seller_type || 'Private Owner',
 
-        price: Number(formData.price),
+        price: formData.price === '' ? null : Number(formData.price),
         price_negotiable: formData.price_negotiable,
 
         microchipped: formData.microchipped,

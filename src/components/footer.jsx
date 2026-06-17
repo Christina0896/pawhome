@@ -1,57 +1,12 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import ContactModal from './ContactModal';
-import { supabase } from '../lib/supabaseClient';
-import { ShieldCheckIcon, ArrowIcon, PawIcon } from './Icons';
+import { ShieldCheckIcon } from './Icons';
 import Link from 'next/link';
 
 const Footer = () => {
-  const [topCounties, setTopCounties] = useState([]);
-  const [topBreeds, setTopBreeds] = useState([]);
   const [showContactModal, setShowContactModal] = useState(false);
-
-  useEffect(() => {
-    const fetchFooterData = async () => {
-      const { data, error } = await supabase.from('listings').select('county, breed').eq('status', 'approved');
-
-      if (error) {
-        console.error('Footer fetch error:', error);
-        return;
-      }
-
-      const countyCounts = {};
-      const breedCounts = {};
-
-      (data || []).forEach((listing) => {
-        if (listing.county) {
-          countyCounts[listing.county] = (countyCounts[listing.county] || 0) + 1;
-        }
-
-        if (listing.breed) {
-          breedCounts[listing.breed] = (breedCounts[listing.breed] || 0) + 1;
-        }
-      });
-
-      const sortedCounties = Object.entries(countyCounts)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 9)
-        .map(([county, count]) => ({ county, count }));
-
-      const sortedBreeds = Object.entries(breedCounts)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 9)
-        .map(([breed, count]) => ({ breed, count }));
-
-      setTopCounties(sortedCounties);
-      setTopBreeds(sortedBreeds);
-    };
-
-    fetchFooterData();
-  }, []);
-
-  const countyItems = topCounties;
-  const breedItems = topBreeds;
 
   return (
     <>

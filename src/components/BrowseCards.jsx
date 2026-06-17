@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '../lib/supabaseClient';
-import { ShieldCheckIcon, ArrowIcon, PawIcon, MapIcon } from './Icons';
+import { ShieldCheckIcon, ArrowIcon, PawIcon } from './Icons';
 
 const BrowseCards = () => {
   const [countyItems, setCountyItems] = useState([]);

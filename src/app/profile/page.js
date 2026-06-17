@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Header from '../../components/header';
 import Footer from '../../components/footer';
 import { supabase } from '../../lib/supabaseClient';
-import Link from 'next/link'
+import Link from 'next/link';
 
 const allowedAvatarTypes = ['image/jpeg', 'image/png', 'image/webp'];
 
@@ -293,7 +293,7 @@ export default function ProfilePage() {
 
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-[340px_1fr]">
           {/* Left profile panel */}
-          <Linkside className="h-fit rounded-3xl border border-(--border-beige) bg-white p-6 shadow-[0_8px_24px_rgba(18,53,36,0.05)] lg:sticky lg:top-24">
+          <aside className="h-fit rounded-3xl border border-(--border-beige) bg-white p-6 shadow-[0_8px_24px_rgba(18,53,36,0.05)] lg:sticky lg:top-24">
             <ProfileAvatar
               user={user}
               metadata={metadata}
@@ -444,7 +444,7 @@ export default function ProfilePage() {
                 </button>
               </div>
             </form>
-          </Linkside>
+          </aside>
 
           {/* Right listings panel */}
           <section className="rounded-3xl border border-(--border-beige) bg-white p-6 shadow-[0_8px_24px_rgba(18,53,36,0.05)]">

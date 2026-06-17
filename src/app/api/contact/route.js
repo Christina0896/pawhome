@@ -1,23 +1,26 @@
-import { Resend } from "resend";
-
-const resend = new Resend(process.env.RESEND_API_KEY);
+import { Resend } from 'resend';
 
 export async function POST(request) {
-  try {
-    const body = await request.json();
+  const resendApiKey = process.env.RESEND_API_KEY;
+  const fromEmail = process.env.CONTACT_FROM_EMAIL;
+  const toEmail = process.env.CONTACT_TO_EMAIL;
 
-    const { name, email, subject, message } = body;
+  if (!resendApiKey || !fromEmail || !toEmail) {
+    return Response.json({ error: 'Email service is not configured.' }, { status: 500 });
+  }
+
+  const resend = new Resend(resendApiKey);
+
+  try {
+    const { name, email, subject, message } = await request.json();
 
     if (!name || !email || !subject || !message) {
-      return Response.json(
-        { error: "All fields are required." },
-        { status: 400 }
-      );
+      return Response.json({ error: 'All fields are required.' }, { status: 400 });
     }
 
     const { error } = await resend.emails.send({
-      from: process.env.CONTACT_FROM_EMAIL,
-      to: process.env.CONTACT_TO_EMAIL,
+      from: fromEmail,
+      to: toEmail,
       replyTo: email,
       subject: `PawHome: ${subject}`,
       html: `
@@ -31,27 +34,21 @@ export async function POST(request) {
           <hr />
 
           <p><strong>Message:</strong></p>
-          <p>${message.replace(/\n/g, "<br />")}</p>
+          <p>${message.replace(/\n/g, '<br />')}</p>
         </div>
       `,
     });
 
     if (error) {
-      console.error("Resend error:", error);
+      console.error('Resend error:', error);
 
-      return Response.json(
-        { error: "Could not send message." },
-        { status: 500 }
-      );
+      return Response.json({ error: 'Failed to send message.' }, { status: 500 });
     }
 
-    return Response.json({ success: true });
+    return Response.json({ success: true }, { status: 200 });
   } catch (error) {
-    console.error("Contact API error:", error);
+    console.error('Contact route error:', error);
 
-    return Response.json(
-      { error: "Something went wrong." },
-      { status: 500 }
-    );
+    return Response.json({ error: 'Something went wrong.' }, { status: 500 });
   }
 }

@@ -1,12 +1,6 @@
 export const ArrowIcon = () => (
   <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" aria-hidden="true">
-    <path
-      d="M5 12h14M13 6l6 6-6 6"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
+    <path d="M5 12h14M13 6l6 6-6 6" stroke="#5f6f64" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
 
@@ -27,7 +21,7 @@ export const ChipIcon = () => (
 export const WormIcon = () => (
   <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="#5f6f64" strokeWidth="2">
     <path d="M5 14c2.5-6 7.5 5 14-3" strokeLinecap="round" strokeLinejoin="round" />
-    <circle cx="18" cy="10" r="1" fill="currentColor" />
+    <circle cx="18" cy="10" r="1" fill="#5f6f64" />
   </svg>
 );
 
@@ -147,27 +141,26 @@ export const CalendarIcon = () => (
   </svg>
 );
 
-export const HeartIcon = ({ className = 'h-5 w-5' }) => (
-  <svg
-    className={className}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden="true"
-  >
-    <path d="M20.8 4.6c-1.6-1.6-4.2-1.6-5.8 0L12 7.6 9 4.6c-1.6-1.6-4.2-1.6-5.8 0s-1.6 4.2 0 5.8L12 19.2l8.8-8.8c1.6-1.6 1.6-4.2 0-5.8Z" />
+export const HeartIcon = () => (
+  <svg width="18px" height="18px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+    <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+    <g id="SVGRepo_iconCarrier">
+      {' '}
+      <path
+        d="M12 19.7501C11.8012 19.7499 11.6105 19.6708 11.47 19.5301L4.70001 12.7401C3.78387 11.8054 3.27072 10.5488 3.27072 9.24006C3.27072 7.9313 3.78387 6.6747 4.70001 5.74006C5.6283 4.81186 6.88727 4.29042 8.20001 4.29042C9.51274 4.29042 10.7717 4.81186 11.7 5.74006L12 6.00006L12.28 5.72006C12.739 5.25606 13.2857 4.88801 13.8883 4.63736C14.4909 4.3867 15.1374 4.25845 15.79 4.26006C16.442 4.25714 17.088 4.38382 17.6906 4.63274C18.2931 4.88167 18.8402 5.24786 19.3 5.71006C20.2161 6.6447 20.7293 7.9013 20.7293 9.21006C20.7293 10.5188 20.2161 11.7754 19.3 12.7101L12.53 19.5001C12.463 19.5752 12.3815 19.636 12.2904 19.679C12.1994 19.7219 12.1006 19.7461 12 19.7501ZM8.21001 5.75006C7.75584 5.74675 7.30551 5.83342 6.885 6.00505C6.4645 6.17669 6.08215 6.42989 5.76001 6.75006C5.11088 7.40221 4.74646 8.28491 4.74646 9.20506C4.74646 10.1252 5.11088 11.0079 5.76001 11.6601L12 17.9401L18.23 11.6801C18.5526 11.3578 18.8086 10.9751 18.9832 10.5538C19.1578 10.1326 19.2477 9.68107 19.2477 9.22506C19.2477 8.76905 19.1578 8.31752 18.9832 7.89627C18.8086 7.47503 18.5526 7.09233 18.23 6.77006C17.9104 6.44929 17.5299 6.1956 17.1109 6.02387C16.6919 5.85215 16.2428 5.76586 15.79 5.77006C15.3358 5.76675 14.8855 5.85342 14.465 6.02505C14.0445 6.19669 13.6621 6.44989 13.34 6.77006L12.53 7.58006C12.3869 7.71581 12.1972 7.79149 12 7.79149C11.8028 7.79149 11.6131 7.71581 11.47 7.58006L10.66 6.77006C10.3395 6.44628 9.95791 6.18939 9.53733 6.01429C9.11675 5.83919 8.66558 5.74937 8.21001 5.75006Z"
+        fill="#000000"
+      ></path>{' '}
+    </g>
   </svg>
 );
 
-export const CloseIcon = ({ className = 'h-6 w-6' }) => (
+export const CloseIcon = () => (
   <svg
-    className={className}
+    className="h-4 w-4"
     viewBox="0 0 24 24"
     fill="none"
-    stroke="currentColor"
+    stroke="#5f6f64"
     strokeWidth="2"
     strokeLinecap="round"
     strokeLinejoin="round"
@@ -183,7 +176,7 @@ export const SearchIcon = ({ className = 'h-5 w-5' }) => (
     className={className}
     viewBox="0 0 24 24"
     fill="none"
-    stroke="currentColor"
+    stroke="#5f6f64"
     strokeWidth="2.4"
     strokeLinecap="round"
     strokeLinejoin="round"
@@ -195,7 +188,7 @@ export const SearchIcon = ({ className = 'h-5 w-5' }) => (
 );
 
 export const PawIcon = ({ className = 'h-5 w-5' }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+  <svg className={className} viewBox="0 0 24 24" fill="#5f6f64" aria-hidden="true">
     <circle cx="5.5" cy="9.5" r="2" />
     <circle cx="9.5" cy="5.8" r="2" />
     <circle cx="14.5" cy="5.8" r="2" />
@@ -209,7 +202,7 @@ export const BreedIcon = ({ className = 'h-5 w-5' }) => (
     className={className}
     viewBox="0 0 24 24"
     fill="none"
-    stroke="currentColor"
+    stroke="#5f6f64"
     strokeWidth="2.3"
     strokeLinecap="round"
     strokeLinejoin="round"
@@ -227,7 +220,7 @@ export const LocationIcon = ({ className = 'h-5 w-5' }) => (
     className={className}
     viewBox="0 0 24 24"
     fill="none"
-    stroke="currentColor"
+    stroke="#5f6f64"
     strokeWidth="2.3"
     strokeLinecap="round"
     strokeLinejoin="round"
@@ -243,7 +236,7 @@ export const ListingTypeIcon = ({ className = 'h-5 w-5' }) => (
     className={className}
     viewBox="0 0 24 24"
     fill="none"
-    stroke="currentColor"
+    stroke="#5f6f64"
     strokeWidth="2.3"
     strokeLinecap="round"
     strokeLinejoin="round"
@@ -258,7 +251,7 @@ export const ListingTypeIcon = ({ className = 'h-5 w-5' }) => (
 
 export const UnderlineIcon = ({ className = 'h-4 w-full' }) => (
   <svg className={className} viewBox="0 0 200 20" fill="none" preserveAspectRatio="none" aria-hidden="true">
-    <path d="M4 14C52 5 139 5 196 13" stroke="currentColor" strokeWidth="6" strokeLinecap="round" />
+    <path d="M4 14C52 5 139 5 196 13" stroke="#5f6f64" strokeWidth="6" strokeLinecap="round" />
   </svg>
 );
 
@@ -267,7 +260,7 @@ export const ShieldCheckIcon = ({ className = 'h-7 w-7' }) => (
     className={className}
     viewBox="0 0 24 24"
     fill="none"
-    stroke="currentColor"
+    stroke="#5f6f64"
     strokeWidth="2"
     strokeLinecap="round"
     strokeLinejoin="round"
@@ -283,7 +276,7 @@ export const LockIcon = ({ className = 'h-7 w-7' }) => (
     className={className}
     viewBox="0 0 24 24"
     fill="none"
-    stroke="currentColor"
+    stroke="#5f6f64"
     strokeWidth="2"
     strokeLinecap="round"
     strokeLinejoin="round"
@@ -292,7 +285,7 @@ export const LockIcon = ({ className = 'h-7 w-7' }) => (
     <rect x="5" y="10" width="14" height="10" rx="2" />
     <path d="M8 10V7.5A4 4 0 0 1 12 3.5a4 4 0 0 1 4 4V10" />
     <path d="M12 15v2" />
-    <circle cx="12" cy="14" r="1" fill="currentColor" stroke="none" />
+    <circle cx="12" cy="14" r="1" fill="#5f6f64" stroke="none" />
   </svg>
 );
 
@@ -301,7 +294,7 @@ export const UsersIcon = ({ className = 'h-7 w-7' }) => (
     className={className}
     viewBox="0 0 24 24"
     fill="none"
-    stroke="currentColor"
+    stroke="#5f6f64"
     strokeWidth="2"
     strokeLinecap="round"
     strokeLinejoin="round"
@@ -321,7 +314,7 @@ export const HeadsetIcon = ({ className = 'h-7 w-7' }) => (
     className={className}
     viewBox="0 0 24 24"
     fill="none"
-    stroke="currentColor"
+    stroke="#5f6f64"
     strokeWidth="2"
     strokeLinecap="round"
     strokeLinejoin="round"
@@ -339,7 +332,7 @@ export const FemaleIcon = ({ className = 'h-3.5 w-3.5' }) => (
     className={className}
     viewBox="0 0 24 24"
     fill="none"
-    stroke="currentColor"
+    stroke="#5f6f64"
     strokeWidth="2.4"
     strokeLinecap="round"
     strokeLinejoin="round"
@@ -356,7 +349,7 @@ export const MaleIcon = ({ className = 'h-3.5 w-3.5' }) => (
     className={className}
     viewBox="0 0 24 24"
     fill="none"
-    stroke="currentColor"
+    stroke="#5f6f64"
     strokeWidth="2.4"
     strokeLinecap="round"
     strokeLinejoin="round"
@@ -368,12 +361,12 @@ export const MaleIcon = ({ className = 'h-3.5 w-3.5' }) => (
   </svg>
 );
 
-export const MixedGenderIcon = ({ className = 'h-3.5 w-3.5' }) => (
+export const MixedGenderIcon = ({}) => (
   <svg
-    className={className}
+    className="h-3.5 w-3.5"
     viewBox="0 0 24 24"
     fill="none"
-    stroke="currentColor"
+    stroke="#5f6f64"
     strokeWidth="2.3"
     strokeLinecap="round"
     strokeLinejoin="round"
@@ -384,5 +377,21 @@ export const MixedGenderIcon = ({ className = 'h-3.5 w-3.5' }) => (
     <path d="M7 17h6" />
     <path d="M14 6l4-4" />
     <path d="M16 2h2v2" />
+  </svg>
+);
+export const PhoneIcon = ({ className = 'h-5 w-5' }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" transform="rotate(90)">
+    <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+    <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+    <g id="SVGRepo_iconCarrier">
+      {' '}
+      <path
+        d="M21 5.5C21 14.0604 14.0604 21 5.5 21C5.11378 21 4.73086 20.9859 4.35172 20.9581C3.91662 20.9262 3.69906 20.9103 3.50103 20.7963C3.33701 20.7019 3.18146 20.5345 3.09925 20.364C3 20.1582 3 19.9181 3 19.438V16.6207C3 16.2169 3 16.015 3.06645 15.842C3.12515 15.6891 3.22049 15.553 3.3441 15.4456C3.48403 15.324 3.67376 15.255 4.05321 15.117L7.26005 13.9509C7.70153 13.7904 7.92227 13.7101 8.1317 13.7237C8.31637 13.7357 8.49408 13.7988 8.64506 13.9058C8.81628 14.0271 8.93713 14.2285 9.17882 14.6314L10 16C12.6499 14.7999 14.7981 12.6489 16 10L14.6314 9.17882C14.2285 8.93713 14.0271 8.81628 13.9058 8.64506C13.7988 8.49408 13.7357 8.31637 13.7237 8.1317C13.7101 7.92227 13.7904 7.70153 13.9509 7.26005L13.9509 7.26005L15.117 4.05321C15.255 3.67376 15.324 3.48403 15.4456 3.3441C15.553 3.22049 15.6891 3.12515 15.842 3.06645C16.015 3 16.2169 3 16.6207 3H19.438C19.9181 3 20.1582 3 20.364 3.09925C20.5345 3.18146 20.7019 3.33701 20.7963 3.50103C20.9103 3.69907 20.9262 3.91662 20.9581 4.35173C20.9859 4.73086 21 5.11378 21 5.5Z"
+        stroke="#000000"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      ></path>{' '}
+    </g>
   </svg>
 );

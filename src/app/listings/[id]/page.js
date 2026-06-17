@@ -26,6 +26,8 @@ import {
   FemaleIcon,
   MaleIcon,
   MixedGenderIcon,
+  ShieldCheckIcon,
+  PhoneIcon,
 } from '../../../components/Icons';
 
 const formatDate = (value, options) => {
@@ -86,33 +88,6 @@ export default function ListingDetailPage() {
       return {
         ...current,
         phone_clicks: data ?? current.phone_clicks ?? 0,
-      };
-    });
-  };
-  const trackListingView = async (listingIdToTrack) => {
-    if (!listingIdToTrack) return;
-
-    const storageKey = `pawhome-viewed-${listingIdToTrack}`;
-
-    if (sessionStorage.getItem(storageKey)) return;
-
-    sessionStorage.setItem(storageKey, 'true');
-
-    const { data, error } = await supabase.rpc('increment_listing_views', {
-      listing_id_input: listingIdToTrack,
-    });
-
-    if (error) {
-      console.warn('View tracking failed:', error);
-      return;
-    }
-
-    setListing((current) => {
-      if (!current) return current;
-
-      return {
-        ...current,
-        views: data ?? current.views ?? 0,
       };
     });
   };
@@ -276,30 +251,6 @@ export default function ListingDetailPage() {
     if (photos.length === 0) return;
 
     setSelectedPhotoIndex((prev) => (prev === photos.length - 1 ? 0 : prev + 1));
-  };
-
-  const handleShowPhone = async () => {
-    if (!listing?.id) return;
-
-    setPhoneVisible(true);
-
-    const { data: newPhoneClickCount, error } = await supabase.rpc('increment_listing_phone_clicks', {
-      listing_id_input: Number(listing.id),
-    });
-
-    if (error) {
-      console.warn('Phone click tracking failed:', error);
-      return;
-    }
-
-    setListing((current) => {
-      if (!current) return current;
-
-      return {
-        ...current,
-        phone_clicks: newPhoneClickCount ?? current.phone_clicks ?? 0,
-      };
-    });
   };
 
   const handleToggleFavourite = async () => {
@@ -850,24 +801,36 @@ const SellerCard = ({
           onClick={onShowPhoneNumber}
           className="mt-6 flex h-14 w-full items-center justify-center rounded-xl bg-(--primary-orange) text-sm font-extrabold text-white transition hover:bg-(--secondary-orange)"
         >
-          ☎ {phoneVisible ? listing.contact_phone || listing.phone || 'Phone not provided' : 'Show Phone Number'}
+          <span className="mx-2">
+            <PhoneIcon />
+          </span>{' '}
+          {phoneVisible ? listing.contact_phone || listing.phone || 'Phone not provided' : 'Show Phone Number'}
         </button>
       </div>
 
       <div className="grid grid-cols-3 border-t border-(--border-beige) text-center text-xs">
-        <div className="border-r border-(--border-beige) px-3 py-4">
-          <p className="font-extrabold text-(--secondary-green)">{listing.views || 0}</p>
-          <p className="mt-1 text-(--muted-green-text)">views</p>
+        <div className="flex flex-col items-center  border-r border-(--border-beige) px-3 py-3">
+          <span>
+            <EyeIcon />
+          </span>
+          <p className="mt-0.5 font-extrabold text-(--secondary-green)">{listing.views || 0}</p>
+          <p className=" text-(--muted-green-text)">views</p>
         </div>
 
-        <div className="border-r border-(--border-beige) px-3 py-4">
-          <p className="font-extrabold text-(--secondary-green)">{listing.favourites_count || 0}</p>
-          <p className="mt-1 text-(--muted-green-text)">favourites</p>
+        <div className="flex flex-col items-center border-r border-(--border-beige) px-3 py-3">
+          <span>
+            <HeartIcon />
+          </span>
+          <p className="mt-0.5 font-extrabold text-(--secondary-green)">{listing.favourites_count || 0}</p>
+          <p className=" text-(--muted-green-text)">favourites</p>
         </div>
 
-        <div className="px-3 py-4">
-          <p className="font-extrabold text-(--secondary-green)">{listing.phone_clicks || 0}</p>
-          <p className="mt-1 text-(--muted-green-text)">phone clicks</p>
+        <div className="flex flex-col items-center  px-3 py-3">
+          <span>
+            <PhoneIcon className="h-4" />
+          </span>
+          <p className="mt-1 font-extrabold text-(--secondary-green)">{listing.phone_clicks || 0}</p>
+          <p className=" text-(--muted-green-text)">phone clicks</p>
         </div>
       </div>
 
@@ -899,8 +862,8 @@ const SafetyCard = () => {
   return (
     <section className="rounded-3xl border border-(--border-beige) bg-white p-6 shadow-sm">
       <div className="flex items-start gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-(--background) text-lg">
-          🛡️
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-(--light-green) text-lg">
+          <ShieldCheckIcon />
         </div>
 
         <div>
@@ -972,7 +935,7 @@ const SaveReminder = ({ isFavourite, handleToggleFavourite }) => {
     <section className="rounded-3xl border border-(--border-beige) bg-(--light-green) p-5 shadow-sm">
       <div className="flex items-center gap-4">
         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white text-2xl text-(--primary-green)">
-          ♡
+          <HealthIcon />
         </div>
 
         <div>

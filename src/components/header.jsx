@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabaseClient';
 import ContactModal from './ContactModal';
 import LoginModal from './LoginModal';
 import { HeartIcon } from './Icons';
-import Link from 'next/link'
+import Link from 'next/link';
 
 const Header = () => {
   const [user, setUser] = useState(null);
@@ -74,11 +74,6 @@ const Header = () => {
   const handleLoginClick = () => {
     setMobileMenuOpen(false);
     setShowLoginModal(true);
-  };
-
-  const handleRegisterClick = () => {
-    setMobileMenuOpen(false);
-    window.location.href = '/login?mode=register';
   };
 
   const handlePostAdClick = async () => {
@@ -169,7 +164,6 @@ const Header = () => {
                 <Link
                   href="/register"
                   type="button"
-                  onClick={handleRegisterClick}
                   className="inline-block font-bold text-(--primary-green) transition duration-200 hover:scale-110 cursor-pointer "
                 >
                   Register
@@ -212,10 +206,6 @@ const Header = () => {
             <div className="mx-auto flex max-w-[1500px] flex-col gap-4 font-semibold text-(--primary-green)">
               <Link href="/shelters" onClick={() => setMobileMenuOpen(false)} className="">
                 Shelters
-              </Link>
-
-              <Link href="/BuyingSafely" onClick={() => setMobileMenuOpen(false)} className="">
-                Buying Safely
               </Link>
 
               <Link href="/BreedGuide" onClick={() => setMobileMenuOpen(false)} className="">
