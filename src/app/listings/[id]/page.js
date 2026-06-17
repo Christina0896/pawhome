@@ -396,16 +396,6 @@ export default function ListingDetailPage() {
 
   const title = listing.title || `${listing.breed || listing.animal_type || 'Pet'} available`;
 
-  const subtitle = [listing.breed, listing.sex, listing.age, listing.county].filter(Boolean).join(' • ');
-
-  const postedDate = listing.created_at
-    ? formatDate(listing.created_at, {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-      })
-    : 'Recently';
-
   const sellerMemberSince = listing.seller_member_since
     ? formatDate(listing.seller_member_since, {
         month: 'long',
@@ -474,14 +464,6 @@ export default function ListingDetailPage() {
       icon: <PaperIcon />,
     },
   ];
-
-  const isMixedLitter =
-    String(listing?.sex || '')
-      .trim()
-      .toLowerCase() === 'mixed litter';
-
-  const maleCount = Number(listing?.male_count || 0);
-  const femaleCount = Number(listing?.female_count || 0);
 
   return (
     <div className="min-h-screen bg-(--background)">
