@@ -4,12 +4,7 @@ import { useEffect, useState } from 'react';
 import Header from '../../components/header';
 import Footer from '../../components/footer';
 import { supabase } from '../../lib/supabaseClient';
-import Link from 'next/link'
-
-const ADMIN_EMAILS = [
-  'cristinabandeira82@gmail.com',
-  // Add your own admin email here too
-];
+import Link from 'next/link';
 
 const STATUS_OPTIONS = ['pending', 'approved', 'rejected', 'reports'];
 
@@ -66,9 +61,13 @@ export default function AdminPage() {
         return;
       }
 
-      const isAdmin = ADMIN_EMAILS.includes(user.email);
+      const { data: adminData, error: adminError } = await supabase
+        .from('admin_users')
+        .select('user_id')
+        .eq('user_id', user.id)
+        .maybeSingle();
 
-      if (!isAdmin) {
+      if (adminError || !adminData) {
         window.location.href = '/';
         return;
       }
@@ -202,42 +201,34 @@ export default function AdminPage() {
     setListings((current) => current.filter((listing) => listing.id !== listingId));
   };
   const markReportReviewed = async (reportId) => {
-  const { error } = await supabase
-    .from('listing_reports')
-    .update({ status: 'reviewed' })
-    .eq('id', reportId);
+    const { error } = await supabase.from('listing_reports').update({ status: 'reviewed' }).eq('id', reportId);
 
-  if (error) {
-    console.error('Report review error:', error);
-    alert('Could not mark report as reviewed.');
-    return;
-  }
+    if (error) {
+      console.error('Report review error:', error);
+      alert('Could not mark report as reviewed.');
+      return;
+    }
 
-  setReports((current) =>
-    current.map((report) =>
-      report.id === reportId ? { ...report, status: 'reviewed' } : report,
-    ),
-  );
-};
+    setReports((current) =>
+      current.map((report) => (report.id === reportId ? { ...report, status: 'reviewed' } : report)),
+    );
+  };
 
-const deleteReport = async (reportId) => {
-  const confirmed = window.confirm('Delete this report?');
+  const deleteReport = async (reportId) => {
+    const confirmed = window.confirm('Delete this report?');
 
-  if (!confirmed) return;
+    if (!confirmed) return;
 
-  const { error } = await supabase
-    .from('listing_reports')
-    .delete()
-    .eq('id', reportId);
+    const { error } = await supabase.from('listing_reports').delete().eq('id', reportId);
 
-  if (error) {
-    console.error('Delete report error:', error);
-    alert('Could not delete report.');
-    return;
-  }
+    if (error) {
+      console.error('Delete report error:', error);
+      alert('Could not delete report.');
+      return;
+    }
 
-  setReports((current) => current.filter((report) => report.id !== reportId));
-};
+    setReports((current) => current.filter((report) => report.id !== reportId));
+  };
 
   if (checkingAdmin) {
     return (
@@ -291,7 +282,7 @@ const deleteReport = async (reportId) => {
         {/* Page content */}
         {selectedStatus === 'reports' ? (
           loading ? (
-            <LinkdminMessageCard text="Loading reports..." />
+            <AdminMessageCard text="Loading reports..." />
           ) : reports.length === 0 ? (
             <EmptyState selectedStatus="reports" />
           ) : (
@@ -309,7 +300,7 @@ const deleteReport = async (reportId) => {
             </div>
           )
         ) : loading ? (
-          <LinkdminMessageCard text="Loading listings..." />
+          <AdminMessageCard text="Loading listings..." />
         ) : listings.length === 0 ? (
           <EmptyState selectedStatus={selectedStatus} />
         ) : (
@@ -361,7 +352,7 @@ const ListingReviewCard = ({ listing, selectedStatus, updateListingStatus, delet
         : '-';
 
   return (
-    <Linkrticle className="overflow-hidden rounded-3xl border border-(--border-beige) bg-white shadow-sm">
+    <article className="overflow-hidden rounded-3xl border border-(--border-beige) bg-white shadow-sm">
       <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr]">
         {/* Listing image */}
         <div className="relative h-64 bg-(--light-green) lg:h-full">
@@ -438,7 +429,7 @@ const ListingReviewCard = ({ listing, selectedStatus, updateListingStatus, delet
             </p>
           </div>
 
-          <LinkdminActions
+          <AdminActions
             listingId={listing.id}
             selectedStatus={selectedStatus}
             updateListingStatus={updateListingStatus}
@@ -446,7 +437,7 @@ const ListingReviewCard = ({ listing, selectedStatus, updateListingStatus, delet
           />
         </div>
       </div>
-    </Linkrticle>
+    </article>
   );
 };
 
@@ -454,7 +445,7 @@ const ReportReviewCard = ({ report, markReportReviewed, deleteReport, updateList
   const listing = report.listings;
 
   return (
-    <Linkrticle className="overflow-hidden rounded-3xl border border-red-100 bg-white shadow-sm">
+    <Article className="overflow-hidden rounded-3xl border border-red-100 bg-white shadow-sm">
       <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr]">
         <div className="relative h-64 bg-(--light-green) lg:h-full">
           {report.mainImage ? (
@@ -573,7 +564,7 @@ const ReportReviewCard = ({ report, markReportReviewed, deleteReport, updateList
           </div>
         </div>
       </div>
-    </Linkrticle>
+    </Article>
   );
 };
 
