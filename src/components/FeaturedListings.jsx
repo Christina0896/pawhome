@@ -1,7 +1,16 @@
 'use client';
 
 import { supabase } from '../lib/supabaseClient';
-import { FemaleIcon, MaleIcon, MixedGenderIcon, LocationIcon, CalendarIcon } from './Icons';
+import {
+  FemaleIcon,
+  MaleIcon,
+  MixedGenderIcon,
+  LocationIcon,
+  PawIcon,
+  CalendarIcon,
+  HeartIcon,
+  ArrowIcon,
+} from './Icons';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import BrowseCards from './BrowseCards';
@@ -128,7 +137,7 @@ const FeaturedListings = () => {
         return;
       }
 
-      setFavoriteIds((data || []).map((fav) => fav.listing_id));
+      setFavoriteIds((favoritesData || []).map((fav) => String(fav.listing_id)));
     } catch (err) {
       console.warn('Featured favourites crashed:', err);
       setCurrentUser(null);
@@ -177,56 +186,140 @@ const FeaturedListings = () => {
     };
   }, [refreshFeaturedSection]);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadFavorites = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      const user = session?.user || null;
+
+      if (!isMounted) return;
+
+      setCurrentUser(user);
+
+      if (!user) {
+        setFavoriteIds([]);
+        return;
+      }
+
+      const { data, error } = await supabase.from('favorites').select('listing_id').eq('user_id', user.id);
+
+      if (error) {
+        console.error('Load featured favorites error:', error);
+        return;
+      }
+
+      if (!isMounted) return;
+
+      setFavoriteIds((data || []).map((fav) => String(fav.listing_id)));
+    };
+
+    loadFavorites();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      const user = session?.user || null;
+
+      setCurrentUser(user);
+
+      if (!user) {
+        setFavoriteIds([]);
+        return;
+      }
+
+      supabase
+        .from('favorites')
+        .select('listing_id')
+        .eq('user_id', user.id)
+        .then(({ data, error }) => {
+          if (error) {
+            console.error('Reload featured favorites error:', error);
+            return;
+          }
+
+          setFavoriteIds((data || []).map((fav) => String(fav.listing_id)));
+        });
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
   // Add/remove listing from favorites
   const toggleFavorite = async (e, listingId) => {
     e.preventDefault();
     e.stopPropagation();
 
-    if (!currentUser) {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    const user = session?.user || null;
+
+    if (!user) {
       window.dispatchEvent(new Event('open-login-modal'));
       return;
     }
 
-    const isFavorite = favoriteIds.includes(listingId);
+    setCurrentUser(user);
+
+    const listingKey = String(listingId);
+    const isFavorite = favoriteIds.includes(listingKey);
 
     if (isFavorite) {
-      const { error } = await supabase
-        .from('favorites')
-        .delete()
-        .eq('user_id', currentUser.id)
-        .eq('listing_id', listingId);
+      setFavoriteIds((prev) => prev.filter((id) => id !== listingKey));
+
+      const { error } = await supabase.from('favorites').delete().eq('user_id', user.id).eq('listing_id', listingId);
 
       if (error) {
         console.error('Remove favorite error:', error);
-        return;
+
+        setFavoriteIds((prev) => (prev.includes(listingKey) ? prev : [...prev, listingKey]));
       }
 
-      setFavoriteIds((prev) => prev.filter((id) => id !== listingId));
       return;
     }
 
+    setFavoriteIds((prev) => (prev.includes(listingKey) ? prev : [...prev, listingKey]));
+
     const { error } = await supabase.from('favorites').insert({
-      user_id: currentUser.id,
+      user_id: user.id,
       listing_id: listingId,
     });
 
     if (error) {
       console.error('Add favorite error:', error);
-      return;
-    }
 
-    setFavoriteIds((prev) => [...prev, listingId]);
+      if (error.code === '23505') {
+        return;
+      }
+
+      setFavoriteIds((prev) => prev.filter((id) => id !== listingKey));
+    }
   };
 
   return (
-    <section className="w-full bg-(--background) py-5 ">
+    <section className="w-full bg-(--background) py-10 ">
       <div className="mx-auto max-w-(--page-max-width) px-6 mb-20">
         {/* Section header */}
         <div className="mb-6 flex items-center justify-between">
-          <h2 className="text-2xl font-bold tracking-tight text-(--primary-green)">Featured Listings</h2>
-
-          <Link href="/listings" className="text-sm font-bold text-(--primary-orange) hover:text-(--secondary-orange)">
-            View all listings →
+          <div className="flex gap-2">
+            <span>
+              <PawIcon className="h-8 w-8 text-(--primary-orange)" />
+            </span>
+            <h2 className="text-2xl font-bold tracking-tight text-(--primary-green)">Featured Listings</h2>
+          </div>
+          <Link
+            href="/listings"
+            className="flex items-center gap-2 text-sm font-bold text-(--primary-orange) hover:text-(--secondary-orange)"
+          >
+            View all listings <ArrowIcon />
           </Link>
         </div>
 
@@ -258,14 +351,15 @@ const FeaturedListings = () => {
                     <button
                       type="button"
                       onClick={(e) => toggleFavorite(e, listing.id)}
-                      className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-xl shadow-sm transition hover:scale-110"
+                      className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 shadow-sm transition hover:scale-110"
                       aria-label="Save listing"
                     >
-                      {favoriteIds.includes(listing.id) ? (
-                        <span className="text-red-500">♥</span>
-                      ) : (
-                        <span className="text-(--muted-green-text)">♡</span>
-                      )}
+                      <HeartIcon
+                        filled={favoriteIds.includes(String(listing.id))}
+                        className={`h-5 w-5 ${
+                          favoriteIds.includes(String(listing.id)) ? 'text-red-500' : 'text-(--muted-green-text)'
+                        }`}
+                      />
                     </button>
                   </div>
 

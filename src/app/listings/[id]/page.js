@@ -28,6 +28,8 @@ import {
   MixedGenderIcon,
   ShieldCheckIcon,
   PhoneIcon,
+  ShareIcon,
+  ArrowIcon,
 } from '../../../components/Icons';
 
 const formatDate = (value, options) => {
@@ -114,7 +116,7 @@ export default function ListingDetailPage() {
     if (!text) return null;
 
     return (
-      <span className="inline-flex items-center gap-2 rounded-full bg-(--background) px-2.5 py-2 text-xs font-bold text-(--secondary-green)">
+      <span className="inline-flex items-center gap-2 rounded-full font-bold bg-(--background) px-2.5 py-2 text-xs  text-(--primary-green)">
         <span className="flex h-4 w-4 items-center justify-center text-(--secondary-green)">{icon}</span>
         {text}
       </span>
@@ -441,7 +443,7 @@ export default function ListingDetailPage() {
 
   const locationText = [locationTown, listing.county, 'Ireland'].filter(Boolean).join(', ');
 
-  const listingTags = [listing.animal_type, listing.breed, listing.age, listing.sex, listing.county].filter(Boolean);
+  const listingTags = [listing.breed, listing.age, listing.sex, listing.county].filter(Boolean);
   const descriptionText = listing.description || 'No description provided.';
   const isLongDescription = descriptionText.length > 420;
   const healthItems = [
@@ -514,7 +516,7 @@ export default function ListingDetailPage() {
                     {title}
                   </h1>
 
-                  <div className="mt-3 flex flex-wrap gap-2">
+                  <div className="mt-2 flex flex-wrap gap-2">
                     {listing.breed && <InfoPill icon={<PawIcon />} text={listing.breed} />}
 
                     {listing.sex && listing.sex !== 'Mixed Litter' && (
@@ -539,13 +541,10 @@ export default function ListingDetailPage() {
 
                     {listing.county && <InfoPill icon={<LocationIcon />} text={listing.county} />}
                   </div>
-
-                  <p className="flex items-center mt-2 font-bold text-xs text-(--muted-green-text)">
-                    <span className="p-1">
-                      <CalendarIcon />
-                    </span>{' '}
-                    Posted {postedDate}
-                  </p>
+                  <div className="flex items-center mt-2 gap-2 text-sm font-medium text-(--muted-green-text)">
+                    <CalendarIcon className="h-4 w-4" />
+                    <span>Posted {formatDate(listing.created_at)}</span>
+                  </div>
                 </div>
 
                 <div className="flex shrink-0 flex-col gap-4 md:items-end">
@@ -556,15 +555,31 @@ export default function ListingDetailPage() {
                       <p className="mt-1 text-sm font-bold text-(--primary-green)">Negotiable</p>
                     )}
                   </div>
+                  <div className="mt-3 flex w-full items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                      <button
+                        type="button"
+                        onClick={handleCopyLink}
+                        className="flex items-center gap-2 text-sm font-bold text-(--secondary-green) transition hover:text-(--primary-orange)"
+                        aria-label="Share listing"
+                      >
+                        <ShareIcon className="h-5 w-5" />
+                        <span>Share</span>
+                      </button>
 
-                  <div className="flex gap-4 text-sm font-bold text-(--primary-green)">
-                    <button type="button" onClick={handleCopyLink} className="hover:text-(--primary-orange)">
-                      ↗ Share
-                    </button>
-
-                    <button type="button" onClick={handleToggleFavourite} className="hover:text-(--primary-orange)">
-                      {isFavourite ? '♥ Saved' : '♡ Save'}
-                    </button>
+                      <button
+                        type="button"
+                        onClick={handleToggleFavourite}
+                        className="flex items-center gap-2 text-sm font-bold text-(--secondary-green) transition hover:text-(--primary-orange)"
+                        aria-label="Save listing"
+                      >
+                        <HeartIcon
+                          filled={isFavourite}
+                          className={`h-5 w-5 ${isFavourite ? 'text-red-500' : 'text-(--secondary-green)'}`}
+                        />
+                        <span>{isFavourite ? 'Saved' : 'Save'}</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -964,8 +979,11 @@ const SimilarAds = ({ listings }) => {
       <div className="mb-4 flex items-center justify-between gap-4">
         <h2 className="text-2xl font-extrabold text-(--secondary-green)">Similar Ads</h2>
 
-        <Link href="/listings" className="text-sm font-bold text-(--primary-green) hover:text-(--primary-orange)">
-          View all listings →
+        <Link
+          href="/listings"
+          className="flex items-center gap-1 text-sm font-bold text-(--primary-green) hover:text-(--primary-orange)"
+        >
+          View more <ArrowIcon />
         </Link>
       </div>
 

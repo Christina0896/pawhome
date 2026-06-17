@@ -73,8 +73,10 @@ export default function ListingsClient() {
   useEffect(() => {
     const fetchListings = async () => {
       const {
-        data: { user },
-      } = await supabase.auth.getUser();
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      const user = session?.user || null;
 
       setCurrentUser(user);
 
@@ -109,7 +111,7 @@ export default function ListingsClient() {
         if (favoritesError) {
           console.error('Favorites fetch error:', favoritesError);
         } else {
-          setFavoriteIds(favoritesData.map((fav) => fav.listing_id));
+          setFavoriteIds((favoritesData || []).map((fav) => String(fav.listing_id)));
         }
       }
 
@@ -234,9 +236,12 @@ export default function ListingsClient() {
       return;
     }
 
-    const isFavorite = favoriteIds.includes(listingId);
+    const listingKey = String(listingId);
+    const isFavorite = favoriteIds.includes(listingKey);
 
     if (isFavorite) {
+      setFavoriteIds((prev) => prev.filter((id) => id !== listingKey));
+
       const { error } = await supabase
         .from('favorites')
         .delete()
@@ -245,22 +250,31 @@ export default function ListingsClient() {
 
       if (error) {
         console.error('Remove favorite error:', error);
+
+        setFavoriteIds((prev) => (prev.includes(listingKey) ? prev : [...prev, listingKey]));
+
         return;
       }
 
-      setFavoriteIds((prev) => prev.filter((id) => id !== listingId));
-    } else {
-      const { error } = await supabase.from('favorites').insert({
-        user_id: currentUser.id,
-        listing_id: listingId,
-      });
+      return;
+    }
 
-      if (error) {
-        console.error('Add favorite error:', error);
+    setFavoriteIds((prev) => (prev.includes(listingKey) ? prev : [...prev, listingKey]));
+
+    const { error } = await supabase.from('favorites').insert({
+      user_id: currentUser.id,
+      listing_id: listingId,
+    });
+
+    if (error) {
+      console.error('Add favorite error:', error);
+
+      // 23505 = duplicate favorite already exists
+      if (error.code === '23505') {
         return;
       }
 
-      setFavoriteIds((prev) => [...prev, listingId]);
+      setFavoriteIds((prev) => prev.filter((id) => id !== listingKey));
     }
   };
 
@@ -544,12 +558,12 @@ export default function ListingsClient() {
                         <button
                           type="button"
                           onClick={(e) => toggleFavorite(e, listing.id)}
-                          className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 shadow-sm transition hover:scale-110"
+                          className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 shadow-sm transition hover:scale-110"
                           aria-label="Save listing"
                         >
                           <HeartIcon
-                            className={`h-5 w-5 ${
-                              favoriteIds.includes(listing.id)
+                            className={`h-4 w-4 ${
+                              favoriteIds.includes(String(listing.id))
                                 ? 'fill-red-500 text-red-500'
                                 : 'text-(--muted-green-text)'
                             }`}

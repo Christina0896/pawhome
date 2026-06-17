@@ -141,11 +141,11 @@ export default function AboutPage() {
             </div>
 
             {/* Image collage */}
-            <div className="relative min-h-[360px]">
+            <div className="relative min-h-90">
               <img
                 src="/img/about-main.jpg"
                 alt="Pets in a home"
-                className="absolute left-0 top-8 h-[260px] w-[72%] rounded-2xl object-cover shadow-[0_10px_30px_rgba(18,53,36,0.12)]"
+                className="absolute left-0 top-8 h-65 w-[72%] rounded-2xl object-cover shadow-[0_10px_30px_rgba(18,53,36,0.12)]"
               />
 
               <img
@@ -169,7 +169,7 @@ export default function AboutPage() {
           </section>
 
           {/* What makes us different */}
-          <section className="mx-auto max-w-[1300px] px-6 py-12">
+          <section className="mx-auto max-w-325 px-6 py-12">
             <div className="text-center">
               <h2 className="text-3xl font-extrabold text-(--secondary-green)">What makes PawHome different?</h2>
 

@@ -110,7 +110,7 @@ const BrowseCards = () => {
 
         <div className="flex h-full min-h-[128px] items-center gap-6 rounded-2xl border border-(--border-beige) bg-[#FFF4EA] px-6 py-5 shadow-[0_6px_18px_rgba(18,53,36,0.06)]">
           <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-(--primary-orange) text-white">
-            <PawIcon className="h-10 w-15" />
+            <PawIcon className="h-9 w-9" />
           </div>
 
           <div className="min-w-0 flex-1">
@@ -144,7 +144,7 @@ const BrowseCards = () => {
 
         <div className="relative flex h-full min-h-[128px] items-center overflow-hidden rounded-2xl border border-(--border-beige) bg-[#F4F5E8] px-6 py-5 shadow-[0_6px_18px_rgba(18,53,36,0.06)]">
           <div className="z-10 flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-[#E2E5C7] text-(--primary-green)">
-            <ShieldCheckIcon />
+            <ShieldCheckIcon className="h-10 w-10" />
           </div>
 
           <div className="z-10 ml-6 max-w-[300px] pr-[130px]">

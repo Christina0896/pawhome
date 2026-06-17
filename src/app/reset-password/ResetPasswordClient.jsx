@@ -33,11 +33,24 @@ export default function ResetPasswordClient() {
           return;
         }
 
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
+        const hashParams = new URLSearchParams(window.location.hash.replace('#', ''));
 
-        if (session) {
+        const accessToken = hashParams.get('access_token');
+        const refreshToken = hashParams.get('refresh_token');
+        const type = hashParams.get('type');
+
+        if (type === 'recovery' && accessToken && refreshToken) {
+          const { error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+
+          if (error) {
+            setMessage(error.message);
+            return;
+          }
+
+          window.history.replaceState({}, document.title, '/reset-password');
           setSessionReady(true);
           return;
         }
