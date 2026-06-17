@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '../../lib/supabaseClient';
 
-function ResetPasswordContent() {
+export default function ResetPasswordClient() {
   const searchParams = useSearchParams();
 
   const [password, setPassword] = useState('');
