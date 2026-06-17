@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import Link from 'next/link'
+import Link from 'next/link';
 
 const LoginModal = ({ onClose }) => {
   // Modal mode: login form or password reset form
@@ -60,8 +60,10 @@ const LoginModal = ({ onClose }) => {
     setLoading(true);
     setMessage('');
 
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
+
     const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: `${siteUrl}/reset-password`,
     });
 
     if (error) {
