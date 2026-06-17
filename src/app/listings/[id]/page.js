@@ -738,6 +738,7 @@ export default function ListingDetailPage() {
               sellerMemberSince={sellerMemberSince}
               phoneVisible={phoneVisible}
               onShowPhoneNumber={handleShowPhoneNumber}
+              setReportModalOpen={setReportModalOpen}
               setReportSuccess={setReportSuccess}
             />
 
