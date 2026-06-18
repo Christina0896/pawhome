@@ -445,7 +445,7 @@ const ReportReviewCard = ({ report, markReportReviewed, deleteReport, updateList
   const listing = report.listings;
 
   return (
-    <Article className="overflow-hidden rounded-3xl border border-red-100 bg-white shadow-sm">
+    <article className="overflow-hidden rounded-3xl border border-red-100 bg-white shadow-sm">
       <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr]">
         <div className="relative h-64 bg-(--light-green) lg:h-full">
           {report.mainImage ? (
@@ -564,7 +564,7 @@ const ReportReviewCard = ({ report, markReportReviewed, deleteReport, updateList
           </div>
         </div>
       </div>
-    </Article>
+    </article>
   );
 };
 
