@@ -27,13 +27,13 @@ const Footer = () => {
             <div>
               <h4 className="text-sm font-extrabold text-white">Quick Links</h4>
               <div className="mt-4 space-y-2 text-sm font-medium text-white/80">
-                <Link href="/listings" className="block hover:text-white">
+                <Link href="/shelters" className="block hover:text-white">
                   Shelters
                 </Link>
                 <Link href="/breed-guide" className="block hover:text-white">
                   Breed Guide
                 </Link>
-                <Link href="/buying-safely" className="block hover:text-white">
+                <Link href="/safety" className="block hover:text-white">
                   Safety Tips
                 </Link>
               </div>

@@ -145,6 +145,7 @@ export default function ListingDetailPage() {
       `,
         )
         .eq('id', listingId)
+        .eq('status', 'approved')
         .single();
 
       if (!isMounted) return;

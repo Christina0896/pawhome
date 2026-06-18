@@ -1,5 +1,14 @@
 import { Resend } from 'resend';
 
+function escapeHtml(value = '') {
+  return String(value)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
 export async function POST(request) {
   const resendApiKey = process.env.RESEND_API_KEY;
   const fromEmail = process.env.CONTACT_FROM_EMAIL;
@@ -10,6 +19,10 @@ export async function POST(request) {
   }
 
   const resend = new Resend(resendApiKey);
+  const safeName = escapeHtml(name);
+  const safeEmail = escapeHtml(email);
+  const safeSubject = escapeHtml(subject);
+  const safeMessage = escapeHtml(message).replace(/\n/g, '<br />');
 
   try {
     const { name, email, subject, message } = await request.json();
@@ -24,19 +37,19 @@ export async function POST(request) {
       replyTo: email,
       subject: `PawHome: ${subject}`,
       html: `
-        <div style="font-family: Arial, sans-serif; line-height: 1.6;">
-          <h2>New PawHome Message</h2>
+    <div style="font-family: Arial, sans-serif; line-height: 1.6;">
+      <h2>New PawHome Message</h2>
 
-          <p><strong>Type:</strong> ${subject}</p>
-          <p><strong>Name:</strong> ${name}</p>
-          <p><strong>Email:</strong> ${email}</p>
+      <p><strong>Type:</strong> ${safeSubject}</p>
+      <p><strong>Name:</strong> ${safeName}</p>
+      <p><strong>Email:</strong> ${safeEmail}</p>
 
-          <hr />
+      <hr />
 
-          <p><strong>Message:</strong></p>
-          <p>${message.replace(/\n/g, '<br />')}</p>
-        </div>
-      `,
+      <p><strong>Message:</strong></p>
+      <p>${safeMessage}</p>
+    </div>
+  `,
     });
 
     if (error) {
