@@ -173,33 +173,76 @@ export default function AdminPage() {
     setLoading(false);
   };
 
-  const updateListingStatus = async (listingId, newStatus) => {
-    const { error } = await supabase.from('listings').update({ status: newStatus }).eq('id', listingId);
+  const updateListingStatus = async (listingId, status) => {
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-    if (error) {
-      console.error('Status update error:', error);
-      alert('Could not update listing status.');
-      return;
+      if (!session?.access_token) {
+        window.dispatchEvent(new Event('open-login-modal'));
+        return;
+      }
+
+      const response = await fetch(`/api/admin/listings/${listingId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ status }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Could not update listing.');
+      }
+
+      setListings((current) => current.map((listing) => (listing.id === listingId ? { ...listing, status } : listing)));
+    } catch (error) {
+      console.error('Update listing status error:', error);
+      alert('Could not update listing.');
     }
-
-    setListings((current) => current.filter((listing) => listing.id !== listingId));
   };
 
   const deleteListing = async (listingId) => {
-    const confirmed = window.confirm('Are you sure you want to delete this listing? This cannot be undone.');
+    const confirmDelete = window.confirm('Are you sure you want to delete this listing?');
 
-    if (!confirmed) return;
-
-    const { error } = await supabase.from('listings').delete().eq('id', listingId);
-
-    if (error) {
-      console.error('Delete listing error:', error);
-      alert('Could not delete listing.');
+    if (!confirmDelete) {
       return;
     }
 
-    setListings((current) => current.filter((listing) => listing.id !== listingId));
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        window.dispatchEvent(new Event('open-login-modal'));
+        return;
+      }
+
+      const response = await fetch(`/api/admin/listings/${listingId}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Could not delete listing.');
+      }
+
+      setListings((current) => current.filter((listing) => listing.id !== listingId));
+    } catch (error) {
+      console.error('Delete listing error:', error);
+      alert('Could not delete listing.');
+    }
   };
+  
   const markReportReviewed = async (reportId) => {
     const { error } = await supabase.from('listing_reports').update({ status: 'reviewed' }).eq('id', reportId);
 

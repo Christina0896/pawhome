@@ -248,14 +248,19 @@ export default function ProfilePage() {
     }
 
     if (profileForm.password.trim()) {
-      if (profileForm.password.trim().length < 8) {
+      const password = profileForm.password.trim();
+
+      const strongPassword =
+        password.length >= 10 && /[A-Z]/.test(password) && /[a-z]/.test(password) && /[0-9]/.test(password);
+
+      if (!strongPassword) {
         setProfileSaving(false);
-        setProfileMessage('Password must be at least 8 characters.');
+        setProfileMessage('Password must be at least 10 characters and include uppercase, lowercase, and a number.');
         return;
       }
 
       const { error: passwordError } = await supabase.auth.updateUser({
-        password: profileForm.password.trim(),
+        password,
       });
 
       if (passwordError) {

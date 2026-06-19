@@ -268,12 +268,13 @@ export default function PostAdPage() {
         setLoading(false);
         return;
       }
-      const metadata = user.user_metadata || {};
 
       const isEmailVerified = Boolean(user.email_confirmed_at || user.confirmed_at);
 
       if (REQUIRE_VERIFICATION_TO_POST && !isEmailVerified) {
         alert('Please verify your email before posting an ad.');
+        setLoading(false);
+        window.location.href = '/';
         return;
       }
 
