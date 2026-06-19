@@ -38,28 +38,6 @@ function validateImageFile(file) {
   return '';
 }
 
-const [profile, setProfile] = useState(null);
-
-function validateImageFile(file) {
-  if (!file) {
-    return 'Invalid image file.';
-  }
-
-  if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
-    return 'Only JPG, PNG, and WebP images are allowed.';
-  }
-
-  if (file.name.toLowerCase().endsWith('.svg')) {
-    return 'SVG images are not allowed.';
-  }
-
-  if (file.size > MAX_IMAGE_SIZE_BYTES) {
-    return 'Each photo must be 5 MB or smaller.';
-  }
-
-  return '';
-}
-
 // Custom select component
 function CustomSelect({
   id,
@@ -131,6 +109,7 @@ export default function PostAdPage() {
   const [photos, setPhotos] = useState([]);
   const [photoPreviews, setPhotoPreviews] = useState([]);
   const [user, setUser] = useState(null);
+  const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [errors, setErrors] = useState({});
   const [formData, setFormData] = useState({
@@ -285,7 +264,8 @@ export default function PostAdPage() {
       } = await supabase.auth.getUser();
 
       if (!user) {
-        window.location.href = '/login';
+        window.dispatchEvent(new Event('open-login-modal'));
+        setLoading(false);
         return;
       }
       const metadata = user.user_metadata || {};
@@ -439,7 +419,8 @@ export default function PostAdPage() {
     } = await supabase.auth.getUser();
 
     if (!user) {
-      window.location.href = '/login';
+      window.dispatchEvent(new Event('open-login-modal'));
+      setLoading(false);
       return;
     }
     let profileData = profile;
@@ -536,7 +517,7 @@ export default function PostAdPage() {
       console.error('Code:', listingError.code);
 
       setErrors({
-        submit: listingError.message || listingError.details || 'Could not submit listing. Please try again.',
+        submit: 'Could not submit listing. Please check your details and try again.',
       });
 
       return;

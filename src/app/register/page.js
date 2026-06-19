@@ -71,7 +71,8 @@ export default function RegisterPage() {
       password: formData.password,
     });
     if (error) {
-      setMessage(error.message);
+      console.error('Signup error:', error);
+      setMessage('Could not create account. Please check your details and try again.');
       setLoading(false);
       return;
     }
@@ -105,74 +106,6 @@ export default function RegisterPage() {
     }
 
     router.push('/register/success');
-
-    if (error) {
-      setMessage('Something went wrong. Please try again.');
-      setLoading(false);
-      return;
-    }
-
-    if (data?.user?.id) {
-      const profileResponse = await fetch('/api/create-profile', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId: data.user.id,
-          email: formData.email,
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          phoneCode: formData.code,
-          phoneNumber: formData.phone,
-          accountType: formData.accountType,
-          county: formData.county,
-          marketing: formData.marketing,
-        }),
-      });
-
-      const profileResult = await profileResponse.json();
-
-      if (!profileResponse.ok) {
-        setMessage(profileResult.error || 'Account created, but profile setup failed.');
-        setLoading(false);
-        return;
-      }
-    }
-
-    if (data?.user?.id) {
-      const profileResponse = await fetch('/api/create-profile', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId: data.user.id,
-          email: formData.email,
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          phoneCode: formData.code,
-          phoneNumber: formData.phone,
-          accountType: formData.accountType,
-          county: formData.county,
-          marketing: formData.marketing,
-        }),
-      });
-
-      const profileResult = await profileResponse.json();
-
-      if (!profileResponse.ok) {
-        setMessage(profileResult.error || 'Account created, but profile setup failed.');
-        setLoading(false);
-        return;
-      }
-    }
-
-    if (error) {
-      setMessage('Something went wrong. Please try again.');
-      setLoading(false);
-      return;
-    }
   };
 
   return (

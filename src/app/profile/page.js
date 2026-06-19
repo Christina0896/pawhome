@@ -153,7 +153,7 @@ export default function ProfilePage() {
 
     if (uploadError) {
       console.error('Avatar upload error:', uploadError);
-      alert(uploadError.message || 'Could not upload profile picture.');
+      alert('Could not upload profile picture. Please try again.');
       setAvatarUploading(false);
       return;
     }
@@ -243,7 +243,7 @@ export default function ProfilePage() {
     if (profileUpdateError) {
       console.error('Profile update error:', profileUpdateError);
       setProfileSaving(false);
-      setProfileMessage(profileUpdateError.message || 'Could not save settings.');
+      setProfileMessage('Could not save settings. Please try again.');
       return;
     }
 
@@ -261,7 +261,7 @@ export default function ProfilePage() {
       if (passwordError) {
         console.error('Password update error:', passwordError);
         setProfileSaving(false);
-        setProfileMessage(passwordError.message || 'Could not update password.');
+        setProfileMessage('Could not update password. Please try again.');
         return;
       }
     }
