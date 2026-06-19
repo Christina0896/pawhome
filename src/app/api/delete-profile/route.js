@@ -1,14 +1,22 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+export const dynamic = 'force-dynamic';
 
-const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
-  auth: {
-    persistSession: false,
-    autoRefreshToken: false,
-  },
-});
+function getSupabaseAdminClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    return null;
+  }
+
+  return createClient(supabaseUrl, serviceRoleKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  });
+}
 
 function getStoragePathFromPublicUrl(url, bucketName) {
   if (!url) return null;
@@ -31,7 +39,9 @@ async function safeDelete(query, label) {
 }
 
 export async function DELETE(request) {
-  if (!supabaseUrl || !serviceRoleKey) {
+  const supabaseAdmin = getSupabaseAdminClient();
+
+  if (!supabaseAdmin) {
     return Response.json({ error: 'Server delete profile is not configured.' }, { status: 500 });
   }
 
@@ -72,32 +82,56 @@ export async function DELETE(request) {
 
       if (photosError) throw photosError;
 
-      const storagePaths = (photos || [])
-        .map((photo) => getStoragePathFromPublicUrl(photo.image_url, 'listing-images'))
+      const photoPaths = (photos || [])
+        .map((photo) => getStoragePathFromPublicUrl(photo.image_url, 'listing-photos'))
         .filter(Boolean);
 
-      if (storagePaths.length > 0) {
-        const { error: storageError } = await supabaseAdmin.storage.from('listing-images').remove(storagePaths);
+      if (photoPaths.length > 0) {
+        const { error: storageError } = await supabaseAdmin.storage.from('listing-photos').remove(photoPaths);
 
         if (storageError) {
-          console.error('Storage delete error:', storageError);
+          console.error('Listing photo storage delete error:', storageError);
         }
       }
 
-      await safeDelete(supabaseAdmin.from('favorites').delete().in('listing_id', listingIds), 'listing favorites');
+      await safeDelete(
+        supabaseAdmin.from('favorites').delete().in('listing_id', listingIds),
+        'favorites for user listings',
+      );
 
-      await safeDelete(supabaseAdmin.from('listing_reports').delete().in('listing_id', listingIds), 'listing reports');
+      await safeDelete(
+        supabaseAdmin.from('listing_reports').delete().in('listing_id', listingIds),
+        'reports for user listings',
+      );
 
-      await safeDelete(supabaseAdmin.from('listing_photos').delete().in('listing_id', listingIds), 'listing photos');
+      await safeDelete(
+        supabaseAdmin.from('listing_photos').delete().in('listing_id', listingIds),
+        'listing photos rows',
+      );
 
-      await safeDelete(supabaseAdmin.from('listings').delete().eq('user_id', userId), 'listings');
+      await safeDelete(supabaseAdmin.from('listings').delete().eq('user_id', userId), 'user listings');
     }
 
-    await safeDelete(supabaseAdmin.from('favorites').delete().eq('user_id', userId), 'user favorites');
+    await safeDelete(supabaseAdmin.from('favorites').delete().eq('user_id', userId), 'user favourites');
 
-    await safeDelete(supabaseAdmin.from('listing_reports').delete().eq('reporter_id', userId), 'user reports');
+    await safeDelete(
+      supabaseAdmin.from('listing_reports').delete().eq('reporter_user_id', userId),
+      'reports made by user',
+    );
 
-    await safeDelete(supabaseAdmin.from('profiles').delete().eq('id', userId), 'profile');
+    const avatarUrl = user.user_metadata?.avatar_url;
+
+    if (avatarUrl) {
+      const avatarPath = getStoragePathFromPublicUrl(avatarUrl, 'avatars');
+
+      if (avatarPath) {
+        const { error: avatarDeleteError } = await supabaseAdmin.storage.from('avatars').remove([avatarPath]);
+
+        if (avatarDeleteError) {
+          console.error('Avatar storage delete error:', avatarDeleteError);
+        }
+      }
+    }
 
     const { error: deleteUserError } = await supabaseAdmin.auth.admin.deleteUser(userId);
 
@@ -107,6 +141,11 @@ export async function DELETE(request) {
   } catch (error) {
     console.error('Delete profile route error:', error);
 
-    return Response.json({ error: 'Profile could not be deleted.' }, { status: 500 });
+    return Response.json(
+      {
+        error: error.message || 'Profile could not be deleted.',
+      },
+      { status: 500 },
+    );
   }
 }

@@ -7,7 +7,7 @@ import { counties } from '../../data/countyList';
 import { dogBreeds, catBreeds, otherPetTypes } from '../../data/petOptions';
 import Link from 'next/link';
 
-const REQUIRE_VERIFICATION_TO_POST = false;
+const REQUIRE_VERIFICATION_TO_POST = true;
 
 // Custom select component
 function CustomSelect({
@@ -239,15 +239,19 @@ export default function PostAdPage() {
       }
       const metadata = user.user_metadata || {};
 
-      const emailVerified = Boolean(metadata.email_verified || user.email_confirmed_at);
-      const phoneVerified = Boolean(metadata.phone_verified);
+      const isEmailVerified = Boolean(user.email_confirmed_at || user.confirmed_at || metadata.email_verified);
+
+      if (REQUIRE_VERIFICATION_TO_POST && !isEmailVerified) {
+        alert('Please verify your email before posting an ad.');
+        return;
+      }
 
       if (REQUIRE_VERIFICATION_TO_POST && (!emailVerified || !phoneVerified)) {
         alert('Please verify your email and phone number before posting an ad.');
         return;
       }
-      const userMetadata = user.user_metadata || {};
 
+      const userMetadata = user.user_metadata || {};
       const contactPhone = `${userMetadata.phone_code || ''} ${
         userMetadata.phone_number || userMetadata.phone || ''
       }`.trim();
