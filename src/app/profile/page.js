@@ -260,9 +260,46 @@ export default function ProfilePage() {
 
     if (!confirmDelete) return;
 
-    alert(
-      'Profile deletion should be handled securely with a server action or Supabase Edge Function. For now, this button is only a placeholder.',
+    const secondConfirm = window.confirm(
+      'This will permanently delete your account, listings, saved favourites, and uploaded photos. Continue?',
     );
+
+    if (!secondConfirm) return;
+
+    setLoading(true);
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        window.dispatchEvent(new Event('open-login-modal'));
+        setLoading(false);
+        return;
+      }
+
+      const response = await fetch('/api/delete-profile', {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Profile could not be deleted.');
+      }
+
+      await supabase.auth.signOut();
+
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Delete profile error:', error);
+      alert(error.message || 'Profile could not be deleted.');
+      setLoading(false);
+    }
   };
 
   if (loading) {

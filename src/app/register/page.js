@@ -4,7 +4,8 @@ import { useState } from 'react';
 import Header from '../../components/header';
 import { counties } from '../../data/countyList';
 import { supabase } from '../../lib/supabaseClient';
-import Link from 'next/link'
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -75,8 +76,7 @@ export default function RegisterPage() {
       return;
     }
 
-    setMessage('Account created. Please check your email to confirm your account.');
-    setLoading(false);
+    router.push('/register/success');
   };
 
   return (

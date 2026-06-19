@@ -17,7 +17,7 @@ export default function FavoritesPage() {
       } = await supabase.auth.getUser();
 
       if (!user) {
-        window.location.href = '/login';
+        window.dispatchEvent(new Event('open-login-modal'));
         return;
       }
 
