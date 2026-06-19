@@ -44,7 +44,7 @@ const LoginModal = ({ onClose }) => {
     });
 
     if (error) {
-      setMessage(error.message);
+      setMessage('Something went wrong. Please try again.');
       setLoading(false);
       return;
     }
@@ -67,7 +67,7 @@ const LoginModal = ({ onClose }) => {
     });
 
     if (error) {
-      setMessage(error.message);
+      setMessage('Something went wrong. Please try again.');
       setLoading(false);
       return;
     }

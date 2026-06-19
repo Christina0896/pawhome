@@ -8,6 +8,57 @@ import { dogBreeds, catBreeds, otherPetTypes } from '../../data/petOptions';
 import Link from 'next/link';
 
 const REQUIRE_VERIFICATION_TO_POST = true;
+const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
+const IMAGE_EXTENSION_BY_TYPE = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+};
+
+function validateImageFile(file) {
+  if (!file) {
+    return 'Invalid image file.';
+  }
+
+  if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+    return 'Only JPG, PNG, and WebP images are allowed.';
+  }
+
+  if (file.name.toLowerCase().endsWith('.svg')) {
+    return 'SVG images are not allowed.';
+  }
+
+  if (file.size > MAX_IMAGE_SIZE_BYTES) {
+    return 'Each photo must be 5 MB or smaller.';
+  }
+
+  return '';
+}
+
+const [profile, setProfile] = useState(null);
+
+function validateImageFile(file) {
+  if (!file) {
+    return 'Invalid image file.';
+  }
+
+  if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+    return 'Only JPG, PNG, and WebP images are allowed.';
+  }
+
+  if (file.name.toLowerCase().endsWith('.svg')) {
+    return 'SVG images are not allowed.';
+  }
+
+  if (file.size > MAX_IMAGE_SIZE_BYTES) {
+    return 'Each photo must be 5 MB or smaller.';
+  }
+
+  return '';
+}
 
 // Custom select component
 function CustomSelect({
@@ -239,18 +290,27 @@ export default function PostAdPage() {
       }
       const metadata = user.user_metadata || {};
 
-      const isEmailVerified = Boolean(user.email_confirmed_at || user.confirmed_at || metadata.email_verified);
+      const isEmailVerified = Boolean(user.email_confirmed_at || user.confirmed_at);
 
       if (REQUIRE_VERIFICATION_TO_POST && !isEmailVerified) {
         alert('Please verify your email before posting an ad.');
         return;
       }
 
-      const userMetadata = user.user_metadata || {};
-      const contactPhone = `${userMetadata.phone_code || ''} ${
-        userMetadata.phone_number || userMetadata.phone || ''
-      }`.trim();
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
 
+      if (profileError || !profileData) {
+        console.error('Profile fetch error:', profileError);
+        alert('Your profile could not be loaded. Please go to your profile and save your details.');
+        window.location.href = '/profile';
+        return;
+      }
+
+      setProfile(profileData);
       setUser(user);
       setLoading(false);
     };
@@ -293,29 +353,50 @@ export default function PostAdPage() {
   const breedDropdownRef = useRef(null);
 
   const addPhotos = (files) => {
-    const allowedFiles = files.filter((file) => ['image/jpeg', 'image/png', 'image/webp'].includes(file.type));
+    const validFiles = [];
+    const invalidMessages = [];
 
-    if (allowedFiles.length === 0) return;
+    files.forEach((file) => {
+      const validationError = validateImageFile(file);
+
+      if (validationError) {
+        invalidMessages.push(`${file.name}: ${validationError}`);
+        return;
+      }
+
+      validFiles.push(file);
+    });
+
+    if (invalidMessages.length > 0) {
+      setErrors((prev) => ({
+        ...prev,
+        photos: invalidMessages[0],
+      }));
+    }
+
+    if (validFiles.length === 0) {
+      return;
+    }
 
     setPhotos((prevPhotos) => {
       const remainingSlots = 6 - prevPhotos.length;
-      const filesToAdd = allowedFiles.slice(0, remainingSlots);
+      const filesToAdd = validFiles.slice(0, remainingSlots);
 
       return [...prevPhotos, ...filesToAdd];
     });
 
     setPhotoPreviews((prevPreviews) => {
       const remainingSlots = 6 - prevPreviews.length;
-      const filesToAdd = allowedFiles.slice(0, remainingSlots);
+      const filesToAdd = validFiles.slice(0, remainingSlots);
       const newPreviews = filesToAdd.map((file) => URL.createObjectURL(file));
 
       return [...prevPreviews, ...newPreviews];
     });
 
-    setErrors({
-      ...errors,
+    setErrors((prev) => ({
+      ...prev,
       photos: '',
-    });
+    }));
   };
 
   const handlePhotoChange = (e) => {
@@ -361,13 +442,30 @@ export default function PostAdPage() {
       window.location.href = '/login';
       return;
     }
-    const userMetadata = user.user_metadata || {};
+    let profileData = profile;
 
-    const contactPhone = `${userMetadata.phone_code || ''} ${
-      userMetadata.phone_number || userMetadata.phone || ''
-    }`.trim();
-    const sellerMemberSince = user.created_at;
+    if (!profileData) {
+      const { data: fetchedProfile, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
 
+      if (profileError || !fetchedProfile) {
+        setErrors({
+          submit: 'Your profile could not be loaded. Please go to your profile and save your details.',
+        });
+        return;
+      }
+
+      profileData = fetchedProfile;
+    }
+
+    const sellerName = `${profileData.first_name || ''} ${profileData.last_name || ''}`.trim() || 'Seller';
+
+    const contactPhone = `${profileData.phone_code || ''} ${profileData.phone_number || ''}`.trim();
+
+    const sellerMemberSince = profileData.created_at || user.created_at;
     if (priceRequired && (!formData.price || Number(formData.price) <= 0)) {
       setErrors((prev) => ({
         ...prev,
@@ -392,8 +490,7 @@ export default function PostAdPage() {
         county: formData.county,
         city: formData.city,
 
-        seller_name:
-          `${user.user_metadata?.first_name || ''} ${user.user_metadata?.last_name || ''}`.trim() || 'Seller',
+        seller_name: sellerName,
 
         seller_type: formData.seller_type || 'Private Owner',
 
@@ -422,7 +519,7 @@ export default function PostAdPage() {
         registration_number: formData.registrationNumber,
         organisation_name: formData.organisationName,
 
-        seller_member_since: user.created_at,
+        seller_member_since: sellerMemberSince,
         contact_phone: contactPhone,
 
         description: formData.description,
@@ -452,10 +549,23 @@ export default function PostAdPage() {
       for (let i = 0; i < photos.length; i++) {
         const file = photos[i];
 
-        const fileExt = file.name.split('.').pop();
+        const validationError = validateImageFile(file);
+
+        if (validationError) {
+          setErrors({
+            submit: validationError,
+          });
+          return;
+        }
+
+        const fileExt = IMAGE_EXTENSION_BY_TYPE[file.type];
         const fileName = `${user.id}/${listingData.id}-${i}-${Date.now()}.${fileExt}`;
 
-        const { error: uploadError } = await supabase.storage.from('listing-photos').upload(fileName, file);
+        const { error: uploadError } = await supabase.storage.from('listing-photos').upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: false,
+          contentType: file.type,
+        });
 
         if (uploadError) {
           console.error('Photo upload error:', uploadError);
@@ -471,7 +581,6 @@ export default function PostAdPage() {
           sort_order: i,
         });
       }
-      const sellerName = `${user.user_metadata?.first_name || ''} ${user.user_metadata?.last_name || ''}`.trim();
 
       // 3. Save photo URLs into listing_photos table
 

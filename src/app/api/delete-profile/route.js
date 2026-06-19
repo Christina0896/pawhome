@@ -139,13 +139,12 @@ export async function DELETE(request) {
 
     return Response.json({ success: true }, { status: 200 });
   } catch (error) {
-    console.error('Delete profile route error:', error);
+    console.error('Delete profile route error:', {
+      message: error?.message,
+      code: error?.code,
+      details: error?.details,
+    });
 
-    return Response.json(
-      {
-        error: error.message || 'Profile could not be deleted.',
-      },
-      { status: 500 },
-    );
+    return Response.json({ error: 'Profile could not be deleted.' }, { status: 500 });
   }
 }

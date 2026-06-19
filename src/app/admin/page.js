@@ -514,7 +514,7 @@ const ReportReviewCard = ({ report, markReportReviewed, deleteReport, updateList
             <div className="flex flex-wrap gap-2">
               {report.listing_id && (
                 <Link
-                  href={`/listings/${report.listing_id}`}
+                  href={`/listings/${report.listing_id}?adminPreview=true`}
                   target="_blank"
                   rel="noreferrer"
                   className="rounded-xl border border-(--border-beige) bg-white px-5 py-3 text-sm font-bold text-(--secondary-green) transition hover:border-(--primary-green)"
@@ -629,7 +629,7 @@ const AdminActions = ({ listingId, selectedStatus, updateListingStatus, deleteLi
     <div className="mt-6 flex flex-col gap-3 border-t border-(--border-beige) pt-5 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex flex-wrap gap-2">
         <Link
-          href={`/listings/${listingId}`}
+          href={`/listings/${listingId}?adminPreview=true`}
           target="_blank"
           rel="noreferrer"
           className="rounded-xl border border-(--border-beige) bg-white px-5 py-3 text-sm font-bold text-(--secondary-green) transition hover:border-(--primary-green)"

@@ -25,7 +25,7 @@ export default function ResetPasswordClient() {
           const { error } = await supabase.auth.exchangeCodeForSession(code);
 
           if (error) {
-            setMessage(error.message);
+            setMessage('Something went wrong. Please try again.');
             return;
           }
 
@@ -46,7 +46,7 @@ export default function ResetPasswordClient() {
           });
 
           if (error) {
-            setMessage(error.message);
+            setMessage('Something went wrong. Please try again.');
             return;
           }
 
@@ -88,7 +88,7 @@ export default function ResetPasswordClient() {
     setLoading(false);
 
     if (error) {
-      setMessage(error.message);
+      setMessage('Something went wrong. Please try again.');
       return;
     }
 

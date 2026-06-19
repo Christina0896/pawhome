@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import Header from '../../../components/header';
 import Footer from '../../../components/footer';
 import Link from 'next/link';
@@ -69,6 +69,8 @@ const sortPhotos = (photos) => {
 export default function ListingDetailPage() {
   const params = useParams();
   const listingId = params.id;
+  const searchParams = useSearchParams();
+  const isAdminPreview = searchParams.get('adminPreview') === 'true';
 
   const handleShowPhoneNumber = async () => {
     if (!listing?.id) return;
@@ -133,20 +135,40 @@ export default function ListingDetailPage() {
       setSelectedPhotoIndex(0);
       setPhoneVisible(false);
 
-      const { data, error } = await supabase
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      let isAdmin = false;
+
+      if (user && isAdminPreview) {
+        const { data: adminData } = await supabase
+          .from('admin_users')
+          .select('user_id')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        isAdmin = Boolean(adminData);
+      }
+
+      let listingQuery = supabase
         .from('listings')
         .select(
           `
-        *,
-        listing_photos (
-          image_url,
-          sort_order
+      *,
+      listing_photos (
+        image_url,
+        sort_order
+      )
+    `,
         )
-      `,
-        )
-        .eq('id', listingId)
-        .eq('status', 'approved')
-        .single();
+        .eq('id', listingId);
+
+      if (!isAdmin) {
+        listingQuery = listingQuery.eq('status', 'approved');
+      }
+
+      const { data, error } = await listingQuery.single();
 
       if (!isMounted) return;
 
@@ -187,10 +209,6 @@ export default function ListingDetailPage() {
           });
         }
       }
-
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
 
       if (!isMounted) return;
 

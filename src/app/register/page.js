@@ -23,6 +23,7 @@ export default function RegisterPage() {
 
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
   const inputClass =
     'w-full rounded-xl border border-[var(--border-beige)] bg-white px-4 py-3 text-sm text-[var(--primary-dark-green)] outline-none transition focus:border-[var(--primary-dark-green)] focus:ring-4 focus:ring-[rgba(14,79,42,0.10)]';
@@ -54,29 +55,124 @@ export default function RegisterPage() {
 
     setLoading(true);
 
-    const { error } = await supabase.auth.signUp({
+    const password = formData.password;
+
+    const strongPassword =
+      password.length >= 10 && /[A-Z]/.test(password) && /[a-z]/.test(password) && /[0-9]/.test(password);
+
+    if (!strongPassword) {
+      setMessage('Password must be at least 10 characters and include uppercase, lowercase, and a number.');
+      setLoading(false);
+      return;
+    }
+
+    const { data, error } = await supabase.auth.signUp({
       email: formData.email,
       password: formData.password,
-      options: {
-        data: {
-          first_name: formData.firstName,
-          last_name: formData.lastName,
-          phone_code: formData.code,
-          phone_number: formData.phone,
-          account_type: formData.accountType,
-          county: formData.county,
-          marketing: formData.marketing,
-        },
-      },
     });
-
     if (error) {
       setMessage(error.message);
       setLoading(false);
       return;
     }
 
+    if (data?.user?.id) {
+      const profileResponse = await fetch('/api/create-profile', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: data.user.id,
+          email: formData.email,
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          phoneCode: formData.code,
+          phoneNumber: formData.phone,
+          accountType: formData.accountType,
+          county: formData.county,
+          marketing: formData.marketing,
+        }),
+      });
+
+      const profileResult = await profileResponse.json();
+
+      if (!profileResponse.ok) {
+        setMessage(profileResult.error || 'Account created, but profile setup failed.');
+        setLoading(false);
+        return;
+      }
+    }
+
     router.push('/register/success');
+
+    if (error) {
+      setMessage('Something went wrong. Please try again.');
+      setLoading(false);
+      return;
+    }
+
+    if (data?.user?.id) {
+      const profileResponse = await fetch('/api/create-profile', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: data.user.id,
+          email: formData.email,
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          phoneCode: formData.code,
+          phoneNumber: formData.phone,
+          accountType: formData.accountType,
+          county: formData.county,
+          marketing: formData.marketing,
+        }),
+      });
+
+      const profileResult = await profileResponse.json();
+
+      if (!profileResponse.ok) {
+        setMessage(profileResult.error || 'Account created, but profile setup failed.');
+        setLoading(false);
+        return;
+      }
+    }
+
+    if (data?.user?.id) {
+      const profileResponse = await fetch('/api/create-profile', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: data.user.id,
+          email: formData.email,
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          phoneCode: formData.code,
+          phoneNumber: formData.phone,
+          accountType: formData.accountType,
+          county: formData.county,
+          marketing: formData.marketing,
+        }),
+      });
+
+      const profileResult = await profileResponse.json();
+
+      if (!profileResponse.ok) {
+        setMessage(profileResult.error || 'Account created, but profile setup failed.');
+        setLoading(false);
+        return;
+      }
+    }
+
+    if (error) {
+      setMessage('Something went wrong. Please try again.');
+      setLoading(false);
+      return;
+    }
   };
 
   return (

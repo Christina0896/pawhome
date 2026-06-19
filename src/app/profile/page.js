@@ -23,6 +23,7 @@ export default function ProfilePage() {
   // Auth/profile state
   const [user, setUser] = useState(null);
   const [myListings, setMyListings] = useState([]);
+  const [profile, setProfile] = useState(null);
 
   // UI state
   const [loading, setLoading] = useState(true);
@@ -57,15 +58,36 @@ export default function ProfilePage() {
 
       setUser(user);
 
-      const userMetadata = user.user_metadata || {};
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (profileError) {
+        console.error('Profile fetch error:', profileError);
+      }
+
+      const safeProfile = profileData || {
+        first_name: '',
+        last_name: '',
+        account_type: 'Buyer',
+        phone_code: '+353',
+        phone_number: '',
+        county: '',
+        avatar_url: null,
+        phone_verified: false,
+      };
+
+      setProfile(safeProfile);
 
       setProfileForm({
-        first_name: userMetadata.first_name || '',
-        last_name: userMetadata.last_name || '',
-        account_type: userMetadata.account_type || 'Buyer',
-        phone_code: userMetadata.phone_code || '+353',
-        phone_number: userMetadata.phone_number || userMetadata.phone || '',
-        county: userMetadata.county || '',
+        first_name: safeProfile.first_name || '',
+        last_name: safeProfile.last_name || '',
+        account_type: safeProfile.account_type || 'Buyer',
+        phone_code: safeProfile.phone_code || '+353',
+        phone_number: safeProfile.phone_number || '',
+        county: safeProfile.county || '',
         password: '',
       });
 
@@ -95,14 +117,12 @@ export default function ProfilePage() {
     loadProfile();
   }, []);
 
-  const metadata = user?.user_metadata || {};
+  const fullName = `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim();
 
-  const fullName = `${metadata.first_name || ''} ${metadata.last_name || ''}`.trim();
+  const phone = `${profile?.phone_code || ''} ${profile?.phone_number || ''}`.trim();
 
-  const phone = `${metadata.phone_code || ''} ${metadata.phone_number || metadata.phone || ''}`.trim();
-
-  const emailVerified = Boolean(metadata.email_verified || user?.email_confirmed_at);
-  const phoneVerified = Boolean(metadata.phone_verified);
+  const emailVerified = Boolean(user?.email_confirmed_at || user?.confirmed_at);
+  const phoneVerified = Boolean(profile?.phone_verified);
 
   const memberSince = user?.created_at
     ? new Date(user.created_at).toLocaleDateString('en-IE', {
@@ -142,12 +162,15 @@ export default function ProfilePage() {
 
     const avatarUrl = publicUrlData.publicUrl;
 
-    const { data, error: updateError } = await supabase.auth.updateUser({
-      data: {
-        ...metadata,
+    const { data: updatedProfile, error: updateError } = await supabase
+      .from('profiles')
+      .update({
         avatar_url: avatarUrl,
-      },
-    });
+        updated_at: new Date().toISOString(),
+      })
+      .eq('user_id', user.id)
+      .select()
+      .single();
 
     if (updateError) {
       console.error('Avatar update error:', updateError);
@@ -156,24 +179,29 @@ export default function ProfilePage() {
       return;
     }
 
-    setUser(data.user);
+    setProfile(updatedProfile);
     setAvatarUploading(false);
   };
 
   const handleRemoveAvatar = async () => {
-    const { data, error } = await supabase.auth.updateUser({
-      data: {
-        ...metadata,
+    if (!user) return;
+
+    const { data: updatedProfile, error } = await supabase
+      .from('profiles')
+      .update({
         avatar_url: null,
-      },
-    });
+        updated_at: new Date().toISOString(),
+      })
+      .eq('user_id', user.id)
+      .select()
+      .single();
 
     if (error) {
       alert('Could not remove profile picture.');
       return;
     }
 
-    setUser(data.user);
+    setProfile(updatedProfile);
   };
 
   const handleProfileFormChange = (e) => {
@@ -195,19 +223,29 @@ export default function ProfilePage() {
     setProfileSaving(true);
     setProfileMessage('');
 
-    const updatedMetadata = {
-      ...metadata,
+    const updatedProfilePayload = {
       first_name: profileForm.first_name.trim(),
       last_name: profileForm.last_name.trim(),
       account_type: profileForm.account_type,
       phone_code: profileForm.phone_code.trim(),
       phone_number: profileForm.phone_number.trim(),
       county: profileForm.county.trim(),
+      updated_at: new Date().toISOString(),
     };
 
-    const updatePayload = {
-      data: updatedMetadata,
-    };
+    const { data: updatedProfile, error: profileUpdateError } = await supabase
+      .from('profiles')
+      .update(updatedProfilePayload)
+      .eq('user_id', user.id)
+      .select()
+      .single();
+
+    if (profileUpdateError) {
+      console.error('Profile update error:', profileUpdateError);
+      setProfileSaving(false);
+      setProfileMessage(profileUpdateError.message || 'Could not save settings.');
+      return;
+    }
 
     if (profileForm.password.trim()) {
       if (profileForm.password.trim().length < 8) {
@@ -216,20 +254,20 @@ export default function ProfilePage() {
         return;
       }
 
-      updatePayload.password = profileForm.password.trim();
+      const { error: passwordError } = await supabase.auth.updateUser({
+        password: profileForm.password.trim(),
+      });
+
+      if (passwordError) {
+        console.error('Password update error:', passwordError);
+        setProfileSaving(false);
+        setProfileMessage(passwordError.message || 'Could not update password.');
+        return;
+      }
     }
 
-    const { data, error } = await supabase.auth.updateUser(updatePayload);
-
+    setProfile(updatedProfile);
     setProfileSaving(false);
-
-    if (error) {
-      console.error('Profile update error:', error);
-      setProfileMessage(error.message || 'Could not save settings.');
-      return;
-    }
-
-    setUser(data.user);
 
     setProfileForm((current) => ({
       ...current,
@@ -297,7 +335,7 @@ export default function ProfilePage() {
       window.location.href = '/';
     } catch (error) {
       console.error('Delete profile error:', error);
-      alert(error.message || 'Profile could not be deleted.');
+      alert('Something went wrong. Please try again.');
       setLoading(false);
     }
   };
@@ -333,7 +371,7 @@ export default function ProfilePage() {
           <aside className="h-fit rounded-3xl border border-(--border-beige) bg-white p-6 shadow-[0_8px_24px_rgba(18,53,36,0.05)] lg:sticky lg:top-24">
             <ProfileAvatar
               user={user}
-              metadata={metadata}
+              profile={profile}
               fullName={fullName}
               avatarUploading={avatarUploading}
               handleAvatarUpload={handleAvatarUpload}
@@ -518,15 +556,14 @@ export default function ProfilePage() {
   );
 }
 
-const ProfileAvatar = ({ user, metadata, fullName, avatarUploading, handleAvatarUpload, handleRemoveAvatar }) => {
-  const initial = (metadata.first_name || user?.email || 'U').charAt(0).toUpperCase();
-
+const ProfileAvatar = ({ user, profile, fullName, avatarUploading, handleAvatarUpload, handleRemoveAvatar }) => {
+  const initial = (profile?.first_name || user?.email || 'U').charAt(0).toUpperCase();
   return (
     <div className="flex flex-col items-center text-center">
       <div className="relative">
         <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-(--light-green) text-4xl font-extrabold text-(--primary-green)">
-          {metadata.avatar_url ? (
-            <img src={metadata.avatar_url} alt="Profile picture" className="h-full w-full object-cover" />
+          {profile?.avatar_url ? (
+            <img src={profile.avatar_url} alt="Profile picture" className="h-full w-full object-cover" />
           ) : (
             initial
           )}
@@ -564,7 +601,7 @@ const ProfileAvatar = ({ user, metadata, fullName, avatarUploading, handleAvatar
 
       <p className="mt-1 break-all text-sm text-(--muted-green-text)">{user?.email}</p>
 
-      {metadata.avatar_url && (
+      {profile?.avatar_url && (
         <button
           type="button"
           onClick={handleRemoveAvatar}
