@@ -246,11 +246,6 @@ export default function PostAdPage() {
         return;
       }
 
-      if (REQUIRE_VERIFICATION_TO_POST && (!emailVerified || !phoneVerified)) {
-        alert('Please verify your email and phone number before posting an ad.');
-        return;
-      }
-
       const userMetadata = user.user_metadata || {};
       const contactPhone = `${userMetadata.phone_code || ''} ${
         userMetadata.phone_number || userMetadata.phone || ''

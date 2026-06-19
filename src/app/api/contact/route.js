@@ -19,10 +19,6 @@ export async function POST(request) {
   }
 
   const resend = new Resend(resendApiKey);
-  const safeName = escapeHtml(name);
-  const safeEmail = escapeHtml(email);
-  const safeSubject = escapeHtml(subject);
-  const safeMessage = escapeHtml(message).replace(/\n/g, '<br />');
 
   try {
     const { name, email, subject, message } = await request.json();
@@ -31,25 +27,30 @@ export async function POST(request) {
       return Response.json({ error: 'All fields are required.' }, { status: 400 });
     }
 
+    const safeName = escapeHtml(name);
+    const safeEmail = escapeHtml(email);
+    const safeSubject = escapeHtml(subject);
+    const safeMessage = escapeHtml(message).replace(/\n/g, '<br />');
+
     const { error } = await resend.emails.send({
       from: fromEmail,
       to: toEmail,
       replyTo: email,
       subject: `PawHome: ${subject}`,
       html: `
-    <div style="font-family: Arial, sans-serif; line-height: 1.6;">
-      <h2>New PawHome Message</h2>
+      <div style="font-family: Arial, sans-serif; line-height: 1.6;">
+        <h2>New PawHome Message</h2>
 
-      <p><strong>Type:</strong> ${safeSubject}</p>
-      <p><strong>Name:</strong> ${safeName}</p>
-      <p><strong>Email:</strong> ${safeEmail}</p>
+        <p><strong>Type:</strong> ${safeSubject}</p>
+        <p><strong>Name:</strong> ${safeName}</p>
+        <p><strong>Email:</strong> ${safeEmail}</p>
 
-      <hr />
+        <hr />
 
-      <p><strong>Message:</strong></p>
-      <p>${safeMessage}</p>
-    </div>
-  `,
+        <p><strong>Message:</strong></p>
+        <p>${safeMessage}</p>
+      </div>
+    `,
     });
 
     if (error) {
