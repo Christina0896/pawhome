@@ -7,6 +7,7 @@ import { supabase } from '../../lib/supabaseClient';
 import Link from 'next/link';
 
 const STATUS_OPTIONS = ['pending', 'approved', 'rejected', 'reports'];
+const LISTING_STATUS_FILTERS = ['pending', 'approved', 'rejected'];
 
 const formatDate = (value) => {
   if (!value) return '-';
@@ -92,6 +93,12 @@ export default function AdminPage() {
   }, [selectedStatus, user]);
 
   const loadListings = async (status) => {
+    if (!LISTING_STATUS_FILTERS.includes(status)) {
+      setListings([]);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
 
     const { data, error } = await supabase
@@ -242,7 +249,7 @@ export default function AdminPage() {
       alert('Could not delete listing.');
     }
   };
-  
+
   const markReportReviewed = async (reportId) => {
     const { error } = await supabase.from('listing_reports').update({ status: 'reviewed' }).eq('id', reportId);
 
