@@ -17,6 +17,19 @@ const IMAGE_EXTENSION_BY_TYPE = {
   'image/png': 'png',
   'image/webp': 'webp',
 };
+function cleanText(value, maxLength = 120) {
+  return String(value || '')
+    .replace(/[<>]/g, '')
+    .trim()
+    .slice(0, maxLength);
+}
+
+function cleanPhone(value) {
+  return String(value || '')
+    .replace(/[^\d+\s()-]/g, '')
+    .trim()
+    .slice(0, 30);
+}
 
 function validateImageFile(file) {
   if (!file) {
@@ -443,9 +456,9 @@ export default function PostAdPage() {
       profileData = fetchedProfile;
     }
 
-    const sellerName = `${profileData.first_name || ''} ${profileData.last_name || ''}`.trim() || 'Seller';
+    const sellerName = cleanText(`${profile?.first_name || ''} ${profile?.last_name || ''}`, 120) || 'Seller';
 
-    const contactPhone = `${profileData.phone_code || ''} ${profileData.phone_number || ''}`.trim();
+    const contactPhone = cleanPhone(`${profile?.phone_code || ''} ${profile?.phone_number || ''}`);
 
     const sellerMemberSince = profileData.created_at || user.created_at;
     if (priceRequired && (!formData.price || Number(formData.price) <= 0)) {
@@ -455,13 +468,15 @@ export default function PostAdPage() {
       }));
       return;
     }
+    const safeTitle = cleanText(formData.title, 120);
+    const safeDescription = cleanText(formData.description, 5000);
     // 1. Insert listing first
     const { data: listingData, error: listingError } = await supabase
       .from('listings')
       .insert({
         user_id: user.id,
 
-        title: formData.title,
+        title: safeTitle,
         animal_type: formData.animal_type,
         listing_type: formData.listing_type,
         breed: formData.breed,
@@ -504,7 +519,7 @@ export default function PostAdPage() {
         seller_member_since: sellerMemberSince,
         contact_phone: contactPhone,
 
-        description: formData.description,
+        description: safeDescription,
         status: 'pending',
       })
       .select()
