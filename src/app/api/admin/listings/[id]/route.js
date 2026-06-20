@@ -23,13 +23,14 @@ export async function PATCH(request, { params }) {
       return Response.json({ error: 'Invalid listing status.' }, { status: 400 });
     }
 
-    const { error } = await supabaseAdmin
+    const { data: updatedListing, error } = await supabaseAdmin
       .from('listings')
       .update({
         status,
-        updated_at: new Date().toISOString(),
       })
-      .eq('id', listingId);
+      .eq('id', listingId)
+      .select('id, status')
+      .maybeSingle();
 
     if (error) {
       console.error('Admin listing status update error:', {
@@ -41,7 +42,12 @@ export async function PATCH(request, { params }) {
       return Response.json({ error: 'Could not update listing.' }, { status: 500 });
     }
 
+    if (!updatedListing) {
+      return Response.json({ error: 'Listing not found.' }, { status: 404 });
+    }
+
     return Response.json({ success: true }, { status: 200 });
+    
   } catch (error) {
     console.error('Admin listing PATCH route error:', {
       message: error?.message,

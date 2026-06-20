@@ -590,7 +590,11 @@ export default function PostAdPage() {
         });
 
         if (uploadError) {
-          console.error('Photo upload error:', uploadError);
+          console.error('Photo upload failed:', {
+            message: uploadError.message,
+            statusCode: uploadError.statusCode,
+          });
+
           setErrors({ submit: 'Listing was created, but photo upload failed.' });
           return;
         }

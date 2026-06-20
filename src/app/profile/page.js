@@ -223,7 +223,21 @@ export default function ProfilePage() {
     setProfileSaving(true);
     setProfileMessage('');
 
+    const password = profileForm.password.trim();
+
+    if (password) {
+      const strongPassword =
+        password.length >= 10 && /[A-Z]/.test(password) && /[a-z]/.test(password) && /[0-9]/.test(password);
+
+      if (!strongPassword) {
+        setProfileSaving(false);
+        setProfileMessage('Password must be at least 10 characters and include uppercase, lowercase, and a number.');
+        return;
+      }
+    }
+
     const updatedProfilePayload = {
+      user_id: user.id,
       first_name: profileForm.first_name.trim(),
       last_name: profileForm.last_name.trim(),
       account_type: profileForm.account_type,
@@ -235,38 +249,41 @@ export default function ProfilePage() {
 
     const { data: updatedProfile, error: profileUpdateError } = await supabase
       .from('profiles')
-      .update(updatedProfilePayload)
-      .eq('user_id', user.id)
+      .upsert(
+        {
+          user_id: user.id,
+          ...updatedProfilePayload,
+        },
+        {
+          onConflict: 'user_id',
+        },
+      )
       .select()
       .single();
 
     if (profileUpdateError) {
-      console.error('Profile update error:', profileUpdateError);
+      console.error('Profile save failed:', {
+        message: profileUpdateError.message,
+        code: profileUpdateError.code,
+      });
+
       setProfileSaving(false);
       setProfileMessage('Could not save settings. Please try again.');
       return;
     }
 
-    if (profileForm.password.trim()) {
-      const password = profileForm.password.trim();
-
-      const strongPassword =
-        password.length >= 10 && /[A-Z]/.test(password) && /[a-z]/.test(password) && /[0-9]/.test(password);
-
-      if (!strongPassword) {
-        setProfileSaving(false);
-        setProfileMessage('Password must be at least 10 characters and include uppercase, lowercase, and a number.');
-        return;
-      }
-
+    if (password) {
       const { error: passwordError } = await supabase.auth.updateUser({
         password,
       });
 
       if (passwordError) {
-        console.error('Password update error:', passwordError);
+        console.error('Password update failed:', {
+          message: passwordError.message,
+        });
+
         setProfileSaving(false);
-        setProfileMessage('Could not update password. Please try again.');
+        setProfileMessage('Profile saved, but password could not be updated.');
         return;
       }
     }

@@ -88,11 +88,10 @@ export async function POST(request) {
       return Response.json({ error: 'Listing not found.' }, { status: 404 });
     }
 
-    const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || request.headers.get('origin') || 'http://localhost:3000';
 
-    const adminUrl = `${origin}/admin`;
-    const previewUrl = `${origin}/listings/${listing.id}?adminPreview=true`;
-
+    const adminUrl = `${siteUrl}/admin`;
+    const previewUrl = `${siteUrl}/listings/${listing.id}?adminPreview=true`;
     const resend = new Resend(resendApiKey);
 
     const { error: emailError } = await resend.emails.send({

@@ -208,8 +208,8 @@ export default function AdminPage() {
       const result = await response.json();
 
       if (!response.ok) {
-        console.error('Delete listing API failed:', result);
-        alert(result.error || 'Could not delete listing.');
+        console.warn('Update listing API failed:', result);
+        alert(result.error || 'Could not update listing.');
         return;
       }
 
@@ -247,7 +247,9 @@ export default function AdminPage() {
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || 'Could not delete listing.');
+        console.error('Delete listing API failed:', result);
+        alert(result.error || 'Could not delete listing.');
+        return;
       }
 
       setListings((current) => current.filter((listing) => listing.id !== listingId));
