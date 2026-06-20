@@ -456,9 +456,9 @@ export default function PostAdPage() {
       profileData = fetchedProfile;
     }
 
-    const sellerName = cleanText(`${profile?.first_name || ''} ${profile?.last_name || ''}`, 120) || 'Seller';
+    const sellerName = cleanText(`${profileData?.first_name || ''} ${profileData?.last_name || ''}`, 120) || 'Seller';
 
-    const contactPhone = cleanPhone(`${profile?.phone_code || ''} ${profile?.phone_number || ''}`);
+    const contactPhone = cleanPhone(`${profileData?.phone_code || ''} ${profileData?.phone_number || ''}`);
 
     const sellerMemberSince = profileData.created_at || user.created_at;
     if (priceRequired && (!formData.price || Number(formData.price) <= 0)) {
@@ -526,11 +526,9 @@ export default function PostAdPage() {
       .single();
 
     if (listingError) {
-      console.error('Listing insert error full:', listingError);
-      console.error('Message:', listingError.message);
-      console.error('Details:', listingError.details);
-      console.error('Hint:', listingError.hint);
-      console.error('Code:', listingError.code);
+      console.error('Listing insert failed:', {
+        code: listingError.code,
+      });
 
       setErrors({
         submit: 'Could not submit listing. Please check your details and try again.',
@@ -556,7 +554,8 @@ export default function PostAdPage() {
         }
 
         const fileExt = IMAGE_EXTENSION_BY_TYPE[file.type];
-        const fileName = `${user.id}/${listingData.id}-${i}-${Date.now()}.${fileExt}`;
+        const randomPart = crypto.randomUUID();
+        const fileName = `${user.id}/${listingData.id}-${i}-${Date.now()}-${randomPart}.${fileExt}`;
 
         const { error: uploadError } = await supabase.storage.from('listing-photos').upload(fileName, file, {
           cacheControl: '3600',

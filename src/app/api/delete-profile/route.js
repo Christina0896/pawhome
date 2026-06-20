@@ -33,7 +33,11 @@ async function safeDelete(query, label) {
   const { error } = await query;
 
   if (error) {
-    console.error(`${label} delete error:`, error);
+    console.error(`${label} delete error:`, {
+      message: error?.message,
+      code: error?.code,
+    });
+
     throw error;
   }
 }
@@ -90,7 +94,10 @@ export async function DELETE(request) {
         const { error: storageError } = await supabaseAdmin.storage.from('listing-photos').remove(photoPaths);
 
         if (storageError) {
-          console.error('Listing photo storage delete error:', storageError);
+          console.error('Listing photo storage delete error:', {
+            message: storageError?.message,
+            code: storageError?.code,
+          });
         }
       }
 
@@ -128,7 +135,10 @@ export async function DELETE(request) {
         const { error: avatarDeleteError } = await supabaseAdmin.storage.from('avatars').remove([avatarPath]);
 
         if (avatarDeleteError) {
-          console.error('Avatar storage delete error:', avatarDeleteError);
+          console.error('Avatar storage delete error:', {
+            message: avatarDeleteError?.message,
+            code: avatarDeleteError?.code,
+          });
         }
       }
     }
