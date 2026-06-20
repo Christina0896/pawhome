@@ -410,6 +410,32 @@ export default function PostAdPage() {
     addPhotos(files);
   };
   const [hasTriedSubmit, setHasTriedSubmit] = useState(false);
+  const notifyAdminAboutNewListing = async (listingId) => {
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        return;
+      }
+
+      const response = await fetch('/api/notify-new-listing', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ listingId }),
+      });
+
+      if (!response.ok) {
+        console.error('Admin notification failed.');
+      }
+    } catch (error) {
+      console.error('Admin notification request failed.');
+    }
+  };
   const handleSubmitListing = async (e) => {
     e.preventDefault();
 
@@ -583,12 +609,14 @@ export default function PostAdPage() {
       const { error: photoDbError } = await supabase.from('listing_photos').insert(photoRows);
 
       if (photoDbError) {
-        console.error('Photo DB insert error:', photoDbError);
+        console.error('Photo DB insert failed.');
         setErrors({
           submit: 'Listing was created, but photo records could not be saved.',
         });
         return;
       }
+
+      await notifyAdminAboutNewListing(listingData.id);
 
       window.location.href = '/post-ad/success';
     }

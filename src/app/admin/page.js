@@ -40,6 +40,7 @@ export default function AdminPage() {
   // Auth state
   const [user, setUser] = useState(null);
   const [checkingAdmin, setCheckingAdmin] = useState(true);
+  const [accessDenied, setAccessDenied] = useState(false);
 
   // Listing state
   const [listings, setListings] = useState([]);
@@ -58,7 +59,9 @@ export default function AdminPage() {
       } = await supabase.auth.getUser();
 
       if (error || !user) {
-        window.location.href = '/';
+        setAccessDenied(true);
+        setCheckingAdmin(false);
+        setLoading(false);
         return;
       }
 
@@ -69,7 +72,9 @@ export default function AdminPage() {
         .maybeSingle();
 
       if (adminError || !adminData) {
-        window.location.href = '/';
+        setAccessDenied(true);
+        setCheckingAdmin(false);
+        setLoading(false);
         return;
       }
 
@@ -203,7 +208,9 @@ export default function AdminPage() {
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || 'Could not update listing.');
+        console.error('Delete listing API failed:', result);
+        alert(result.error || 'Could not delete listing.');
+        return;
       }
 
       setListings((current) => current.map((listing) => (listing.id === listingId ? { ...listing, status } : listing)));
@@ -287,6 +294,36 @@ export default function AdminPage() {
 
         <main className="mx-auto max-w-[1280px] px-6 py-10">
           <p className="text-sm text-(--secondary-green)">Checking admin...</p>
+        </main>
+
+        <Footer />
+      </div>
+    );
+  }
+  if (accessDenied) {
+    return (
+      <div className="min-h-screen bg-(--background)">
+        <Header />
+
+        <main className="mx-auto flex min-h-[65vh] max-w-[900px] items-center justify-center px-6 py-12">
+          <div className="w-full rounded-3xl border border-red-200 bg-white p-8 text-center shadow-sm">
+            <p className="text-sm font-bold uppercase tracking-wide text-red-500">403 Forbidden</p>
+
+            <h1 className="mt-3 text-3xl font-extrabold text-(--secondary-green)">
+              You do not have access to this page
+            </h1>
+
+            <p className="mx-auto mt-4 max-w-[560px] text-sm leading-6 text-(--muted-green-text)">
+              This area is restricted to PawHome administrators only.
+            </p>
+
+            <Link
+              href="/"
+              className="mt-7 inline-flex rounded-full bg-(--primary-orange) px-6 py-3 text-sm font-bold text-white transition hover:bg-(--secondary-orange)"
+            >
+              Back to homepage
+            </Link>
+          </div>
         </main>
 
         <Footer />

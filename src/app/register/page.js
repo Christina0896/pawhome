@@ -69,10 +69,23 @@ export default function RegisterPage() {
     const { data, error } = await supabase.auth.signUp({
       email: formData.email,
       password: formData.password,
+      options: {
+        emailRedirectTo: `${window.location.origin}/register/success`,
+      },
     });
+
     if (error) {
       console.error('Signup error:', error);
       setMessage('Could not create account. Please check your details and try again.');
+      setLoading(false);
+      return;
+    }
+
+
+    
+
+    if (!data?.user || data.user.identities?.length === 0) {
+      setMessage('An account with this email already exists. Please log in or use the password reset option.');
       setLoading(false);
       return;
     }

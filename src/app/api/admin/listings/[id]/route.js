@@ -10,7 +10,11 @@ export async function PATCH(request, { params }) {
   }
 
   const { supabaseAdmin } = admin;
-  const listingId = params.id;
+  const { id: listingId } = await params;
+
+  if (!listingId) {
+    return Response.json({ error: 'Missing listing ID.' }, { status: 400 });
+  }
 
   try {
     const { status } = await request.json();
@@ -55,7 +59,11 @@ export async function DELETE(request, { params }) {
   }
 
   const { supabaseAdmin } = admin;
-  const listingId = params.id;
+  const { id: listingId } = await params;
+
+  if (!listingId) {
+    return Response.json({ error: 'Missing listing ID.' }, { status: 400 });
+  }
 
   try {
     const { data: photos, error: photosError } = await supabaseAdmin
