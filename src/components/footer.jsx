@@ -33,15 +33,6 @@ const Footer = () => {
                 <Link href="/breed-guide" className="block hover:text-white">
                   Breed Guide
                 </Link>
-                <Link href="/safety" className="block hover:text-white">
-                  Safety Tips
-                </Link>
-              </div>
-            </div>
-
-            <div>
-              <h4 className="text-sm font-extrabold text-white">&nbsp;</h4>
-              <div className="mt-4 space-y-2 text-sm font-medium text-white/80">
                 <button
                   type="button"
                   onClick={() => setShowContactModal(true)}
@@ -49,6 +40,12 @@ const Footer = () => {
                 >
                   Contact Us
                 </button>
+              </div>
+            </div>
+
+            <div>
+              <h4 className="text-sm font-extrabold text-white">&nbsp;</h4>
+              <div className="mt-4 space-y-2 text-sm font-medium text-white/80">
                 <Link href="/terms" className="block hover:text-white">
                   Terms of Use
                 </Link>

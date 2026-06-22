@@ -1540,7 +1540,7 @@ export default function PostAdPage() {
                       />
 
                       {minimumReadyToLeaveDate && (
-                        <p className="mt-1 text-xs font-semibold text-(--muted-green-text)">
+                        <p className="mt-1 text-xs font-semibold text-red-600">
                           Minimum legal ready date: {minimumReadyToLeaveDate}
                         </p>
                       )}

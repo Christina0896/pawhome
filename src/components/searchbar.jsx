@@ -351,7 +351,7 @@ const SearchBar = () => {
         <button
           type="button"
           onClick={handleSearch}
-          className="flex h-[52px] items-center justify-center gap-3 rounded-xl bg-(--primary-orange) px-6 text-base font-bold text-white shadow-sm transition hover:bg-(--secondary-orange)"
+          className="flex h-[52px] items-center justify-center gap-3 rounded-xl bg-(--primary-orange) px-6 text-base font-bold text-white shadow-sm transition hover:bg-(--secondary-orange) cursor-pointer"
         >
           <SearchIcon className="h-5 w-5" />
 

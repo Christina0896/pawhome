@@ -168,16 +168,24 @@ export default function ListingDetailPage() {
         listingQuery = listingQuery.eq('status', 'approved');
       }
 
-      const { data, error } = await listingQuery.single();
+      const { data, error } = await listingQuery.maybeSingle();
 
       if (!isMounted) return;
 
-      if (error || !data) {
-        console.error('Listing fetch error:', error);
+      if (error) {
+        console.warn('Listing fetch failed:', {
+          message: error.message,
+          code: error.code,
+        });
+
         setLoading(false);
         return;
       }
 
+      if (!data) {
+        setLoading(false);
+        return;
+      }
       const sortedPhotos = sortPhotos(data.listing_photos);
 
       setListing(data);

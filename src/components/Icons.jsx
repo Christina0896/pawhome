@@ -1,5 +1,5 @@
-export const ArrowIcon = () => (
-  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" aria-hidden="true">
+export const ArrowIcon = ({ className = "h-4 w-4" }) => (
+  <svg viewBox="0 0 24 24" className={className} fill="none" aria-hidden="true">
     <path d="M5 12h14M13 6l6 6-6 6" stroke="#5f6f64" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
