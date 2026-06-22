@@ -1,5 +1,25 @@
 import { Resend } from 'resend';
 
+const contactRateLimit = new Map();
+
+function isRateLimited(ip) {
+  const now = Date.now();
+  const windowMs = 10 * 60 * 1000;
+  const maxRequests = 5;
+
+  const current = contactRateLimit.get(ip) || [];
+  const recent = current.filter((timestamp) => now - timestamp < windowMs);
+
+  if (recent.length >= maxRequests) {
+    contactRateLimit.set(ip, recent);
+    return true;
+  }
+
+  recent.push(now);
+  contactRateLimit.set(ip, recent);
+  return false;
+}
+
 function escapeHtml(value = '') {
   return String(value)
     .replaceAll('&', '&amp;')
@@ -22,26 +42,6 @@ export async function POST(request) {
   const fromEmail = process.env.CONTACT_FROM_EMAIL;
 
   const toEmail = process.env.CONTACT_TO_EMAIL;
-
-  const contactRateLimit = new Map();
-
-  function isRateLimited(ip) {
-    const now = Date.now();
-    const windowMs = 10 * 60 * 1000;
-    const maxRequests = 5;
-
-    const current = contactRateLimit.get(ip) || [];
-    const recent = current.filter((timestamp) => now - timestamp < windowMs);
-
-    if (recent.length >= maxRequests) {
-      contactRateLimit.set(ip, recent);
-      return true;
-    }
-
-    recent.push(now);
-    contactRateLimit.set(ip, recent);
-    return false;
-  }
 
   if (!resendApiKey || !fromEmail || !toEmail) {
     return Response.json({ error: 'Email service is not configured.' }, { status: 500 });
