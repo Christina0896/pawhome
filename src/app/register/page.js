@@ -75,14 +75,30 @@ export default function RegisterPage() {
     });
 
     if (error) {
-      console.error('Signup error:', error);
-      setMessage('Could not create account. Please check your details and try again.');
+      console.warn('Signup failed:', {
+        message: error.message,
+        status: error.status,
+        code: error.code,
+      });
+
+      const message = error.message?.toLowerCase() || '';
+
+      if (message.includes('rate limit')) {
+        setMessage('Too many signup emails were sent. Please wait a few minutes and try again.');
+      } else if (message.includes('already') || message.includes('registered')) {
+        setMessage('This email is already registered. Please log in or use forgot password.');
+      } else if (message.includes('redirect')) {
+        setMessage('Signup redirect URL is not configured correctly.');
+      } else {
+        setMessage(`Could not create account: ${error.message}`);
+      }
+
       setLoading(false);
       return;
     }
 
-    if (!data?.user?.id) {
-      alert('Could not create account. Please try again or use forgot password if you already registered.');
+    if (!data?.user || data.user.identities?.length === 0) {
+      setMessage('An account with this email already exists. Please log in or use the password reset option.');
       setLoading(false);
       return;
     }
