@@ -7,7 +7,7 @@ import Footer from '../../../../../components/footer';
 import { supabase } from '../../../../../lib/supabaseClient';
 import { counties } from '../../../../../data/countyList';
 import { dogBreeds, catBreeds, otherPetTypes } from '../../../../../data/petOptions';
-import Link from 'next/link'
+import Link from 'next/link';
 
 const emptyForm = {
   title: '',
@@ -351,8 +351,16 @@ export default function EditListingPage() {
 
       .eq('id', listingId)
       .eq('user_id', user.id);
+    if (error) {
+      console.warn('Listing update failed:', {
+        message: error.message,
+        code: error.code,
+      });
 
-    setSaving(false);
+      setMessage('Could not save listing. Please try again.');
+      setSaving(false);
+      return;
+    }
 
     if (photosToDelete.length > 0) {
       const photoIdsToDelete = photosToDelete.map((photo) => photo.id).filter(Boolean);
@@ -422,65 +430,7 @@ export default function EditListingPage() {
 
     setSaving(false);
     window.location.href = '/profile';
-    if (photosToDelete.length > 0) {
-      const storagePaths = photosToDelete.map((photo) => getStoragePathFromPublicUrl(photo.image_url)).filter(Boolean);
-
-      if (storagePaths.length > 0) {
-        const { error: storageDeleteError } = await supabase.storage.from('listing-photos').remove(storagePaths);
-
-        if (storageDeleteError) {
-          console.error('Photo storage delete error:', storageDeleteError);
-        }
-      }
-
-      const photoIdsToDelete = photosToDelete.map((photo) => photo.id).filter(Boolean);
-
-      if (photoIdsToDelete.length > 0) {
-        const { error: photoDeleteError } = await supabase.from('listing_photos').delete().in('id', photoIdsToDelete);
-
-        if (photoDeleteError) {
-          console.error('Photo DB delete error:', photoDeleteError);
-          setMessage(photoDeleteError.message || 'Could not delete old photos.');
-          return;
-        }
-      }
-    }
-
-    if (newPhotos.length > 0) {
-      const photoRows = [];
-
-      for (let i = 0; i < newPhotos.length; i++) {
-        const file = newPhotos[i];
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${user.id}/${listingId}-edit-${Date.now()}-${i}.${fileExt}`;
-
-        const { error: uploadError } = await supabase.storage.from('listing-photos').upload(fileName, file);
-
-        if (uploadError) {
-          console.error('Photo upload error:', uploadError);
-          setMessage(uploadError.message || 'Photo upload failed.');
-          return;
-        }
-
-        const { data: publicUrlData } = supabase.storage.from('listing-photos').getPublicUrl(fileName);
-
-        photoRows.push({
-          listing_id: listingId,
-          image_url: publicUrlData.publicUrl,
-          sort_order: visiblePhotos.length + i,
-        });
-      }
-
-      const { error: photoInsertError } = await supabase.from('listing_photos').insert(photoRows);
-
-      if (photoInsertError) {
-        console.error('Photo DB insert error:', photoInsertError);
-        setMessage(photoInsertError.message || 'Could not save new photos.');
-        return;
-      }
-    }
-
-    window.location.href = '/profile';
+    return;
   };
 
   if (loading) {

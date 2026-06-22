@@ -244,7 +244,6 @@ export default function ProfilePage() {
       phone_code: profileForm.phone_code.trim(),
       phone_number: profileForm.phone_number.trim(),
       county: profileForm.county.trim(),
-      updated_at: new Date().toISOString(),
     };
 
     const { data: updatedProfile, error: profileUpdateError } = await supabase

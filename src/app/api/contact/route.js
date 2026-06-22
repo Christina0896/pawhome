@@ -56,6 +56,12 @@ export async function POST(request) {
       return Response.json({ error: 'All fields are required.' }, { status: 400 });
     }
 
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!emailPattern.test(email)) {
+      return Response.json({ error: 'Invalid email address.' }, { status: 400 });
+    }
+
     const safeName = escapeHtml(name);
     const safeEmail = escapeHtml(email);
     const safeSubject = escapeHtml(subject);

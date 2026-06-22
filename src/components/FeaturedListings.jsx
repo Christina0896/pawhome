@@ -137,7 +137,7 @@ const FeaturedListings = () => {
         return;
       }
 
-      setFavoriteIds((favoritesData || []).map((fav) => String(fav.listing_id)));
+      setFavoriteIds((data || []).map((fav) => String(fav.listing_id)));
     } catch (err) {
       console.warn('Featured favourites crashed:', err);
       setCurrentUser(null);

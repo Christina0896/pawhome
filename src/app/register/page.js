@@ -97,8 +97,8 @@ export default function RegisterPage() {
       return;
     }
 
-    if (!data?.user || data.user.identities?.length === 0) {
-      setMessage('An account with this email already exists. Please log in or use the password reset option.');
+    if (!data?.user?.id) {
+      setMessage('Could not create account. Please try again or use forgot password if you already registered.');
       setLoading(false);
       return;
     }
