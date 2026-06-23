@@ -205,27 +205,6 @@ export default function ListingDetailPage() {
 
       // Everything below runs after the page is already visible
 
-      const viewStorageKey = `pawhome-viewed-${data.id}`;
-
-      if (!sessionStorage.getItem(viewStorageKey)) {
-        sessionStorage.setItem(viewStorageKey, 'true');
-
-        const { data: newViewCount, error: viewError } = await supabase.rpc('increment_listing_views', {
-          listing_id_input: Number(data.id),
-        });
-
-        if (!viewError && isMounted) {
-          setListing((current) => {
-            if (!current) return current;
-
-            return {
-              ...current,
-              views: newViewCount ?? current.views ?? 0,
-            };
-          });
-        }
-      }
-
       if (!isMounted) return;
 
       setCurrentUser(user);

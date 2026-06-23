@@ -262,7 +262,6 @@ export default function ProfilePage() {
     }
 
     const updatedProfilePayload = {
-      user_id: user.id,
       first_name: profileForm.first_name.trim(),
       last_name: profileForm.last_name.trim(),
       account_type: profileForm.account_type,
@@ -271,46 +270,36 @@ export default function ProfilePage() {
       county: profileForm.county.trim(),
     };
 
-    const { data: updatedProfile, error: profileUpdateError } = await supabase
-      .from('profiles')
-      .upsert(
-        {
-          user_id: user.id,
-          ...updatedProfilePayload,
-        },
-        {
-          onConflict: 'user_id',
-        },
-      )
-      .select()
-      .single();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
 
-    if (profileUpdateError) {
-      console.error('Profile save failed:', {
-        message: profileUpdateError.message,
-        code: profileUpdateError.code,
-      });
-
+    if (!session?.access_token) {
       setProfileSaving(false);
-      setProfileMessage('Could not save settings. Please try again.');
+      window.dispatchEvent(new Event('open-login-modal'));
       return;
     }
 
-    if (password) {
-      const { error: passwordError } = await supabase.auth.updateUser({
-        password,
-      });
+    const response = await fetch('/api/profile', {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify(updatedProfilePayload),
+    });
 
-      if (passwordError) {
-        console.error('Password update failed:', {
-          message: passwordError.message,
-        });
+    const result = await response.json();
 
-        setProfileSaving(false);
-        setProfileMessage('Profile saved, but password could not be updated.');
-        return;
-      }
+    if (!response.ok) {
+      console.warn('Profile save API failed:', result);
+
+      setProfileSaving(false);
+      setProfileMessage(result.error || 'Could not save settings. Please try again.');
+      return;
     }
+
+    const updatedProfile = result.profile;
 
     setProfile(updatedProfile);
     setProfileSaving(false);
