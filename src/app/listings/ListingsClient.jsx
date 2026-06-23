@@ -239,42 +239,52 @@ export default function ListingsClient() {
     const listingKey = String(listingId);
     const isFavorite = favoriteIds.includes(listingKey);
 
-    if (isFavorite) {
-      setFavoriteIds((prev) => prev.filter((id) => id !== listingKey));
+    setFavoriteIds((prev) =>
+      isFavorite ? prev.filter((id) => id !== listingKey) : prev.includes(listingKey) ? prev : [...prev, listingKey],
+    );
 
-      const { error } = await supabase
-        .from('favorites')
-        .delete()
-        .eq('user_id', currentUser.id)
-        .eq('listing_id', listingId);
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-      if (error) {
-        console.error('Remove favorite error:', error);
-
-        setFavoriteIds((prev) => (prev.includes(listingKey) ? prev : [...prev, listingKey]));
-
+      if (!session?.access_token) {
+        window.dispatchEvent(new Event('open-login-modal'));
         return;
       }
 
-      return;
-    }
+      const response = await fetch(`/api/favorites/${listingId}`, {
+        method: isFavorite ? 'DELETE' : 'POST',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
 
-    setFavoriteIds((prev) => (prev.includes(listingKey) ? prev : [...prev, listingKey]));
+      const result = await response.json();
 
-    const { error } = await supabase.from('favorites').insert({
-      user_id: currentUser.id,
-      listing_id: listingId,
-    });
+      if (!response.ok) {
+        console.warn('Favourite API failed:', result);
 
-    if (error) {
-      console.error('Add favorite error:', error);
+        setFavoriteIds((prev) =>
+          isFavorite
+            ? prev.includes(listingKey)
+              ? prev
+              : [...prev, listingKey]
+            : prev.filter((id) => id !== listingKey),
+        );
 
-      // 23505 = duplicate favorite already exists
-      if (error.code === '23505') {
         return;
       }
+    } catch (error) {
+      console.warn('Favourite request failed:', error);
 
-      setFavoriteIds((prev) => prev.filter((id) => id !== listingKey));
+      setFavoriteIds((prev) =>
+        isFavorite
+          ? prev.includes(listingKey)
+            ? prev
+            : [...prev, listingKey]
+          : prev.filter((id) => id !== listingKey),
+      );
     }
   };
 

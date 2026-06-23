@@ -260,17 +260,40 @@ export default function AdminPage() {
   };
 
   const markReportReviewed = async (reportId) => {
-    const { error } = await supabase.from('listing_reports').update({ status: 'reviewed' }).eq('id', reportId);
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-    if (error) {
-      console.error('Report review error:', error);
+      if (!session?.access_token) {
+        alert('You must be logged in as admin.');
+        return;
+      }
+
+      const response = await fetch(`/api/admin/reports/${reportId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ status: 'reviewed' }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        console.warn('Report review API failed:', result);
+        alert(result.error || 'Could not mark report as reviewed.');
+        return;
+      }
+
+      setReports((current) =>
+        current.map((report) => (report.id === reportId ? { ...report, status: 'reviewed' } : report)),
+      );
+    } catch (error) {
+      console.warn('Report review error:', error);
       alert('Could not mark report as reviewed.');
-      return;
     }
-
-    setReports((current) =>
-      current.map((report) => (report.id === reportId ? { ...report, status: 'reviewed' } : report)),
-    );
   };
 
   const deleteReport = async (reportId) => {
@@ -278,15 +301,36 @@ export default function AdminPage() {
 
     if (!confirmed) return;
 
-    const { error } = await supabase.from('listing_reports').delete().eq('id', reportId);
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-    if (error) {
-      console.error('Delete report error:', error);
+      if (!session?.access_token) {
+        alert('You must be logged in as admin.');
+        return;
+      }
+
+      const response = await fetch(`/api/admin/reports/${reportId}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        console.warn('Delete report API failed:', result);
+        alert(result.error || 'Could not delete report.');
+        return;
+      }
+
+      setReports((current) => current.filter((report) => report.id !== reportId));
+    } catch (error) {
+      console.warn('Delete report error:', error);
       alert('Could not delete report.');
-      return;
     }
-
-    setReports((current) => current.filter((report) => report.id !== reportId));
   };
 
   if (checkingAdmin) {

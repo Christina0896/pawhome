@@ -77,23 +77,31 @@ export default function ListingDetailPage() {
 
     setPhoneVisible(true);
 
-    const { data, error } = await supabase.rpc('increment_listing_phone_clicks', {
-      listing_id_input: Number(listing.id),
-    });
+    try {
+      const response = await fetch(`/api/listings/${listing.id}/phone-click`, {
+        method: 'POST',
+      });
 
-    if (error) {
-      console.warn('Phone click tracking failed:', error);
-      return;
+      const result = await response.json();
+
+      if (!response.ok) {
+        console.warn('Phone click API failed:', result);
+        return;
+      }
+
+      if (result.phoneClicks !== undefined && result.phoneClicks !== null) {
+        setListing((current) => {
+          if (!current) return current;
+
+          return {
+            ...current,
+            phone_clicks: result.phoneClicks,
+          };
+        });
+      }
+    } catch (error) {
+      console.warn('Phone click request failed:', error);
     }
-
-    setListing((current) => {
-      if (!current) return current;
-
-      return {
-        ...current,
-        phone_clicks: data ?? current.phone_clicks ?? 0,
-      };
-    });
   };
 
   const [listing, setListing] = useState(null);
@@ -270,6 +278,40 @@ export default function ListingDetailPage() {
     };
   }, [listingId]);
 
+  useEffect(() => {
+    if (!listing?.id) return;
+
+    const trackView = async () => {
+      try {
+        const response = await fetch(`/api/listings/${listing.id}/view`, {
+          method: 'POST',
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          console.warn('View API failed:', result);
+          return;
+        }
+
+        if (result.views !== undefined && result.views !== null) {
+          setListing((current) => {
+            if (!current) return current;
+
+            return {
+              ...current,
+              views: result.views,
+            };
+          });
+        }
+      } catch (error) {
+        console.warn('View request failed:', error);
+      }
+    };
+
+    trackView();
+  }, [listing?.id]);
+
   const handlePreviousPhoto = () => {
     if (photos.length === 0) return;
 
@@ -347,15 +389,6 @@ export default function ListingDetailPage() {
 
     if (!listing) return;
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      window.dispatchEvent(new Event('open-login-modal'));
-      return;
-    }
-
     if (!reportReason) {
       alert('Please select a reason.');
       return;
@@ -363,25 +396,46 @@ export default function ListingDetailPage() {
 
     setReportSubmitting(true);
 
-    const { error } = await supabase.from('listing_reports').insert({
-      listing_id: listing.id,
-      reporter_user_id: user.id,
-      reason: reportReason,
-      details: reportDetails,
-      status: 'open',
-    });
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-    setReportSubmitting(false);
+      if (!session?.user || !session?.access_token) {
+        setReportSubmitting(false);
+        window.dispatchEvent(new Event('open-login-modal'));
+        return;
+      }
 
-    if (error) {
+      const response = await fetch(`/api/listings/${listing.id}/report`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          reason: reportReason,
+          details: reportDetails,
+        }),
+      });
+
+      const result = await response.json();
+
+      setReportSubmitting(false);
+
+      if (!response.ok) {
+        alert(result.error || 'Could not submit report. Please try again.');
+        return;
+      }
+
+      setReportSuccess(true);
+      setReportReason('');
+      setReportDetails('');
+    } catch (error) {
       console.error('Report listing error:', error);
+      setReportSubmitting(false);
       alert('Could not submit report. Please try again.');
-      return;
     }
-
-    setReportSuccess(true);
-    setReportReason('');
-    setReportDetails('');
   };
 
   if (loading) {
@@ -1246,6 +1300,7 @@ const ReportModal = ({
                 <textarea
                   value={reportDetails}
                   onChange={(e) => setReportDetails(e.target.value)}
+                  maxLength={1000}
                   rows={5}
                   placeholder="Add any details that may help us review this listing."
                   className="w-full resize-none rounded-xl border border-(--border-beige) bg-white px-4 py-3 text-sm text-(--secondary-green) outline-none focus:border-(--primary-green)"

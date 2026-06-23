@@ -436,6 +436,33 @@ export default function PostAdPage() {
       console.error('Admin notification request failed.');
     }
   };
+  const rollbackFailedListing = async ({ listingId, uploadedPaths = [] }) => {
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.access_token || !listingId) {
+        return;
+      }
+
+      const response = await fetch(`/api/listings/${listingId}/rollback-upload`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ uploadedPaths }),
+      });
+
+      if (!response.ok) {
+        const result = await response.json().catch(() => ({}));
+        console.warn('Rollback failed:', result);
+      }
+    } catch (error) {
+      console.warn('Rollback request failed:', error);
+    }
+  };
   const handleSubmitListing = async (e) => {
     e.preventDefault();
 
@@ -566,6 +593,7 @@ export default function PostAdPage() {
     // 2. Upload photos
     if (photos.length > 0) {
       const photoRows = [];
+      const uploadedPaths = [];
 
       for (let i = 0; i < photos.length; i++) {
         const file = photos[i];
@@ -573,6 +601,11 @@ export default function PostAdPage() {
         const validationError = validateImageFile(file);
 
         if (validationError) {
+          await rollbackFailedListing({
+            listingId: listingData.id,
+            uploadedPaths,
+          });
+
           setErrors({
             submit: validationError,
           });
@@ -595,10 +628,18 @@ export default function PostAdPage() {
             statusCode: uploadError.statusCode,
           });
 
-          setErrors({ submit: 'Listing was created, but photo upload failed.' });
+          await rollbackFailedListing({
+            listingId: listingData.id,
+            uploadedPaths,
+          });
+
+          setErrors({
+            submit: 'Photo upload failed. Your listing was not created. Please try again.',
+          });
           return;
         }
 
+        uploadedPaths.push(fileName);
         const { data: publicUrlData } = supabase.storage.from('listing-photos').getPublicUrl(fileName);
 
         photoRows.push({
@@ -614,8 +655,14 @@ export default function PostAdPage() {
 
       if (photoDbError) {
         console.error('Photo DB insert failed.');
+
+        await rollbackFailedListing({
+          listingId: listingData.id,
+          uploadedPaths,
+        });
+
         setErrors({
-          submit: 'Listing was created, but photo records could not be saved.',
+          submit: 'Photo records could not be saved. Your listing was not created. Please try again.',
         });
         return;
       }

@@ -9,6 +9,15 @@ import { counties } from '../../../../../data/countyList';
 import { dogBreeds, catBreeds, otherPetTypes } from '../../../../../data/petOptions';
 import Link from 'next/link';
 
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const MAX_LISTING_IMAGE_SIZE = 5 * 1024 * 1024;
+
+const IMAGE_EXTENSION_BY_TYPE = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+};
+
 const emptyForm = {
   title: '',
   listing_type: '',
@@ -252,9 +261,23 @@ export default function EditListingPage() {
   const totalPhotoCount = visiblePhotos.length + newPhotos.length;
 
   const handleAddEditPhotos = (files) => {
-    const allowedFiles = files.filter((file) => ['image/jpeg', 'image/png', 'image/webp'].includes(file.type));
+    const validFiles = [];
 
-    if (allowedFiles.length === 0) return;
+    for (const file of files) {
+      if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+        setMessage('Only JPG, PNG, or WEBP images are allowed.');
+        continue;
+      }
+
+      if (file.size > MAX_LISTING_IMAGE_SIZE) {
+        setMessage('Each photo must be 5 MB or smaller.');
+        continue;
+      }
+
+      validFiles.push(file);
+    }
+
+    if (validFiles.length === 0) return;
 
     const remainingSlots = 6 - totalPhotoCount;
 
@@ -263,13 +286,16 @@ export default function EditListingPage() {
       return;
     }
 
-    const filesToAdd = allowedFiles.slice(0, remainingSlots);
+    const filesToAdd = validFiles.slice(0, remainingSlots);
+
+    if (validFiles.length > remainingSlots) {
+      setMessage('You can upload a maximum of 6 photos.');
+    } else {
+      setMessage('');
+    }
 
     setNewPhotos((current) => [...current, ...filesToAdd]);
-
     setNewPhotoPreviews((current) => [...current, ...filesToAdd.map((file) => URL.createObjectURL(file))]);
-
-    setMessage('');
   };
 
   const handleEditPhotoChange = (e) => {
@@ -397,7 +423,14 @@ export default function EditListingPage() {
 
       for (let i = 0; i < newPhotos.length; i++) {
         const file = newPhotos[i];
-        const fileExt = file.name.split('.').pop();
+        const fileExt = IMAGE_EXTENSION_BY_TYPE[file.type];
+
+        if (!fileExt) {
+          setMessage('Only JPG, PNG, or WEBP images are allowed.');
+          setSaving(false);
+          return;
+        }
+
         const fileName = `${user.id}/${listingId}-edit-${Date.now()}-${i}.${fileExt}`;
 
         const { error: uploadError } = await supabase.storage.from('listing-photos').upload(fileName, file);

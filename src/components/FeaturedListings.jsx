@@ -262,7 +262,7 @@ const FeaturedListings = () => {
 
     const user = session?.user || null;
 
-    if (!user) {
+    if (!user || !session?.access_token) {
       window.dispatchEvent(new Event('open-login-modal'));
       return;
     }
@@ -272,35 +272,41 @@ const FeaturedListings = () => {
     const listingKey = String(listingId);
     const isFavorite = favoriteIds.includes(listingKey);
 
-    if (isFavorite) {
-      setFavoriteIds((prev) => prev.filter((id) => id !== listingKey));
+    setFavoriteIds((prev) =>
+      isFavorite ? prev.filter((id) => id !== listingKey) : prev.includes(listingKey) ? prev : [...prev, listingKey],
+    );
 
-      const { error } = await supabase.from('favorites').delete().eq('user_id', user.id).eq('listing_id', listingId);
+    try {
+      const response = await fetch(`/api/favorites/${listingId}`, {
+        method: isFavorite ? 'DELETE' : 'POST',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
 
-      if (error) {
-        console.error('Remove favorite error:', error);
+      const result = await response.json();
 
-        setFavoriteIds((prev) => (prev.includes(listingKey) ? prev : [...prev, listingKey]));
+      if (!response.ok) {
+        console.warn('Featured favourite API failed:', result);
+
+        setFavoriteIds((prev) =>
+          isFavorite
+            ? prev.includes(listingKey)
+              ? prev
+              : [...prev, listingKey]
+            : prev.filter((id) => id !== listingKey),
+        );
       }
+    } catch (error) {
+      console.warn('Featured favourite request failed:', error);
 
-      return;
-    }
-
-    setFavoriteIds((prev) => (prev.includes(listingKey) ? prev : [...prev, listingKey]));
-
-    const { error } = await supabase.from('favorites').insert({
-      user_id: user.id,
-      listing_id: listingId,
-    });
-
-    if (error) {
-      console.error('Add favorite error:', error);
-
-      if (error.code === '23505') {
-        return;
-      }
-
-      setFavoriteIds((prev) => prev.filter((id) => id !== listingKey));
+      setFavoriteIds((prev) =>
+        isFavorite
+          ? prev.includes(listingKey)
+            ? prev
+            : [...prev, listingKey]
+          : prev.filter((id) => id !== listingKey),
+      );
     }
   };
 

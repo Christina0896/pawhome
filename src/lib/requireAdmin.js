@@ -9,15 +9,14 @@ export async function requireAdmin(request) {
     };
   }
 
-  const authHeader = request.headers.get('authorization');
+  const authHeader = request.headers.get('authorization') || '';
+  const token = authHeader.replace('Bearer ', '').trim();
 
-  if (!authHeader?.startsWith('Bearer ')) {
+  if (!token) {
     return {
-      error: Response.json({ error: 'Unauthorized.' }, { status: 401 }),
+      error: Response.json({ error: 'Not authenticated.' }, { status: 401 }),
     };
   }
-
-  const token = authHeader.replace('Bearer ', '');
 
   const {
     data: { user },
@@ -26,19 +25,30 @@ export async function requireAdmin(request) {
 
   if (userError || !user) {
     return {
-      error: Response.json({ error: 'Unauthorized.' }, { status: 401 }),
+      error: Response.json({ error: 'Invalid session.' }, { status: 401 }),
     };
   }
 
-  const { data: adminData, error: adminError } = await supabaseAdmin
+  const { data: adminUser, error: adminError } = await supabaseAdmin
     .from('admin_users')
     .select('user_id')
     .eq('user_id', user.id)
     .maybeSingle();
 
-  if (adminError || !adminData) {
+  if (adminError) {
+    console.error('Admin check failed:', {
+      message: adminError.message,
+      code: adminError.code,
+    });
+
     return {
-      error: Response.json({ error: 'Forbidden.' }, { status: 403 }),
+      error: Response.json({ error: 'Could not verify admin access.' }, { status: 500 }),
+    };
+  }
+
+  if (!adminUser) {
+    return {
+      error: Response.json({ error: 'Admin access required.' }, { status: 403 }),
     };
   }
 

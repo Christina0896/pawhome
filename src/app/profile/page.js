@@ -7,6 +7,13 @@ import { supabase } from '../../lib/supabaseClient';
 import Link from 'next/link';
 
 const allowedAvatarTypes = ['image/jpeg', 'image/png', 'image/webp'];
+const MAX_AVATAR_SIZE = 2 * 1024 * 1024;
+
+const AVATAR_EXTENSION_BY_TYPE = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+};
 
 const sortListingPhotos = (photos) => {
   return [...(photos || [])].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
@@ -141,10 +148,20 @@ export default function ProfilePage() {
       alert('Please upload a JPG, PNG, or WEBP image.');
       return;
     }
+    if (file.size > MAX_AVATAR_SIZE) {
+      alert('Profile picture must be 2 MB or smaller.');
+      return;
+    }
 
     setAvatarUploading(true);
 
-    const fileExt = file.name.split('.').pop();
+    const fileExt = AVATAR_EXTENSION_BY_TYPE[file.type];
+
+    if (!fileExt) {
+      alert('Please upload a JPG, PNG, or WEBP image.');
+      return;
+    }
+
     const fileName = `${user.id}/avatar-${Date.now()}.${fileExt}`;
 
     const { error: uploadError } = await supabase.storage.from('avatars').upload(fileName, file, {
@@ -164,11 +181,15 @@ export default function ProfilePage() {
 
     const { data: updatedProfile, error: updateError } = await supabase
       .from('profiles')
-      .update({
-        avatar_url: avatarUrl,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('user_id', user.id)
+      .upsert(
+        {
+          user_id: user.id,
+          avatar_url: avatarUrl,
+        },
+        {
+          onConflict: 'user_id',
+        },
+      )
       .select()
       .single();
 
@@ -188,11 +209,15 @@ export default function ProfilePage() {
 
     const { data: updatedProfile, error } = await supabase
       .from('profiles')
-      .update({
-        avatar_url: null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('user_id', user.id)
+      .upsert(
+        {
+          user_id: user.id,
+          avatar_url: null,
+        },
+        {
+          onConflict: 'user_id',
+        },
+      )
       .select()
       .single();
 

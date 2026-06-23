@@ -1,22 +1,6 @@
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseAdminClient } from '../../../lib/supabaseAdmin';
 
 export const dynamic = 'force-dynamic';
-
-function getSupabaseAdminClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !serviceRoleKey) {
-    return null;
-  }
-
-  return createClient(supabaseUrl, serviceRoleKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
-  });
-}
 
 function cleanText(value, fallback = '') {
   return String(value || fallback)
