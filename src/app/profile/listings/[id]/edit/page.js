@@ -245,15 +245,39 @@ export default function EditListingPage() {
     return adminApprovalFields.some((field) => String(originalFormData[field] ?? '') !== String(formData[field] ?? ''));
   };
 
-  const getStoragePathFromPublicUrl = (url) => {
-    if (!url) return null;
+  const handleRemoveAvatar = async () => {
+    if (!user) return;
 
-    const marker = '/storage/v1/object/public/listing-photos/';
-    const markerIndex = url.indexOf(marker);
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-    if (markerIndex === -1) return null;
+      if (!session?.access_token) {
+        window.dispatchEvent(new Event('open-login-modal'));
+        return;
+      }
 
-    return decodeURIComponent(url.slice(markerIndex + marker.length));
+      const response = await fetch('/api/profile/avatar', {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        console.warn('Avatar remove API failed:', result);
+        alert(result.error || 'Could not remove profile picture.');
+        return;
+      }
+
+      setProfile(result.profile);
+    } catch (error) {
+      console.error('Avatar remove error:', error);
+      alert('Could not remove profile picture.');
+    }
   };
 
   const visiblePhotos = photos.filter((photo) => !photosToDelete.some((deletedPhoto) => deletedPhoto.id === photo.id));
@@ -390,42 +414,42 @@ export default function EditListingPage() {
 
     if (photosToDelete.length > 0) {
       const photoIdsToDelete = photosToDelete.map((photo) => photo.id).filter(Boolean);
-
-      console.log('Photos to delete:', photosToDelete);
-      console.log('Photo IDs to delete:', photoIdsToDelete);
-
-      if (photoIdsToDelete.length > 0) {
-        const { error: photoDeleteError } = await supabase.from('listing_photos').delete().in('id', photoIdsToDelete);
-
-        if (photoDeleteError) {
-          console.error('Photo DB delete error:', photoDeleteError);
-          setMessage(photoDeleteError.message || 'Could not delete old photos.');
-          setSaving(false);
-          return;
-        }
-      }
-
       const storagePaths = photosToDelete.map((photo) => getStoragePathFromPublicUrl(photo.image_url)).filter(Boolean);
-
-      console.log('Storage paths to delete:', storagePaths);
 
       if (storagePaths.length > 0) {
         const { error: storageDeleteError } = await supabase.storage.from('listing-photos').remove(storagePaths);
 
         if (storageDeleteError) {
           console.error('Photo storage delete error:', storageDeleteError);
+          setMessage(storageDeleteError.message || 'Could not delete old photo files.');
+          setSaving(false);
+          return;
+        }
+      }
+
+      if (photoIdsToDelete.length > 0) {
+        const { error: photoDeleteError } = await supabase.from('listing_photos').delete().in('id', photoIdsToDelete);
+
+        if (photoDeleteError) {
+          console.error('Photo DB delete error:', photoDeleteError);
+          setMessage(photoDeleteError.message || 'Old photo files were removed, but photo rows could not be deleted.');
+          setSaving(false);
+          return;
         }
       }
     }
 
     if (newPhotos.length > 0) {
       const photoRows = [];
+      const uploadedPaths = [];
 
       for (let i = 0; i < newPhotos.length; i++) {
         const file = newPhotos[i];
         const fileExt = IMAGE_EXTENSION_BY_TYPE[file.type];
 
         if (!fileExt) {
+          await removeUploadedStorageFiles(uploadedPaths);
+
           setMessage('Only JPG, PNG, or WEBP images are allowed.');
           setSaving(false);
           return;
@@ -433,14 +457,22 @@ export default function EditListingPage() {
 
         const fileName = `${user.id}/${listingId}-edit-${Date.now()}-${i}.${fileExt}`;
 
-        const { error: uploadError } = await supabase.storage.from('listing-photos').upload(fileName, file);
+        const { error: uploadError } = await supabase.storage.from('listing-photos').upload(fileName, file, {
+          upsert: false,
+          contentType: file.type,
+        });
 
         if (uploadError) {
           console.error('Photo upload error:', uploadError);
+
+          await removeUploadedStorageFiles(uploadedPaths);
+
           setMessage(uploadError.message || 'Photo upload failed.');
           setSaving(false);
           return;
         }
+
+        uploadedPaths.push(fileName);
 
         const { data: publicUrlData } = supabase.storage.from('listing-photos').getPublicUrl(fileName);
 
@@ -455,6 +487,9 @@ export default function EditListingPage() {
 
       if (photoInsertError) {
         console.error('Photo DB insert error:', photoInsertError);
+
+        await removeUploadedStorageFiles(uploadedPaths);
+
         setMessage(photoInsertError.message || 'Could not save new photos.');
         setSaving(false);
         return;

@@ -139,8 +139,8 @@ export default function ProfilePage() {
     : '-';
 
   // Upload profile picture to Supabase storage
-  const handleAvatarUpload = async (e) => {
-    const file = e.target.files?.[0];
+  const handleAvatarUpload = async (event) => {
+    const file = event.target.files?.[0];
 
     if (!file || !user) return;
 
@@ -148,6 +148,7 @@ export default function ProfilePage() {
       alert('Please upload a JPG, PNG, or WEBP image.');
       return;
     }
+
     if (file.size > MAX_AVATAR_SIZE) {
       alert('Profile picture must be 2 MB or smaller.');
       return;
@@ -155,78 +156,79 @@ export default function ProfilePage() {
 
     setAvatarUploading(true);
 
-    const fileExt = AVATAR_EXTENSION_BY_TYPE[file.type];
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-    if (!fileExt) {
-      alert('Please upload a JPG, PNG, or WEBP image.');
-      return;
-    }
+      if (!session?.access_token) {
+        setAvatarUploading(false);
+        window.dispatchEvent(new Event('open-login-modal'));
+        return;
+      }
 
-    const fileName = `${user.id}/avatar-${Date.now()}.${fileExt}`;
+      const formData = new FormData();
+      formData.append('avatar', file);
 
-    const { error: uploadError } = await supabase.storage.from('avatars').upload(fileName, file, {
-      upsert: true,
-    });
+      const response = await fetch('/api/profile/avatar', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: formData,
+      });
 
-    if (uploadError) {
-      console.error('Avatar upload error:', uploadError);
+      const result = await response.json();
+
+      if (!response.ok) {
+        console.warn('Avatar upload API failed:', result);
+        alert(result.error || 'Could not upload profile picture.');
+        setAvatarUploading(false);
+        return;
+      }
+
+      setProfile(result.profile);
+      setAvatarUploading(false);
+    } catch (error) {
+      console.error('Avatar upload error:', error);
       alert('Could not upload profile picture. Please try again.');
       setAvatarUploading(false);
-      return;
     }
-
-    const { data: publicUrlData } = supabase.storage.from('avatars').getPublicUrl(fileName);
-
-    const avatarUrl = publicUrlData.publicUrl;
-
-    const { data: updatedProfile, error: updateError } = await supabase
-      .from('profiles')
-      .upsert(
-        {
-          user_id: user.id,
-          avatar_url: avatarUrl,
-        },
-        {
-          onConflict: 'user_id',
-        },
-      )
-      .select()
-      .single();
-
-    if (updateError) {
-      console.error('Avatar update error:', updateError);
-      alert('Profile picture uploaded, but could not update your profile.');
-      setAvatarUploading(false);
-      return;
-    }
-
-    setProfile(updatedProfile);
-    setAvatarUploading(false);
   };
 
   const handleRemoveAvatar = async () => {
     if (!user) return;
 
-    const { data: updatedProfile, error } = await supabase
-      .from('profiles')
-      .upsert(
-        {
-          user_id: user.id,
-          avatar_url: null,
-        },
-        {
-          onConflict: 'user_id',
-        },
-      )
-      .select()
-      .single();
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-    if (error) {
+      if (!session?.access_token) {
+        window.dispatchEvent(new Event('open-login-modal'));
+        return;
+      }
+
+      const response = await fetch('/api/profile/avatar', {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        console.warn('Avatar remove API failed:', result);
+        alert(result.error || 'Could not remove profile picture.');
+        return;
+      }
+
+      setProfile(result.profile);
+    } catch (error) {
+      console.error('Avatar remove error:', error);
       alert('Could not remove profile picture.');
-      return;
     }
-
-    setProfile(updatedProfile);
   };
 
   const handleProfileFormChange = (e) => {

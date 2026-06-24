@@ -176,6 +176,14 @@ export default function PostAdPage() {
   const validateForm = () => {
     const newErrors = {};
 
+    if (!formData.title || formData.title.trim().length < 5) {
+      newErrors.title = 'Please enter a listing title with at least 5 characters.';
+    }
+
+    if (formData.title && formData.title.trim().length > 80) {
+      newErrors.title = 'Listing title cannot be longer than 80 characters.';
+    }
+
     if (!formData.listing_type) {
       newErrors.listing_type = 'Please select an ad type.';
     }
@@ -542,7 +550,7 @@ export default function PostAdPage() {
 
         seller_name: sellerName,
 
-        seller_type: formData.seller_type || 'Private Owner',
+        seller_type: formData.seller_type || 'Private Seller',
 
         price: formData.price === '' ? null : Number(formData.price),
         price_negotiable: formData.price_negotiable,
@@ -1094,7 +1102,7 @@ export default function PostAdPage() {
                 openDropdown={openDropdown}
                 setOpenDropdown={setOpenDropdown}
                 options={[
-                  { label: 'Private Owner', value: 'Private Owner' },
+                  { label: 'Private Seller', value: 'Private Seller' },
                   { label: 'Breeder', value: 'Breeder' },
                   { label: 'Shelter / Rescue', value: 'Shelter / Rescue' },
                 ]}
