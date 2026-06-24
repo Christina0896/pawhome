@@ -317,15 +317,36 @@ export default function ProfilePage() {
 
     if (!confirmDelete) return;
 
-    const { error } = await supabase.from('listings').delete().eq('id', listingId).eq('user_id', user.id);
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-    if (error) {
+      if (!session?.access_token) {
+        window.dispatchEvent(new Event('open-login-modal'));
+        return;
+      }
+
+      const response = await fetch(`/api/profile/listings/${listingId}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        console.warn('Delete listing API failed:', result);
+        alert(result.error || 'Could not delete listing. Please try again.');
+        return;
+      }
+
+      setMyListings((current) => current.filter((listing) => listing.id !== listingId));
+    } catch (error) {
       console.error('Delete listing error:', error);
       alert('Could not delete listing. Please try again.');
-      return;
     }
-
-    setMyListings((current) => current.filter((listing) => listing.id !== listingId));
   };
 
   const handleDeleteProfile = async () => {

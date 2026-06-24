@@ -304,58 +304,79 @@ export default function ListingDetailPage() {
   };
 
   const handleToggleFavourite = async () => {
-    if (!currentUser) {
+    if (!listing?.id) return;
+
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.user || !session?.access_token) {
       window.dispatchEvent(new Event('open-login-modal'));
       return;
     }
 
-    if (!listing) return;
+    const previousIsFavourite = isFavourite;
+    const previousCount = listing.favourites_count || 0;
 
-    if (isFavourite) {
-      const { error } = await supabase
-        .from('favorites')
-        .delete()
-        .eq('user_id', currentUser.id)
-        .eq('listing_id', listing.id);
+    const nextIsFavourite = !previousIsFavourite;
+    const nextCount = Math.max(previousCount + (nextIsFavourite ? 1 : -1), 0);
 
-      if (error) {
-        console.error('Remove favourite error:', error);
+    setIsFavourite(nextIsFavourite);
+
+    setListing((current) => {
+      if (!current) return current;
+
+      return {
+        ...current,
+        favourites_count: nextCount,
+      };
+    });
+
+    try {
+      const response = await fetch(`/api/favorites/${listing.id}`, {
+        method: nextIsFavourite ? 'POST' : 'DELETE',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        console.warn('Single listing favourite API failed:', result);
+
+        setIsFavourite(previousIsFavourite);
+
+        setListing((current) => {
+          if (!current) return current;
+
+          return {
+            ...current,
+            favourites_count: previousCount,
+          };
+        });
+
+        alert(result.error || 'Could not update favourite.');
         return;
       }
 
-      const newCount = Math.max((listing.favourites_count || 0) - 1, 0);
+      setIsFavourite(Boolean(result.isFavorite));
+    } catch (error) {
+      console.warn('Single listing favourite request failed:', error);
 
-      await supabase.from('listings').update({ favourites_count: newCount }).eq('id', listing.id);
+      setIsFavourite(previousIsFavourite);
 
-      setListing({
-        ...listing,
-        favourites_count: newCount,
+      setListing((current) => {
+        if (!current) return current;
+
+        return {
+          ...current,
+          favourites_count: previousCount,
+        };
       });
 
-      setIsFavourite(false);
-      return;
+      alert('Could not update favourite.');
     }
-
-    const { error } = await supabase.from('favorites').insert({
-      user_id: currentUser.id,
-      listing_id: listing.id,
-    });
-
-    if (error) {
-      console.error('Add favourite error:', error);
-      return;
-    }
-
-    const newCount = (listing.favourites_count || 0) + 1;
-
-    await supabase.from('listings').update({ favourites_count: newCount }).eq('id', listing.id);
-
-    setListing({
-      ...listing,
-      favourites_count: newCount,
-    });
-
-    setIsFavourite(true);
   };
 
   const handleCopyLink = async () => {

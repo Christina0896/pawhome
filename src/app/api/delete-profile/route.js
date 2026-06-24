@@ -1,22 +1,6 @@
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseAdminClient } from '../../../lib/supabaseAdmin';
 
 export const dynamic = 'force-dynamic';
-
-function getSupabaseAdminClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !serviceRoleKey) {
-    return null;
-  }
-
-  return createClient(supabaseUrl, serviceRoleKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
-  });
-}
 
 function getStoragePathFromPublicUrl(url, bucketName) {
   if (!url) return null;
@@ -67,6 +51,20 @@ export async function DELETE(request) {
   }
 
   const userId = user.id;
+  const { data: profile, error: profileError } = await supabaseAdmin
+    .from('profiles')
+    .select('avatar_url')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (profileError) {
+    console.error('Profile avatar lookup error:', {
+      message: profileError?.message,
+      code: profileError?.code,
+    });
+
+    return Response.json({ error: 'Profile could not be checked.' }, { status: 500 });
+  }
 
   try {
     const { data: userListings, error: listingsError } = await supabaseAdmin
@@ -126,7 +124,7 @@ export async function DELETE(request) {
       'reports made by user',
     );
 
-    const avatarUrl = user.user_metadata?.avatar_url;
+    const avatarUrl = profile?.avatar_url;
 
     if (avatarUrl) {
       const avatarPath = getStoragePathFromPublicUrl(avatarUrl, 'avatars');
