@@ -106,12 +106,6 @@ export default function RegisterPage() {
       return;
     }
 
-    if (!data?.user?.id) {
-      setMessage('Could not create account. Please try again or use forgot password if you already registered.');
-      setLoading(false);
-      return;
-    }
-
     router.push('/register/success');
   };
 
