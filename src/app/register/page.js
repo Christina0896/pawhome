@@ -71,6 +71,15 @@ export default function RegisterPage() {
       password: formData.password,
       options: {
         emailRedirectTo: `${window.location.origin}/register/success`,
+        data: {
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+          phone_code: formData.code,
+          phone_number: formData.phone,
+          account_type: formData.accountType,
+          county: formData.county,
+          marketing: formData.marketing,
+        },
       },
     });
 
@@ -101,34 +110,6 @@ export default function RegisterPage() {
       setMessage('Could not create account. Please try again or use forgot password if you already registered.');
       setLoading(false);
       return;
-    }
-
-    if (data?.user?.id) {
-      const profileResponse = await fetch('/api/create-profile', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId: data.user.id,
-          email: formData.email,
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          phoneCode: formData.code,
-          phoneNumber: formData.phone,
-          accountType: formData.accountType,
-          county: formData.county,
-          marketing: formData.marketing,
-        }),
-      });
-
-      const profileResult = await profileResponse.json();
-
-      if (!profileResponse.ok) {
-        setMessage(profileResult.error || 'Account created, but profile setup failed.');
-        setLoading(false);
-        return;
-      }
     }
 
     router.push('/register/success');
