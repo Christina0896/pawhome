@@ -670,7 +670,7 @@ const ReportReviewCard = ({ report, markReportReviewed, deleteReport, updateList
             <div className="flex flex-wrap gap-2">
               {report.listing_id && (
                 <Link
-                  href={`/listings/${report.listing_id}?adminPreview=true`}
+                  href={`/listings/${listingId}?adminPreview=true`}
                   target="_blank"
                   rel="noreferrer"
                   className="rounded-xl border border-(--border-beige) bg-white px-5 py-3 text-sm font-bold text-(--secondary-green) transition hover:border-(--primary-green)"

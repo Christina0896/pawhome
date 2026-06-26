@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import Header from '../../../components/header';
 import Footer from '../../../components/footer';
 import Link from 'next/link';
@@ -69,6 +69,8 @@ const sortPhotos = (photos) => {
 export default function ListingDetailPage() {
   const params = useParams();
   const listingId = params.id;
+  const searchParams = useSearchParams();
+  const adminPreviewRequested = searchParams.get('adminPreview') === 'true';
 
   const handleShowPhoneNumber = async () => {
     if (!listing?.id) return;
@@ -141,7 +143,25 @@ export default function ListingDetailPage() {
       setSelectedPhotoIndex(0);
       setPhoneVisible(false);
 
-      const { data, error } = await supabase
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      let isAdminPreview = false;
+
+      if (adminPreviewRequested && user) {
+        const { data: adminData, error: adminError } = await supabase
+          .from('admin_users')
+          .select('user_id')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (!adminError && adminData) {
+          isAdminPreview = true;
+        }
+      }
+
+      let listingQuery = supabase
         .from('listings')
         .select(
           `
@@ -152,9 +172,13 @@ export default function ListingDetailPage() {
       )
     `,
         )
-        .eq('id', listingId)
-        .eq('status', 'approved')
-        .maybeSingle();
+        .eq('id', listingId);
+
+      if (!isAdminPreview) {
+        listingQuery = listingQuery.eq('status', 'approved');
+      }
+
+      const { data, error } = await listingQuery.maybeSingle();
 
       if (!isMounted) return;
 
@@ -178,9 +202,6 @@ export default function ListingDetailPage() {
 
       setPhotos(sortedPhotos);
       setSelectedPhotoIndex(0);
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
 
       if (!isMounted) return;
 
@@ -237,7 +258,7 @@ export default function ListingDetailPage() {
     return () => {
       isMounted = false;
     };
-  }, [listingId]);
+  }, [listingId, adminPreviewRequested]);
 
   useEffect(() => {
     if (!listing?.id) return;
@@ -859,7 +880,6 @@ const SellerCard = ({
         </div>
 
         <div className="mt-6 space-y-4 text-sm">
-          <SellerInfoRow label="Seller Type" value={listing.seller_type || '-'} />
           <SellerInfoRow label="Member Since" value={sellerMemberSince} />
           <SellerInfoRow label="County / Location" value={listing.county || '-'} />
         </div>
