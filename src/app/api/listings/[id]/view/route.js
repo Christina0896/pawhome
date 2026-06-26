@@ -1,5 +1,6 @@
 import { createHash } from 'crypto';
 import { getSupabaseAdminClient } from '../../../../../lib/supabaseAdmin';
+import { requireSameOrigin } from '../../../../lib/requireSameOrigin';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,6 +43,11 @@ async function isRateLimited({ supabaseAdmin, counterType, listingId, ipHash, ma
 }
 
 export async function POST(request, { params }) {
+  const sameOriginError = requireSameOrigin(request);
+
+  if (sameOriginError) {
+    return sameOriginError;
+  }
   const supabaseAdmin = getSupabaseAdminClient();
 
   if (!supabaseAdmin) {

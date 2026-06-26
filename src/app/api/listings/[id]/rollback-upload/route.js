@@ -1,8 +1,14 @@
 import { getSupabaseAdminClient } from '../../../../../lib/supabaseAdmin';
+import { requireSameOrigin } from '../../../lib/requireSameOrigin';
 
 export const dynamic = 'force-dynamic';
 
 export async function DELETE(request, { params }) {
+  const sameOriginError = requireSameOrigin(request);
+
+  if (sameOriginError) {
+    return sameOriginError;
+  }
   const supabaseAdmin = getSupabaseAdminClient();
 
   if (!supabaseAdmin) {

@@ -1,4 +1,6 @@
 import { getSupabaseAdminClient } from '../../../../lib/supabaseAdmin';
+import { getStoragePathFromPublicUrl } from '../../../lib/storagePaths';
+import { requireSameOrigin } from '../../../lib/requireSameOrigin';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,17 +12,6 @@ const AVATAR_EXTENSION_BY_TYPE = {
   'image/png': 'png',
   'image/webp': 'webp',
 };
-
-function getStoragePathFromPublicUrl(url, bucketName) {
-  if (!url) return null;
-
-  const marker = `/object/public/${bucketName}/`;
-  const index = url.indexOf(marker);
-
-  if (index === -1) return null;
-
-  return decodeURIComponent(url.slice(index + marker.length).split('?')[0]);
-}
 
 async function getAuthenticatedUser(request, supabaseAdmin) {
   const authHeader = request.headers.get('authorization') || '';
@@ -81,6 +72,12 @@ async function deleteAvatarFile(supabaseAdmin, avatarUrl, userId) {
 }
 
 export async function POST(request) {
+  const sameOriginError = requireSameOrigin(request);
+
+  if (sameOriginError) {
+    return sameOriginError;
+  }
+
   const supabaseAdmin = getSupabaseAdminClient();
 
   if (!supabaseAdmin) {
@@ -175,6 +172,11 @@ export async function POST(request) {
 }
 
 export async function DELETE(request) {
+  const sameOriginError = requireSameOrigin(request);
+
+  if (sameOriginError) {
+    return sameOriginError;
+  }
   const supabaseAdmin = getSupabaseAdminClient();
 
   if (!supabaseAdmin) {

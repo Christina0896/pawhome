@@ -1,4 +1,5 @@
 import { getSupabaseAdminClient } from '../../../../lib/supabaseAdmin';
+import { requireSameOrigin } from '../../../lib/requireSameOrigin';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,6 +24,11 @@ async function getAuthenticatedUser(request, supabaseAdmin) {
 }
 
 export async function POST(request, { params }) {
+  const sameOriginError = requireSameOrigin(request);
+
+  if (sameOriginError) {
+    return sameOriginError;
+  }
   const supabaseAdmin = getSupabaseAdminClient();
 
   if (!supabaseAdmin) {
@@ -86,6 +92,11 @@ export async function POST(request, { params }) {
 }
 
 export async function DELETE(request, { params }) {
+  const sameOriginError = requireSameOrigin(request);
+
+  if (sameOriginError) {
+    return sameOriginError;
+  }
   const supabaseAdmin = getSupabaseAdminClient();
 
   if (!supabaseAdmin) {

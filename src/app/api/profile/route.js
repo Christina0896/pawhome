@@ -1,4 +1,5 @@
 import { getSupabaseAdminClient } from '../../../lib/supabaseAdmin';
+import { requireSameOrigin } from '../../../lib/requireSameOrigin';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,6 +15,11 @@ function cleanText(value) {
 }
 
 export async function PATCH(request) {
+  const sameOriginError = requireSameOrigin(request);
+
+  if (sameOriginError) {
+    return sameOriginError;
+  }
   const supabaseAdmin = getSupabaseAdminClient();
 
   if (!supabaseAdmin) {

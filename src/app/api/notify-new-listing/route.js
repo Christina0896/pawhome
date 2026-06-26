@@ -1,5 +1,6 @@
 import { Resend } from 'resend';
 import { getSupabaseAdminClient } from '../../../lib/supabaseAdmin';
+import { requireSameOrigin } from '../../../../lib/requireSameOrigin';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,6 +14,11 @@ function escapeHtml(value = '') {
 }
 
 export async function POST(request) {
+  const sameOriginError = requireSameOrigin(request);
+
+  if (sameOriginError) {
+    return sameOriginError;
+  }
   const supabaseAdmin = getSupabaseAdminClient();
   const resendApiKey = process.env.RESEND_API_KEY;
   const fromEmail = process.env.CONTACT_FROM_EMAIL;
@@ -79,7 +85,7 @@ export async function POST(request) {
     }
 
     const adminUrl = `${siteUrl}/admin`;
-    const previewUrl = `${siteUrl}/admin`;
+
     const resend = new Resend(resendApiKey);
 
     const { error: emailError } = await resend.emails.send({
@@ -101,9 +107,7 @@ export async function POST(request) {
 
           <hr />
 
-          <p>
-            <a href="${previewUrl}">Preview ad</a>
-          </p>
+          
 
           <p>
             <a href="${adminUrl}">Open admin dashboard</a>

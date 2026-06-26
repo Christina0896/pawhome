@@ -1,4 +1,5 @@
 import { getSupabaseAdminClient } from '../../../../../lib/supabaseAdmin';
+import { requireSameOrigin } from '../../../lib/requireSameOrigin';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,6 +14,12 @@ const ALLOWED_REASONS = [
 const MAX_REPORT_DETAILS_LENGTH = 1000;
 
 export async function POST(request, { params }) {
+  const sameOriginError = requireSameOrigin(request);
+
+  if (sameOriginError) {
+    return sameOriginError;
+  }
+
   const supabaseAdmin = getSupabaseAdminClient();
 
   if (!supabaseAdmin) {

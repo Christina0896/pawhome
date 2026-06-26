@@ -1,17 +1,8 @@
 import { requireAdmin } from '../../../../../lib/requireAdmin';
+import { getStoragePathFromPublicUrl } from '../../../lib/storagePaths';
+import { requireSameOrigin } from '../../../lib/requireSameOrigin';
 
 const ALLOWED_STATUSES = ['pending', 'approved', 'rejected'];
-
-function getStoragePathFromPublicUrl(url, bucketName) {
-  if (!url) return null;
-
-  const marker = `/object/public/${bucketName}/`;
-  const index = url.indexOf(marker);
-
-  if (index === -1) return null;
-
-  return decodeURIComponent(url.slice(index + marker.length).split('?')[0]);
-}
 
 async function safeDelete(query, label) {
   const { error } = await query;
@@ -28,6 +19,11 @@ async function safeDelete(query, label) {
 }
 
 export async function PATCH(request, { params }) {
+  const sameOriginError = requireSameOrigin(request);
+
+  if (sameOriginError) {
+    return sameOriginError;
+  }
   const admin = await requireAdmin(request);
 
   if (admin.error) {
@@ -82,6 +78,11 @@ export async function PATCH(request, { params }) {
 }
 
 export async function DELETE(request, { params }) {
+  const sameOriginError = requireSameOrigin(request);
+
+  if (sameOriginError) {
+    return sameOriginError;
+  }
   const admin = await requireAdmin(request);
 
   if (admin.error) {

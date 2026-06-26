@@ -1,6 +1,7 @@
 import { createHash } from 'crypto';
 import { Resend } from 'resend';
 import { getSupabaseAdminClient } from '../../../lib/supabaseAdmin';
+import { requireSameOrigin } from '../../../lib/requireSameOrigin';
 
 const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
 const RATE_LIMIT_MAX_REQUESTS = 5;
@@ -66,6 +67,11 @@ async function isRateLimited(ip) {
 }
 
 export async function POST(request) {
+  const sameOriginError = requireSameOrigin(request);
+
+  if (sameOriginError) {
+    return sameOriginError;
+  }
   const resendApiKey = process.env.RESEND_API_KEY;
   const fromEmail = process.env.CONTACT_FROM_EMAIL;
   const toEmail = process.env.CONTACT_TO_EMAIL;

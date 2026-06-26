@@ -1,4 +1,5 @@
 import { getSupabaseAdminClient } from '../../../../lib/supabaseAdmin';
+import { requireSameOrigin } from '../../../../lib/requireSameOrigin';
 
 export const dynamic = 'force-dynamic';
 
@@ -126,6 +127,12 @@ async function deleteListingRows(supabaseAdmin, listingId) {
 }
 
 export async function POST(request) {
+  const sameOriginError = requireSameOrigin(request);
+
+  if (sameOriginError) {
+    return sameOriginError;
+  }
+
   const supabaseAdmin = getSupabaseAdminClient();
 
   if (!supabaseAdmin) {

@@ -1,6 +1,12 @@
 import { requireAdmin } from '../../../../../lib/requireAdmin';
+import { requireSameOrigin } from '../../../lib/requireSameOrigin';
 
 export async function PATCH(request, { params }) {
+  const sameOriginError = requireSameOrigin(request);
+
+  if (sameOriginError) {
+    return sameOriginError;
+  }
   const admin = await requireAdmin(request);
 
   if (admin.error) {
@@ -53,6 +59,11 @@ export async function PATCH(request, { params }) {
 }
 
 export async function DELETE(request, { params }) {
+  const sameOriginError = requireSameOrigin(request);
+
+  if (sameOriginError) {
+    return sameOriginError;
+  }
   const admin = await requireAdmin(request);
 
   if (admin.error) {
