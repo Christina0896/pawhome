@@ -1,5 +1,5 @@
 import { requireAdmin } from '../../../../../lib/requireAdmin';
-import { getStoragePathFromPublicUrl } from '../../../lib/storagePaths';
+import { getStoragePathFromPublicUrl } from '../../../../../lib/storagePaths';
 import { requireSameOrigin } from '../../../../../lib/requireSameOrigin';
 
 const ALLOWED_STATUSES = ['pending', 'approved', 'rejected'];
