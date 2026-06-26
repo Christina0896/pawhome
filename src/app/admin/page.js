@@ -185,14 +185,45 @@ export default function AdminPage() {
     setLoading(false);
   };
 
+  const getVerifiedAdminAccessToken = async () => {
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      window.dispatchEvent(new Event('open-login-modal'));
+      return null;
+    }
+
+    const { data: adminData, error: adminError } = await supabase
+      .from('admin_users')
+      .select('user_id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (adminError || !adminData) {
+      setAccessDenied(true);
+      return null;
+    }
+
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.access_token) {
+      window.dispatchEvent(new Event('open-login-modal'));
+      return null;
+    }
+
+    return session.access_token;
+  };
+
   const updateListingStatus = async (listingId, status) => {
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      const accessToken = await getVerifiedAdminAccessToken();
 
-      if (!session?.access_token) {
-        window.dispatchEvent(new Event('open-login-modal'));
+      if (!accessToken) {
         return;
       }
 
@@ -200,7 +231,7 @@ export default function AdminPage() {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({ status }),
       });
@@ -228,19 +259,16 @@ export default function AdminPage() {
     }
 
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      const accessToken = await getVerifiedAdminAccessToken();
 
-      if (!session?.access_token) {
-        window.dispatchEvent(new Event('open-login-modal'));
+      if (!accessToken) {
         return;
       }
 
       const response = await fetch(`/api/admin/listings/${listingId}`, {
         method: 'DELETE',
         headers: {
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${accessToken}`,
         },
       });
 
@@ -261,11 +289,9 @@ export default function AdminPage() {
 
   const markReportReviewed = async (reportId) => {
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      const accessToken = await getVerifiedAdminAccessToken();
 
-      if (!session?.access_token) {
+      if (!accessToken) {
         alert('You must be logged in as admin.');
         return;
       }
@@ -274,7 +300,7 @@ export default function AdminPage() {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({ status: 'reviewed' }),
       });
@@ -302,11 +328,9 @@ export default function AdminPage() {
     if (!confirmed) return;
 
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      const accessToken = await getVerifiedAdminAccessToken();
 
-      if (!session?.access_token) {
+      if (!accessToken) {
         alert('You must be logged in as admin.');
         return;
       }
@@ -314,7 +338,7 @@ export default function AdminPage() {
       const response = await fetch(`/api/admin/reports/${reportId}`, {
         method: 'DELETE',
         headers: {
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${accessToken}`,
         },
       });
 
