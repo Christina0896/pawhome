@@ -116,6 +116,13 @@ function CustomSelect({
     </div>
   );
 }
+function getSellerTypeFromAccountType(accountType) {
+  if (accountType === 'Breeder') return 'Registered Breeder';
+  if (accountType === 'Shelter / Rescue') return 'Shelter / Rescue';
+
+  return 'Private Seller';
+}
+
 export default function PostAdPage() {
   const fileInputRef = useRef(null);
   const [showAnimalDropdown, setShowAnimalDropdown] = useState(false);
@@ -215,10 +222,6 @@ export default function PostAdPage() {
       newErrors.county = 'Please select a county.';
     }
 
-    if (!formData.seller_type) {
-      newErrors.seller_type = 'Please select the seller type.';
-    }
-
     if (formData.animal_type === 'Dogs' && !formData.microchipped) {
       newErrors.microchipped = 'Please confirm if the dog is microchipped.';
     }
@@ -312,8 +315,14 @@ export default function PostAdPage() {
         return;
       }
 
+      const sellerType = getSellerTypeFromAccountType(profileData.account_type);
+
       setProfile(profileData);
       setUser(user);
+      setFormData((current) => ({
+        ...current,
+        seller_type: sellerType,
+      }));
       setLoading(false);
     };
 
@@ -929,34 +938,6 @@ export default function PostAdPage() {
                   }`}
                 />
               </div>
-
-              {/* Seller Type */}
-              <CustomSelect
-                id="seller_type"
-                label="Seller Type"
-                required
-                value={formData.seller_type}
-                placeholder="Select seller type"
-                error={errors.seller_type}
-                openDropdown={openDropdown}
-                setOpenDropdown={setOpenDropdown}
-                options={[
-                  { label: 'Private Seller', value: 'Private Seller' },
-                  { label: 'Breeder', value: 'Breeder' },
-                  { label: 'Shelter / Rescue', value: 'Shelter / Rescue' },
-                ]}
-                onChange={(value) => {
-                  setFormData({
-                    ...formData,
-                    seller_type: value,
-                  });
-
-                  setErrors({
-                    ...errors,
-                    seller_type: '',
-                  });
-                }}
-              />
 
               {/* Price */}
               <div>
