@@ -1,6 +1,6 @@
 import { getSupabaseAdminClient } from '../../../../lib/supabaseAdmin';
-import { getStoragePathFromPublicUrl } from '../../../lib/storagePaths';
-import { requireSameOrigin } from '../../../../../lib/requireSameOrigin';
+import { getStoragePathFromPublicUrl } from '../../../../lib/storagePaths';
+import { requireSameOrigin } from '../../../../lib/requireSameOrigin';
 
 export const dynamic = 'force-dynamic';
 

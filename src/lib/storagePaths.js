@@ -1,5 +1,3 @@
-import { getStoragePathFromPublicUrl } from '../../../../../lib/storagePaths';
-
 export function getStoragePathFromPublicUrl(url, bucketName) {
   if (!url || !bucketName) return null;
 
@@ -12,4 +10,8 @@ export function getStoragePathFromPublicUrl(url, bucketName) {
   const index = url.indexOf(marker);
 
   return decodeURIComponent(url.slice(index + marker.length).split('?')[0]);
+}
+
+export function getUniqueStoragePathsFromPublicUrls(urls = [], bucketName) {
+  return [...new Set(urls.map((url) => getStoragePathFromPublicUrl(url, bucketName)).filter(Boolean))];
 }
