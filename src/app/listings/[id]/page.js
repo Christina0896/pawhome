@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { useParams, useSearchParams } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import Header from '../../../components/header';
 import Footer from '../../../components/footer';
 import Link from 'next/link';
@@ -69,8 +69,6 @@ const sortPhotos = (photos) => {
 export default function ListingDetailPage() {
   const params = useParams();
   const listingId = params.id;
-  const searchParams = useSearchParams();
-  const isAdminPreview = searchParams.get('adminPreview') === 'true';
 
   const handleShowPhoneNumber = async () => {
     if (!listing?.id) return;
@@ -143,23 +141,7 @@ export default function ListingDetailPage() {
       setSelectedPhotoIndex(0);
       setPhoneVisible(false);
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      let isAdmin = false;
-
-      if (user && isAdminPreview) {
-        const { data: adminData } = await supabase
-          .from('admin_users')
-          .select('user_id')
-          .eq('user_id', user.id)
-          .maybeSingle();
-
-        isAdmin = Boolean(adminData);
-      }
-
-      let listingQuery = supabase
+      const { data, error } = await supabase
         .from('listings')
         .select(
           `
@@ -170,13 +152,9 @@ export default function ListingDetailPage() {
       )
     `,
         )
-        .eq('id', listingId);
-
-      if (!isAdmin) {
-        listingQuery = listingQuery.eq('status', 'approved');
-      }
-
-      const { data, error } = await listingQuery.maybeSingle();
+        .eq('id', listingId)
+        .eq('status', 'approved')
+        .maybeSingle();
 
       if (!isMounted) return;
 
@@ -197,8 +175,16 @@ export default function ListingDetailPage() {
       const sortedPhotos = sortPhotos(data.listing_photos);
 
       setListing(data);
+
       setPhotos(sortedPhotos);
       setSelectedPhotoIndex(0);
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!isMounted) return;
+
+      setCurrentUser(user);
 
       // Important: stop loading immediately after the listing itself is ready
       setLoading(false);

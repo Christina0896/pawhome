@@ -444,33 +444,7 @@ export default function PostAdPage() {
       console.error('Admin notification request failed.');
     }
   };
-  const rollbackFailedListing = async ({ listingId, uploadedPaths = [] }) => {
-    try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
 
-      if (!session?.access_token || !listingId) {
-        return;
-      }
-
-      const response = await fetch(`/api/listings/${listingId}/rollback-upload`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ uploadedPaths }),
-      });
-
-      if (!response.ok) {
-        const result = await response.json().catch(() => ({}));
-        console.warn('Rollback failed:', result);
-      }
-    } catch (error) {
-      console.warn('Rollback request failed:', error);
-    }
-  };
   const handleSubmitListing = async (e) => {
     e.preventDefault();
 
@@ -487,200 +461,65 @@ export default function PostAdPage() {
       return;
     }
 
-    // rest of submit code
-
     const {
-      data: { user },
-    } = await supabase.auth.getUser();
+      data: { session },
+    } = await supabase.auth.getSession();
 
-    if (!user) {
+    if (!session?.user || !session?.access_token) {
       window.dispatchEvent(new Event('open-login-modal'));
-      setLoading(false);
       return;
     }
-    let profileData = profile;
 
-    if (!profileData) {
-      const { data: fetchedProfile, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('user_id', user.id)
-        .maybeSingle();
+    const submitData = new FormData();
 
-      if (profileError || !fetchedProfile) {
+    Object.entries(formData).forEach(([key, value]) => {
+      submitData.append(key, value ?? '');
+    });
+
+    photos.forEach((file) => {
+      submitData.append('photos', file);
+    });
+
+    try {
+      const response = await fetch('/api/listings/create', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: submitData,
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
         setErrors({
-          submit: 'Your profile could not be loaded. Please go to your profile and save your details.',
+          submit: result.error || 'Could not submit listing. Please check your details and try again.',
         });
+
+        window.scrollTo({
+          top: 0,
+          behavior: 'smooth',
+        });
+
         return;
       }
 
-      profileData = fetchedProfile;
-    }
-
-    const sellerName = cleanText(`${profileData?.first_name || ''} ${profileData?.last_name || ''}`, 120) || 'Seller';
-
-    const contactPhone = cleanPhone(`${profileData?.phone_code || ''} ${profileData?.phone_number || ''}`);
-
-    const sellerMemberSince = profileData.created_at || user.created_at;
-    if (priceRequired && (!formData.price || Number(formData.price) <= 0)) {
-      setErrors((prev) => ({
-        ...prev,
-        price: 'Price is required.',
-      }));
-      return;
-    }
-    const safeTitle = cleanText(formData.title, 120);
-    const safeDescription = cleanText(formData.description, 5000);
-    // 1. Insert listing first
-    const { data: listingData, error: listingError } = await supabase
-      .from('listings')
-      .insert({
-        user_id: user.id,
-
-        title: safeTitle,
-        animal_type: formData.animal_type,
-        listing_type: formData.listing_type,
-        breed: formData.breed,
-
-        age: formData.age,
-        sex: formData.sex,
-
-        county: formData.county,
-        city: formData.city,
-
-        seller_name: sellerName,
-
-        seller_type: formData.seller_type || 'Private Seller',
-
-        price: formData.price === '' ? null : Number(formData.price),
-        price_negotiable: formData.price_negotiable,
-
-        microchipped: formData.microchipped,
-        vaccinated: formData.vaccinated,
-        wormed: formData.wormed,
-        vet_checked: formData.vet_checked,
-        spayed_neutered: formData.spayed_neutered,
-        health_tested: formData.health_tested,
-        kennel_club_registered: formData.kc_registered,
-        breeding_rights: formData.breedingRights,
-
-        litter_size: formData.litter_size || null,
-        available_litter_count: formData.available_litter_count || null,
-        male_count: formData.sex === 'Mixed Litter' ? Number(formData.male_count || 0) : 0,
-
-        female_count: formData.sex === 'Mixed Litter' ? Number(formData.female_count || 0) : 0,
-
-        date_of_birth: formData.date_of_birth || null,
-        ready_to_leave: formData.ready_to_leave || null,
-        mother_can_be_seen: formData.mother_can_be_seen || null,
-
-        registration_number: formData.registrationNumber,
-        organisation_name: formData.organisationName,
-
-        seller_member_since: sellerMemberSince,
-        contact_phone: contactPhone,
-
-        description: safeDescription,
-        status: 'pending',
-      })
-      .select()
-      .single();
-
-    if (listingError) {
-      console.error('Listing insert failed:', {
-        code: listingError.code,
-      });
-
-      setErrors({
-        submit: 'Could not submit listing. Please check your details and try again.',
-      });
-
-      return;
-    }
-
-    // 2. Upload photos
-    if (photos.length > 0) {
-      const photoRows = [];
-      const uploadedPaths = [];
-
-      for (let i = 0; i < photos.length; i++) {
-        const file = photos[i];
-
-        const validationError = validateImageFile(file);
-
-        if (validationError) {
-          await rollbackFailedListing({
-            listingId: listingData.id,
-            uploadedPaths,
-          });
-
-          setErrors({
-            submit: validationError,
-          });
-          return;
-        }
-
-        const fileExt = IMAGE_EXTENSION_BY_TYPE[file.type];
-        const randomPart = crypto.randomUUID();
-        const fileName = `${user.id}/${listingData.id}-${i}-${Date.now()}-${randomPart}.${fileExt}`;
-
-        const { error: uploadError } = await supabase.storage.from('listing-photos').upload(fileName, file, {
-          cacheControl: '3600',
-          upsert: false,
-          contentType: file.type,
-        });
-
-        if (uploadError) {
-          console.error('Photo upload failed:', {
-            message: uploadError.message,
-            statusCode: uploadError.statusCode,
-          });
-
-          await rollbackFailedListing({
-            listingId: listingData.id,
-            uploadedPaths,
-          });
-
-          setErrors({
-            submit: 'Photo upload failed. Your listing was not created. Please try again.',
-          });
-          return;
-        }
-
-        uploadedPaths.push(fileName);
-        const { data: publicUrlData } = supabase.storage.from('listing-photos').getPublicUrl(fileName);
-
-        photoRows.push({
-          listing_id: listingData.id,
-          image_url: publicUrlData.publicUrl,
-          sort_order: i,
-        });
-      }
-
-      // 3. Save photo URLs into listing_photos table
-
-      const { error: photoDbError } = await supabase.from('listing_photos').insert(photoRows);
-
-      if (photoDbError) {
-        console.error('Photo DB insert failed.');
-
-        await rollbackFailedListing({
-          listingId: listingData.id,
-          uploadedPaths,
-        });
-
-        setErrors({
-          submit: 'Photo records could not be saved. Your listing was not created. Please try again.',
-        });
-        return;
-      }
-
-      await notifyAdminAboutNewListing(listingData.id);
+      await notifyAdminAboutNewListing(result.listing.id);
 
       window.location.href = '/post-ad/success';
+    } catch (error) {
+      console.error('Listing create request failed:', error);
+
+      setErrors({
+        submit: 'Could not submit listing. Please try again.',
+      });
+
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth',
+      });
     }
   };
-
   if (loading) {
     return (
       <div className="min-h-screen bg-[#FAF6EC]">

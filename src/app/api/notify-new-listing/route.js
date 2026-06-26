@@ -79,7 +79,7 @@ export async function POST(request) {
     }
 
     const adminUrl = `${siteUrl}/admin`;
-    const previewUrl = `${siteUrl}/listings/${listing.id}?adminPreview=true`;
+    const previewUrl = `${siteUrl}/admin`;
     const resend = new Resend(resendApiKey);
 
     const { error: emailError } = await resend.emails.send({
