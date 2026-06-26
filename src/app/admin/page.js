@@ -80,7 +80,6 @@ export default function AdminPage() {
 
       setUser(user);
       setCheckingAdmin(false);
-      loadListings(selectedStatus);
     };
 
     checkAdminAndLoad();

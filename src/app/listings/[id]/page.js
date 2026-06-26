@@ -191,10 +191,6 @@ export default function ListingDetailPage() {
 
       // Everything below runs after the page is already visible
 
-      if (!isMounted) return;
-
-      setCurrentUser(user);
-
       if (user) {
         const { data: favouriteData } = await supabase
           .from('favorites')

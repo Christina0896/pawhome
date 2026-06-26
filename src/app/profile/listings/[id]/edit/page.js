@@ -245,41 +245,6 @@ export default function EditListingPage() {
     return adminApprovalFields.some((field) => String(originalFormData[field] ?? '') !== String(formData[field] ?? ''));
   };
 
-  const handleRemoveAvatar = async () => {
-    if (!user) return;
-
-    try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!session?.access_token) {
-        window.dispatchEvent(new Event('open-login-modal'));
-        return;
-      }
-
-      const response = await fetch('/api/profile/avatar', {
-        method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        console.warn('Avatar remove API failed:', result);
-        alert(result.error || 'Could not remove profile picture.');
-        return;
-      }
-
-      setProfile(result.profile);
-    } catch (error) {
-      console.error('Avatar remove error:', error);
-      alert('Could not remove profile picture.');
-    }
-  };
-
   const visiblePhotos = photos.filter((photo) => !photosToDelete.some((deletedPhoto) => deletedPhoto.id === photo.id));
 
   const totalPhotoCount = visiblePhotos.length + newPhotos.length;

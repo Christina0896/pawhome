@@ -1,5 +1,5 @@
 import { requireAdmin } from '../../../../../lib/requireAdmin';
-import { requireSameOrigin } from '../../../lib/requireSameOrigin';
+import { requireSameOrigin } from '../../../../../lib/requireSameOrigin';
 
 export async function PATCH(request, { params }) {
   const sameOriginError = requireSameOrigin(request);

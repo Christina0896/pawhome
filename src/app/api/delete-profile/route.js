@@ -1,6 +1,6 @@
 import { getSupabaseAdminClient } from '../../../lib/supabaseAdmin';
 import { getStoragePathFromPublicUrl } from '../../../lib/storagePaths';
-import { requireSameOrigin } from '../../../../lib/requireSameOrigin';
+import { requireSameOrigin } from '../../../lib/requireSameOrigin';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,7 +25,7 @@ export async function DELETE(request) {
   if (sameOriginError) {
     return sameOriginError;
   }
-  
+
   const supabaseAdmin = getSupabaseAdminClient();
 
   if (!supabaseAdmin) {

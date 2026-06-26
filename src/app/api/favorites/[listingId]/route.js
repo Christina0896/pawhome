@@ -1,5 +1,5 @@
 import { getSupabaseAdminClient } from '../../../../lib/supabaseAdmin';
-import { requireSameOrigin } from '../../../lib/requireSameOrigin';
+import { requireSameOrigin } from '../../../../lib/requireSameOrigin';
 
 export const dynamic = 'force-dynamic';
 
