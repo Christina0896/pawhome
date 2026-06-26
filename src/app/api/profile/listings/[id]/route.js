@@ -1,18 +1,10 @@
 import { getSupabaseAdminClient } from '../../../../../lib/supabaseAdmin';
 import { requireSameOrigin } from '../../../../../lib/requireSameOrigin';
+import { getStoragePathFromPublicUrl } from '../../../../../lib/storagePaths';
 
 export const dynamic = 'force-dynamic';
 
-function getStoragePathFromPublicUrl(url, bucketName) {
-  if (!url) return null;
 
-  const marker = `/object/public/${bucketName}/`;
-  const index = url.indexOf(marker);
-
-  if (index === -1) return null;
-
-  return decodeURIComponent(url.slice(index + marker.length).split('?')[0]);
-}
 
 async function safeDelete(query, label) {
   const { error } = await query;
