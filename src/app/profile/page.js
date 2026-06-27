@@ -161,6 +161,7 @@ export default function ProfilePage() {
       const accessToken = await getVerifiedAccessToken();
 
       if (!accessToken) {
+        setAvatarUploading(false);
         return;
       }
 
@@ -266,16 +267,12 @@ export default function ProfilePage() {
       county: profileForm.county.trim(),
     };
 
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+    const accessToken = await getVerifiedAccessToken();
 
-    if (!session?.access_token) {
+    if (!accessToken) {
       setProfileSaving(false);
-      window.dispatchEvent(new Event('open-login-modal'));
       return;
     }
-
     const response = await fetch('/api/profile', {
       method: 'PATCH',
       headers: {

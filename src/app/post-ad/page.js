@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabaseClient';
 import { counties } from '../../data/countyList';
 import { dogBreeds, catBreeds, otherPetTypes } from '../../data/petOptions';
 import Link from 'next/link';
+import { getVerifiedAccessToken } from '../../lib/authTokens';
 
 const REQUIRE_VERIFICATION_TO_POST = true;
 const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
@@ -429,11 +430,9 @@ export default function PostAdPage() {
   const [hasTriedSubmit, setHasTriedSubmit] = useState(false);
   const notifyAdminAboutNewListing = async (listingId) => {
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      const accessToken = await getVerifiedAccessToken({ openLogin: false });
 
-      if (!session?.access_token) {
+      if (!accessToken) {
         return;
       }
 
@@ -441,7 +440,7 @@ export default function PostAdPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({ listingId }),
       });
@@ -470,12 +469,9 @@ export default function PostAdPage() {
       return;
     }
 
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+    const accessToken = await getVerifiedAccessToken();
 
-    if (!session?.user || !session?.access_token) {
-      window.dispatchEvent(new Event('open-login-modal'));
+    if (!accessToken) {
       return;
     }
 
@@ -493,7 +489,7 @@ export default function PostAdPage() {
       const response = await fetch('/api/listings/create', {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${accessToken}`,
         },
         body: submitData,
       });
