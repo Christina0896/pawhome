@@ -356,9 +356,9 @@ export default function ProfilePage() {
       const accessToken = await getVerifiedAccessToken();
 
       if (!accessToken) {
+        setLoading(false);
         return;
       }
-
       const response = await fetch('/api/delete-profile', {
         method: 'DELETE',
         headers: {
