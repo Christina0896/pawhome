@@ -271,10 +271,6 @@ export default function PostAdPage() {
       if (!formData.ready_to_leave) {
         newErrors.ready_to_leave = 'Please enter when the litter is ready to leave.';
       }
-
-      if (readyToLeaveTooEarly) {
-        newErrors.ready_to_leave = `This litter is too young to leave. Minimum age is ${minimumLegalAgeWeeks} weeks.`;
-      }
     }
 
     setErrors(newErrors);
