@@ -5,6 +5,7 @@ import Header from '../../components/header';
 import Footer from '../../components/footer';
 import { supabase } from '../../lib/supabaseClient';
 import Link from 'next/link';
+import { getVerifiedAdminAccessToken } from '../../lib/authTokens';
 
 const STATUS_OPTIONS = ['pending', 'approved', 'rejected', 'reports'];
 const LISTING_STATUS_FILTERS = ['pending', 'approved', 'rejected'];
@@ -184,43 +185,9 @@ export default function AdminPage() {
     setLoading(false);
   };
 
-  const getVerifiedAdminAccessToken = async () => {
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError || !user) {
-      window.dispatchEvent(new Event('open-login-modal'));
-      return null;
-    }
-
-    const { data: adminData, error: adminError } = await supabase
-      .from('admin_users')
-      .select('user_id')
-      .eq('user_id', user.id)
-      .maybeSingle();
-
-    if (adminError || !adminData) {
-      setAccessDenied(true);
-      return null;
-    }
-
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-
-    if (!session?.access_token) {
-      window.dispatchEvent(new Event('open-login-modal'));
-      return null;
-    }
-
-    return session.access_token;
-  };
-
   const updateListingStatus = async (listingId, status) => {
     try {
-      const accessToken = await getVerifiedAdminAccessToken();
+      const accessToken = await getVerifiedAdminAccessToken({ setAccessDenied });
 
       if (!accessToken) {
         return;
@@ -258,7 +225,7 @@ export default function AdminPage() {
     }
 
     try {
-      const accessToken = await getVerifiedAdminAccessToken();
+      const accessToken = await getVerifiedAdminAccessToken({ setAccessDenied });
 
       if (!accessToken) {
         return;
@@ -288,7 +255,7 @@ export default function AdminPage() {
 
   const markReportReviewed = async (reportId) => {
     try {
-      const accessToken = await getVerifiedAdminAccessToken();
+      const accessToken = await getVerifiedAdminAccessToken({ setAccessDenied });
 
       if (!accessToken) {
         alert('You must be logged in as admin.');
@@ -327,7 +294,7 @@ export default function AdminPage() {
     if (!confirmed) return;
 
     try {
-      const accessToken = await getVerifiedAdminAccessToken();
+      const accessToken = await getVerifiedAdminAccessToken({ setAccessDenied });
 
       if (!accessToken) {
         alert('You must be logged in as admin.');
@@ -670,7 +637,7 @@ const ReportReviewCard = ({ report, markReportReviewed, deleteReport, updateList
             <div className="flex flex-wrap gap-2">
               {report.listing_id && (
                 <Link
-                  href={`/listings/${listingId}?adminPreview=true`}
+                  href={`/listings/${report.listing_id}?adminPreview=true`}
                   target="_blank"
                   rel="noreferrer"
                   className="rounded-xl border border-(--border-beige) bg-white px-5 py-3 text-sm font-bold text-(--secondary-green) transition hover:border-(--primary-green)"

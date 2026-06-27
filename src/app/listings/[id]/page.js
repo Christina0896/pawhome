@@ -238,7 +238,7 @@ export default function ListingDetailPage() {
         )
         .eq('status', 'approved')
         .neq('id', listingId)
-        .or(`breed.eq.${data.breed},animal_type.eq.${data.animal_type}`)
+        .eq('animal_type', data.animal_type)
         .limit(5);
 
       if (!isMounted) return;

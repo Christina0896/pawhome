@@ -5,6 +5,7 @@ import Header from '../../components/header';
 import Footer from '../../components/footer';
 import { supabase } from '../../lib/supabaseClient';
 import Link from 'next/link';
+import { getVerifiedAccessToken } from '../../lib/authTokens';
 
 const allowedAvatarTypes = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_AVATAR_SIZE = 2 * 1024 * 1024;
@@ -157,13 +158,9 @@ export default function ProfilePage() {
     setAvatarUploading(true);
 
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      const accessToken = await getVerifiedAccessToken();
 
-      if (!session?.access_token) {
-        setAvatarUploading(false);
-        window.dispatchEvent(new Event('open-login-modal'));
+      if (!accessToken) {
         return;
       }
 
@@ -173,7 +170,7 @@ export default function ProfilePage() {
       const response = await fetch('/api/profile/avatar', {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${accessToken}`,
         },
         body: formData,
       });
@@ -200,19 +197,16 @@ export default function ProfilePage() {
     if (!user) return;
 
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      const accessToken = await getVerifiedAccessToken();
 
-      if (!session?.access_token) {
-        window.dispatchEvent(new Event('open-login-modal'));
+      if (!accessToken) {
         return;
       }
 
       const response = await fetch('/api/profile/avatar', {
         method: 'DELETE',
         headers: {
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${accessToken}`,
         },
       });
 
@@ -286,7 +280,7 @@ export default function ProfilePage() {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${session.access_token}`,
+        Authorization: `Bearer ${accessToken}`,
       },
       body: JSON.stringify(updatedProfilePayload),
     });
@@ -320,19 +314,16 @@ export default function ProfilePage() {
     if (!confirmDelete) return;
 
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      const accessToken = await getVerifiedAccessToken();
 
-      if (!session?.access_token) {
-        window.dispatchEvent(new Event('open-login-modal'));
+      if (!accessToken) {
         return;
       }
 
       const response = await fetch(`/api/profile/listings/${listingId}`, {
         method: 'DELETE',
         headers: {
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${accessToken}`,
         },
       });
 
@@ -365,20 +356,16 @@ export default function ProfilePage() {
     setLoading(true);
 
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      const accessToken = await getVerifiedAccessToken();
 
-      if (!session?.access_token) {
-        window.dispatchEvent(new Event('open-login-modal'));
-        setLoading(false);
+      if (!accessToken) {
         return;
       }
 
       const response = await fetch('/api/delete-profile', {
         method: 'DELETE',
         headers: {
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${accessToken}`,
         },
       });
 

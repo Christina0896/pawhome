@@ -8,15 +8,10 @@ import { supabase } from '../../../../../lib/supabaseClient';
 import { counties } from '../../../../../data/countyList';
 import { dogBreeds, catBreeds, otherPetTypes } from '../../../../../data/petOptions';
 import Link from 'next/link';
+import { getVerifiedAccessToken } from '../../../../../lib/authTokens';
 
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_LISTING_IMAGE_SIZE = 5 * 1024 * 1024;
-
-const IMAGE_EXTENSION_BY_TYPE = {
-  'image/jpeg': 'jpg',
-  'image/png': 'png',
-  'image/webp': 'webp',
-};
 
 const emptyForm = {
   title: '',
@@ -324,146 +319,54 @@ export default function EditListingPage() {
     setSaving(true);
     setMessage('');
 
-    const { error } = await supabase
-      .from('listings')
-      .update({
-        title: formData.title.trim(),
-        listing_type: formData.listing_type,
-        animal_type: formData.animal_type,
-        breed: formData.breed.trim(),
-        age: formData.age.trim(),
-        sex: formData.sex,
+    try {
+      const accessToken = await getVerifiedAccessToken();
 
-        price: Number(formData.price),
-        price_negotiable: formData.price_negotiable,
-
-        county: formData.county,
-        city: formData.city.trim(),
-
-        seller_type: formData.seller_type,
-
-        microchipped: formData.microchipped,
-        vaccinated: formData.vaccinated,
-        wormed: formData.wormed,
-        vet_checked: formData.vet_checked,
-        spayed_neutered: formData.spayed_neutered,
-        health_tested: formData.health_tested,
-        kennel_club_registered: formData.kennel_club_registered,
-
-        litter_size: formData.litter_size || null,
-        available_litter_count: formData.available_litter_count || null,
-        date_of_birth: formData.date_of_birth || null,
-        ready_to_leave: formData.ready_to_leave || null,
-        mother_can_be_seen: formData.mother_can_be_seen || null,
-
-        registration_number: formData.registration_number.trim(),
-        organisation_name: formData.organisation_name.trim(),
-
-        description: formData.description.trim(),
-
-        status: doesEditNeedAdminApproval() ? 'pending' : originalFormData.status,
-      })
-
-      .eq('id', listingId)
-      .eq('user_id', user.id);
-    if (error) {
-      console.warn('Listing update failed:', {
-        message: error.message,
-        code: error.code,
-      });
-
-      setMessage('Could not save listing. Please try again.');
-      setSaving(false);
-      return;
-    }
-
-    if (photosToDelete.length > 0) {
-      const photoIdsToDelete = photosToDelete.map((photo) => photo.id).filter(Boolean);
-      const storagePaths = photosToDelete.map((photo) => getStoragePathFromPublicUrl(photo.image_url)).filter(Boolean);
-
-      if (storagePaths.length > 0) {
-        const { error: storageDeleteError } = await supabase.storage.from('listing-photos').remove(storagePaths);
-
-        if (storageDeleteError) {
-          console.error('Photo storage delete error:', storageDeleteError);
-          setMessage(storageDeleteError.message || 'Could not delete old photo files.');
-          setSaving(false);
-          return;
-        }
-      }
-
-      if (photoIdsToDelete.length > 0) {
-        const { error: photoDeleteError } = await supabase.from('listing_photos').delete().in('id', photoIdsToDelete);
-
-        if (photoDeleteError) {
-          console.error('Photo DB delete error:', photoDeleteError);
-          setMessage(photoDeleteError.message || 'Old photo files were removed, but photo rows could not be deleted.');
-          setSaving(false);
-          return;
-        }
-      }
-    }
-
-    if (newPhotos.length > 0) {
-      const photoRows = [];
-      const uploadedPaths = [];
-
-      for (let i = 0; i < newPhotos.length; i++) {
-        const file = newPhotos[i];
-        const fileExt = IMAGE_EXTENSION_BY_TYPE[file.type];
-
-        if (!fileExt) {
-          await removeUploadedStorageFiles(uploadedPaths);
-
-          setMessage('Only JPG, PNG, or WEBP images are allowed.');
-          setSaving(false);
-          return;
-        }
-
-        const fileName = `${user.id}/${listingId}-edit-${Date.now()}-${i}.${fileExt}`;
-
-        const { error: uploadError } = await supabase.storage.from('listing-photos').upload(fileName, file, {
-          upsert: false,
-          contentType: file.type,
-        });
-
-        if (uploadError) {
-          console.error('Photo upload error:', uploadError);
-
-          await removeUploadedStorageFiles(uploadedPaths);
-
-          setMessage(uploadError.message || 'Photo upload failed.');
-          setSaving(false);
-          return;
-        }
-
-        uploadedPaths.push(fileName);
-
-        const { data: publicUrlData } = supabase.storage.from('listing-photos').getPublicUrl(fileName);
-
-        photoRows.push({
-          listing_id: listingId,
-          image_url: publicUrlData.publicUrl,
-          sort_order: visiblePhotos.length + i,
-        });
-      }
-
-      const { error: photoInsertError } = await supabase.from('listing_photos').insert(photoRows);
-
-      if (photoInsertError) {
-        console.error('Photo DB insert error:', photoInsertError);
-
-        await removeUploadedStorageFiles(uploadedPaths);
-
-        setMessage(photoInsertError.message || 'Could not save new photos.');
+      if (!accessToken) {
         setSaving(false);
         return;
       }
-    }
 
-    setSaving(false);
-    window.location.href = '/profile';
-    return;
+      const submitData = new FormData();
+
+      Object.entries(formData).forEach(([key, value]) => {
+        submitData.append(key, value ?? '');
+      });
+
+      photosToDelete.forEach((photo) => {
+        if (photo.id) {
+          submitData.append('photosToDelete', String(photo.id));
+        }
+      });
+
+      newPhotos.forEach((file) => {
+        submitData.append('newPhotos', file);
+      });
+
+      const response = await fetch(`/api/profile/listings/${listingId}`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: submitData,
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        setMessage(result.error || 'Could not save listing. Please try again.');
+        setSaving(false);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
+
+      setSaving(false);
+      window.location.href = '/profile';
+    } catch (error) {
+      console.error('Listing edit request failed:', error);
+      setMessage('Could not save listing. Please try again.');
+      setSaving(false);
+    }
   };
 
   if (loading) {
