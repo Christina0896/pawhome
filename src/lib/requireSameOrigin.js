@@ -2,31 +2,31 @@ const MUTATING_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE'];
 
 function getAllowedOrigins(request) {
   const allowedOrigins = new Set();
-
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
 
   if (siteUrl) {
     try {
       allowedOrigins.add(new URL(siteUrl).origin);
+      return allowedOrigins;
     } catch {
-      // ignore invalid env value
+      if (process.env.NODE_ENV === 'production') {
+        return allowedOrigins;
+      }
     }
   }
 
-  const host = request.headers.get('x-forwarded-host') || request.headers.get('host');
-  const forwardedProto = request.headers.get('x-forwarded-proto');
-
-  if (host) {
-    if (forwardedProto) {
-      allowedOrigins.add(`${forwardedProto}://${host}`);
-    }
-
-    allowedOrigins.add(`https://${host}`);
-
-    if (process.env.NODE_ENV !== 'production') {
-      allowedOrigins.add(`http://${host}`);
-    }
+  if (process.env.NODE_ENV === 'production') {
+    return allowedOrigins;
   }
+
+  const host = request.headers.get('host');
+
+  if (!host) {
+    return allowedOrigins;
+  }
+
+  allowedOrigins.add(`http://${host}`);
+  allowedOrigins.add(`https://${host}`);
 
   return allowedOrigins;
 }

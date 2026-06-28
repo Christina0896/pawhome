@@ -5,6 +5,7 @@ import Header from '../../components/header';
 import Footer from '../../components/footer';
 import { supabase } from '../../lib/supabaseClient';
 import Link from 'next/link';
+import { FAVORITE_LISTING_SELECT } from '../../lib/publicListingSelect';
 
 export default function FavoritesPage() {
   const [favorites, setFavorites] = useState([]);
@@ -18,25 +19,15 @@ export default function FavoritesPage() {
 
       if (!user) {
         window.dispatchEvent(new Event('open-login-modal'));
+        setLoading(false);
         return;
       }
 
       const { data, error } = await supabase
         .from('favorites')
-        .select(
-          `
-          id,
-          listing_id,
-          listings (
-            *,
-            listing_photos (
-              image_url,
-              sort_order
-            )
-          )
-        `,
-        )
+        .select(FAVORITE_LISTING_SELECT)
         .eq('user_id', user.id)
+        .eq('listings.status', 'approved')
         .order('created_at', { ascending: false });
 
       if (error) {

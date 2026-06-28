@@ -1,5 +1,6 @@
 'use client';
-
+import { PUBLIC_LISTING_SELECT } from '../../lib/publicListingSelect';
+import { getVerifiedAccessToken } from '../../lib/authTokens';
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import Header from '../../components/header';
 import Footer from '../../components/footer';
@@ -73,24 +74,14 @@ export default function ListingsClient() {
   useEffect(() => {
     const fetchListings = async () => {
       const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      const user = session?.user || null;
+        data: { user },
+      } = await supabase.auth.getUser();
 
       setCurrentUser(user);
 
       const { data, error } = await supabase
         .from('listings')
-        .select(
-          `
-        *,
-        listing_photos (
-          image_url,
-          sort_order
-        )
-      `,
-        )
+        .select(PUBLIC_LISTING_SELECT)
         .eq('status', 'approved')
         .order('created_at', { ascending: false });
 
@@ -244,19 +235,15 @@ export default function ListingsClient() {
     );
 
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      const accessToken = await getVerifiedAccessToken();
 
-      if (!session?.access_token) {
-        window.dispatchEvent(new Event('open-login-modal'));
+      if (!accessToken) {
         return;
       }
-
       const response = await fetch(`/api/favorites/${listingId}`, {
         method: isFavorite ? 'DELETE' : 'POST',
         headers: {
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${accessToken}`,
         },
       });
 

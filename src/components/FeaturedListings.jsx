@@ -1,5 +1,6 @@
 'use client';
-
+import { PUBLIC_LISTING_SELECT } from '../lib/publicListingSelect';
+import { getVerifiedAccessToken } from '../lib/authTokens';
 import { supabase } from '../lib/supabaseClient';
 import {
   FemaleIcon,
@@ -78,15 +79,7 @@ const FeaturedListings = () => {
     try {
       const { data, error } = await supabase
         .from('listings')
-        .select(
-          `
-        *,
-        listing_photos (
-          image_url,
-          sort_order
-        )
-      `,
-        )
+        .select(PUBLIC_LISTING_SELECT)
         .eq('status', 'approved')
         .order('created_at', { ascending: false })
         .limit(4);
@@ -117,10 +110,8 @@ const FeaturedListings = () => {
   const fetchFavouriteIds = useCallback(async () => {
     try {
       const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      const user = session?.user || null;
+        data: { user },
+      } = await supabase.auth.getUser();
 
       setCurrentUser(user);
 
@@ -256,14 +247,9 @@ const FeaturedListings = () => {
     e.preventDefault();
     e.stopPropagation();
 
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+    const accessToken = await getVerifiedAccessToken();
 
-    const user = session?.user || null;
-
-    if (!user || !session?.access_token) {
-      window.dispatchEvent(new Event('open-login-modal'));
+    if (!accessToken) {
       return;
     }
 
@@ -280,7 +266,7 @@ const FeaturedListings = () => {
       const response = await fetch(`/api/favorites/${listingId}`, {
         method: isFavorite ? 'DELETE' : 'POST',
         headers: {
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${accessToken}`,
         },
       });
 
