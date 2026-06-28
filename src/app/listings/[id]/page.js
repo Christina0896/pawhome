@@ -1,4 +1,5 @@
 'use client';
+import { getVerifiedAccessToken } from '../../../lib/authTokens';
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import Header from '../../../components/header';
@@ -65,6 +66,53 @@ const yesNo = (value) => {
 const sortPhotos = (photos) => {
   return [...(photos || [])].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
 };
+const PUBLIC_LISTING_SELECT = `
+  id,
+  user_id,
+  title,
+  listing_type,
+  animal_type,
+  breed,
+  age,
+  sex,
+  price,
+  price_negotiable,
+  county,
+  city,
+  town,
+  city_town,
+  location_town,
+  location,
+  seller_name,
+  seller_type,
+  seller_member_since,
+  microchipped,
+  vaccinated,
+  wormed,
+  vet_checked,
+  spayed_neutered,
+  health_tested,
+  kennel_club_registered,
+  litter_size,
+  available_litter_count,
+  male_count,
+  female_count,
+  date_of_birth,
+  ready_to_leave,
+  mother_can_be_seen,
+  registration_number,
+  organisation_name,
+  description,
+  status,
+  views,
+  favourites_count,
+  phone_clicks,
+  created_at,
+  listing_photos (
+    image_url,
+    sort_order
+  )
+`;
 
 export default function ListingDetailPage() {
   const params = useParams();
@@ -75,8 +123,6 @@ export default function ListingDetailPage() {
   const handleShowPhoneNumber = async () => {
     if (!listing?.id) return;
 
-    setPhoneVisible(true);
-
     try {
       const response = await fetch(`/api/listings/${listing.id}/phone-click`, {
         method: 'POST',
@@ -86,8 +132,12 @@ export default function ListingDetailPage() {
 
       if (!response.ok) {
         console.warn('Phone click API failed:', result);
+        alert(result.error || 'Could not reveal phone number.');
         return;
       }
+
+      setRevealedPhone(result.phoneNumber || '');
+      setPhoneVisible(true);
 
       if (result.phoneClicks !== undefined && result.phoneClicks !== null) {
         setListing((current) => {
@@ -101,6 +151,7 @@ export default function ListingDetailPage() {
       }
     } catch (error) {
       console.warn('Phone click request failed:', error);
+      alert('Could not reveal phone number.');
     }
   };
 
@@ -110,6 +161,7 @@ export default function ListingDetailPage() {
 
   const [loading, setLoading] = useState(true);
   const [phoneVisible, setPhoneVisible] = useState(false);
+  const [revealedPhone, setRevealedPhone] = useState('');
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [isFavourite, setIsFavourite] = useState(false);
@@ -142,6 +194,7 @@ export default function ListingDetailPage() {
       setPhotos([]);
       setSelectedPhotoIndex(0);
       setPhoneVisible(false);
+      setRevealedPhone('');
 
       const {
         data: { user },
@@ -161,18 +214,7 @@ export default function ListingDetailPage() {
         }
       }
 
-      let listingQuery = supabase
-        .from('listings')
-        .select(
-          `
-      *,
-      listing_photos (
-        image_url,
-        sort_order
-      )
-    `,
-        )
-        .eq('id', listingId);
+      let listingQuery = supabase.from('listings').select(PUBLIC_LISTING_SELECT).eq('id', listingId);
 
       if (!isAdminPreview) {
         listingQuery = listingQuery.eq('status', 'approved');
@@ -227,15 +269,7 @@ export default function ListingDetailPage() {
 
       const { data: similarData, error: similarError } = await supabase
         .from('listings')
-        .select(
-          `
-        *,
-        listing_photos (
-          image_url,
-          sort_order
-        )
-      `,
-        )
+        .select(PUBLIC_LISTING_SELECT)
         .eq('status', 'approved')
         .neq('id', listingId)
         .eq('animal_type', data.animal_type)
@@ -309,12 +343,9 @@ export default function ListingDetailPage() {
   const handleToggleFavourite = async () => {
     if (!listing?.id) return;
 
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+    const accessToken = await getVerifiedAccessToken();
 
-    if (!session?.user || !session?.access_token) {
-      window.dispatchEvent(new Event('open-login-modal'));
+    if (!accessToken) {
       return;
     }
 
@@ -339,7 +370,7 @@ export default function ListingDetailPage() {
       const response = await fetch(`/api/favorites/${listing.id}`, {
         method: nextIsFavourite ? 'POST' : 'DELETE',
         headers: {
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${accessToken}`,
         },
       });
 
@@ -400,13 +431,10 @@ export default function ListingDetailPage() {
     setReportSubmitting(true);
 
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      const accessToken = await getVerifiedAccessToken();
 
-      if (!session?.user || !session?.access_token) {
+      if (!accessToken) {
         setReportSubmitting(false);
-        window.dispatchEvent(new Event('open-login-modal'));
         return;
       }
 
@@ -414,7 +442,7 @@ export default function ListingDetailPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
           reason: reportReason,
@@ -810,6 +838,7 @@ export default function ListingDetailPage() {
               listing={listing}
               sellerMemberSince={sellerMemberSince}
               phoneVisible={phoneVisible}
+              revealedPhone={revealedPhone}
               onShowPhoneNumber={handleShowPhoneNumber}
               setReportModalOpen={setReportModalOpen}
               setReportSuccess={setReportSuccess}
@@ -858,6 +887,7 @@ const SellerCard = ({
   listing,
   sellerMemberSince,
   phoneVisible,
+  revealedPhone,
   onShowPhoneNumber,
   setReportModalOpen,
   setReportSuccess,
@@ -892,7 +922,7 @@ const SellerCard = ({
           <span className="mx-2">
             <PhoneIcon />
           </span>{' '}
-          {phoneVisible ? listing.contact_phone || listing.phone || 'Phone not provided' : 'Show Phone Number'}
+          {phoneVisible ? revealedPhone || 'Phone not provided' : 'Show Phone Number'}
         </button>
       </div>
 

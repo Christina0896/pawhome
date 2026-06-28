@@ -206,40 +206,6 @@ export default function EditListingPage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const doesEditNeedAdminApproval = () => {
-    if (!originalFormData) return true;
-
-    const adminApprovalFields = [
-      'title',
-      'listing_type',
-      'animal_type',
-      'breed',
-      'age',
-      'sex',
-      'price',
-      'price_negotiable',
-      'county',
-      'city',
-      'seller_type',
-      'microchipped',
-      'vaccinated',
-      'wormed',
-      'vet_checked',
-      'spayed_neutered',
-      'health_tested',
-      'kennel_club_registered',
-      'litter_size',
-      'date_of_birth',
-      'ready_to_leave',
-      'mother_can_be_seen',
-      'father_can_be_seen',
-      'registration_number',
-      'organisation_name',
-    ];
-
-    return adminApprovalFields.some((field) => String(originalFormData[field] ?? '') !== String(formData[field] ?? ''));
-  };
-
   const visiblePhotos = photos.filter((photo) => !photosToDelete.some((deletedPhoto) => deletedPhoto.id === photo.id));
 
   const totalPhotoCount = visiblePhotos.length + newPhotos.length;

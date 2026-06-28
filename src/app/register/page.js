@@ -48,11 +48,6 @@ export default function RegisterPage() {
       return;
     }
 
-    if (formData.password.length < 8) {
-      setMessage('Password must be at least 8 characters.');
-      return;
-    }
-
     setLoading(true);
 
     const password = formData.password;
@@ -246,7 +241,7 @@ export default function RegisterPage() {
               className={inputClass}
             />
             <p className="mt-2 text-xs text-(--muted-green-text)">
-              Use at least 8 characters with a number and a letter.
+              Use at least 10 characters with uppercase, lowercase, and a number.
             </p>
           </div>
 

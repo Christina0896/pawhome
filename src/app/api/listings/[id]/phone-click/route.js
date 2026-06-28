@@ -71,6 +71,25 @@ export async function POST(request, { params }) {
   }
 
   try {
+    const { data: listing, error: listingError } = await supabaseAdmin
+      .from('listings')
+      .select('id, contact_phone')
+      .eq('id', listingId)
+      .eq('status', 'approved')
+      .maybeSingle();
+
+    if (listingError) {
+      console.error('Phone reveal listing lookup failed:', {
+        message: listingError.message,
+        code: listingError.code,
+      });
+
+      return Response.json({ error: 'Could not reveal phone number.' }, { status: 500 });
+    }
+
+    if (!listing) {
+      return Response.json({ error: 'Listing not found.' }, { status: 404 });
+    }
     const limited = await isRateLimited({
       supabaseAdmin,
       counterType: 'phone_click',
@@ -80,7 +99,14 @@ export async function POST(request, { params }) {
     });
 
     if (limited) {
-      return Response.json({ success: true, skipped: true }, { status: 200 });
+      return Response.json(
+        {
+          success: true,
+          skipped: true,
+          phoneNumber: listing.contact_phone || '',
+        },
+        { status: 200 },
+      );
     }
 
     const { data: phoneClicks, error: rpcError } = await supabaseAdmin.rpc('increment_listing_phone_clicks', {
@@ -93,7 +119,14 @@ export async function POST(request, { params }) {
         code: rpcError.code,
       });
 
-      return Response.json({ error: 'Could not update phone counter.' }, { status: 500 });
+      return Response.json(
+        {
+          success: true,
+          phoneClicks,
+          phoneNumber: listing.contact_phone || '',
+        },
+        { status: 200 },
+      );
     }
 
     return Response.json({ success: true, phoneClicks }, { status: 200 });
