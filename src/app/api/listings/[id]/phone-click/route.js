@@ -122,14 +122,21 @@ export async function POST(request, { params }) {
       return Response.json(
         {
           success: true,
-          phoneClicks,
+          phoneClicks: null,
           phoneNumber: listing.contact_phone || '',
         },
         { status: 200 },
       );
     }
 
-    return Response.json({ success: true, phoneClicks }, { status: 200 });
+    return Response.json(
+      {
+        success: true,
+        phoneClicks,
+        phoneNumber: listing.contact_phone || '',
+      },
+      { status: 200 },
+    );
   } catch (error) {
     console.error('Phone click API error:', {
       message: error?.message,
