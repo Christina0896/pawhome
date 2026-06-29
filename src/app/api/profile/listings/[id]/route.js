@@ -1,164 +1,25 @@
 import { getSupabaseAdminClient } from '../../../../../lib/supabaseAdmin';
 import { requireSameOrigin } from '../../../../../lib/requireSameOrigin';
 import { getStoragePathFromPublicUrl } from '../../../../../lib/storagePaths';
+import { getAuthenticatedUser, removeStorageFiles, safeDelete } from '../../../../../lib/apiHelpers';
+import {
+  ALLOWED_ANIMAL_TYPES,
+  ALLOWED_LISTING_TYPES,
+  ALLOWED_SEXES,
+  ALLOWED_YES_NO,
+  addWeeksToDate,
+  cleanBoolean,
+  cleanNullableText,
+  cleanText,
+  getImageExtension,
+  getMinimumLegalAgeWeeks,
+  normalizeSellerType,
+  validateImageFile,
+} from '../../../../../lib/listingValidation';
 
 export const dynamic = 'force-dynamic';
 
-const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
-
-const IMAGE_EXTENSION_BY_TYPE = {
-  'image/jpeg': 'jpg',
-  'image/png': 'png',
-  'image/webp': 'webp',
-};
-
-const ALLOWED_LISTING_TYPES = ['For Sale', 'For Stud', 'For Adoption'];
-const ALLOWED_ANIMAL_TYPES = ['Dogs', 'Cats', 'Other Pets'];
-const ALLOWED_SEXES = ['Male', 'Female', 'Mixed Litter'];
-const ALLOWED_YES_NO = ['Yes', 'No'];
-
-function cleanText(value, maxLength = 120) {
-  return String(value || '')
-    .replace(/[<>]/g, '')
-    .trim()
-    .slice(0, maxLength);
-}
-
-function cleanNullableText(value, maxLength = 120) {
-  const cleaned = cleanText(value, maxLength);
-  return cleaned || null;
-}
-
-function cleanBoolean(value) {
-  return String(value) === 'true';
-}
-
-function normalizeSellerType(value) {
-  const cleaned = cleanText(value, 80);
-
-  if (cleaned === 'Registered Breeder' || cleaned === 'Breeder') {
-    return 'Registered Breeder';
-  }
-
-  if (cleaned === 'Private Seller' || cleaned === 'Seller') {
-    return 'Private Seller';
-  }
-
-  if (cleaned === 'Shelter / Rescue') {
-    return 'Shelter / Rescue';
-  }
-
-  return '';
-}
-
-function validateImageFile(file) {
-  if (!file || typeof file === 'string') {
-    return 'Invalid image file.';
-  }
-
-  if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
-    return 'Only JPG, PNG, and WebP images are allowed.';
-  }
-
-  if (file.name?.toLowerCase().endsWith('.svg')) {
-    return 'SVG images are not allowed.';
-  }
-
-  if (file.size > MAX_IMAGE_SIZE_BYTES) {
-    return 'Each photo must be 5 MB or smaller.';
-  }
-
-  return '';
-}
-
- function getMinimumLegalAgeWeeks(animalType, breed) {
-  const cleanAnimalType = String(animalType || '')
-    .trim()
-    .toLowerCase();
-  const cleanBreed = String(breed || '')
-    .trim()
-    .toLowerCase();
-
-  if (cleanAnimalType === 'dogs' || cleanAnimalType === 'cats') return 8;
-  if (cleanBreed.includes('rabbit')) return 6;
-
-  if (
-    cleanBreed.includes('guinea pig') ||
-    cleanBreed.includes('gerbil') ||
-    cleanBreed.includes('hamster') ||
-    cleanBreed.includes('mouse') ||
-    cleanBreed.includes('mice') ||
-    cleanBreed.includes('rat')
-  ) {
-    return 4;
-  }
-
-  if (cleanBreed.includes('ferret')) return 8;
-
-  return null;
-}
-
-function addWeeksToDate(dateString, weeks) {
-  if (!dateString || !weeks) return null;
-
-  const date = new Date(dateString);
-
-  if (Number.isNaN(date.getTime())) return null;
-
-  date.setDate(date.getDate() + weeks * 7);
-
-  return date;
-}
-
-async function getAuthenticatedUser(supabaseAdmin, request) {
-  const authHeader = request.headers.get('authorization') || '';
-  const token = authHeader.replace('Bearer ', '').trim();
-
-  if (!token) {
-    return { error: Response.json({ error: 'Not authenticated.' }, { status: 401 }) };
-  }
-
-  const {
-    data: { user },
-    error: userError,
-  } = await supabaseAdmin.auth.getUser(token);
-
-  if (userError || !user) {
-    return { error: Response.json({ error: 'Invalid session.' }, { status: 401 }) };
-  }
-
-  return { user };
-}
-
-async function safeDelete(query, label) {
-  const { error } = await query;
-
-  if (error) {
-    console.error(`${label} delete error:`, {
-      message: error?.message,
-      code: error?.code,
-      details: error?.details,
-    });
-
-    throw error;
-  }
-}
-
-async function removeStorageFiles(supabaseAdmin, paths = []) {
-  const safePaths = [...new Set(paths)].filter(Boolean);
-
-  if (safePaths.length === 0) return;
-
-  const { error } = await supabaseAdmin.storage.from('listing-photos').remove(safePaths);
-
-  if (error) {
-    console.error('Listing photo storage cleanup error:', {
-      message: error?.message,
-      code: error?.code,
-    });
-  }
-}
+const LISTING_PHOTOS_BUCKET = 'listing-photos';
 
 export async function PATCH(request, { params }) {
   const sameOriginError = requireSameOrigin(request);
@@ -357,8 +218,6 @@ export async function PATCH(request, { params }) {
         message: currentPhotosError.message,
         code: currentPhotosError.code,
       });
-
-      return Response.json({ error: 'Could not check listing photos.' }, { status: 500 });
     }
 
     let photosToDelete = [];
@@ -398,17 +257,17 @@ export async function PATCH(request, { params }) {
 
     for (let i = 0; i < newPhotos.length; i++) {
       const file = newPhotos[i];
-      const fileExt = IMAGE_EXTENSION_BY_TYPE[file.type];
+      const fileExt = getImageExtension(file);
 
       if (!fileExt) {
-        await removeStorageFiles(supabaseAdmin, uploadedPaths);
+        await removeStorageFiles(supabaseAdmin, LISTING_PHOTOS_BUCKET, uploadedPaths, 'Edit listing photo cleanup');
 
         return Response.json({ error: 'Only JPG, PNG, and WebP images are allowed.' }, { status: 400 });
       }
 
       const fileName = `${user.id}/${listingId}-edit-${Date.now()}-${i}.${fileExt}`;
 
-      const { error: uploadError } = await supabaseAdmin.storage.from('listing-photos').upload(fileName, file, {
+      const { error: uploadError } = await supabaseAdmin.storage.from(LISTING_PHOTOS_BUCKET).upload(fileName, file, {
         upsert: false,
         contentType: file.type,
       });
@@ -419,14 +278,14 @@ export async function PATCH(request, { params }) {
           code: uploadError.code,
         });
 
-        await removeStorageFiles(supabaseAdmin, uploadedPaths);
+        await removeStorageFiles(supabaseAdmin, LISTING_PHOTOS_BUCKET, uploadedPaths, 'Edit listing photo cleanup');
 
         return Response.json({ error: 'Photo upload failed.' }, { status: 500 });
       }
 
       uploadedPaths.push(fileName);
 
-      const { data: publicUrlData } = supabaseAdmin.storage.from('listing-photos').getPublicUrl(fileName);
+      const { data: publicUrlData } = supabaseAdmin.storage.from(LISTING_PHOTOS_BUCKET).getPublicUrl(fileName);
 
       newPhotoRows.push({
         listing_id: listingId,
@@ -477,7 +336,7 @@ export async function PATCH(request, { params }) {
         code: updateError?.code,
       });
 
-      await removeStorageFiles(supabaseAdmin, uploadedPaths);
+      await removeStorageFiles(supabaseAdmin, LISTING_PHOTOS_BUCKET, uploadedPaths, 'Edit listing photo cleanup');
 
       return Response.json({ error: 'Could not save listing.' }, { status: 500 });
     }
@@ -497,16 +356,16 @@ export async function PATCH(request, { params }) {
           code: photoDeleteError.code,
         });
 
-        await removeStorageFiles(supabaseAdmin, uploadedPaths);
+        await removeStorageFiles(supabaseAdmin, LISTING_PHOTOS_BUCKET, uploadedPaths, 'Edit listing photo cleanup');
 
         return Response.json({ error: 'Could not delete old photo rows.' }, { status: 500 });
       }
 
       const pathsToDelete = photosToDelete
-        .map((photo) => getStoragePathFromPublicUrl(photo.image_url, 'listing-photos'))
+        .map((photo) => getStoragePathFromPublicUrl(photo.image_url, LISTING_PHOTOS_BUCKET))
         .filter(Boolean);
 
-      await removeStorageFiles(supabaseAdmin, pathsToDelete);
+      await removeStorageFiles(supabaseAdmin, LISTING_PHOTOS_BUCKET, pathsToDelete, 'Edit listing old photo cleanup');
     }
 
     if (newPhotoRows.length > 0) {
@@ -518,7 +377,7 @@ export async function PATCH(request, { params }) {
           code: photoInsertError.code,
         });
 
-        await removeStorageFiles(supabaseAdmin, uploadedPaths);
+        await removeStorageFiles(supabaseAdmin, LISTING_PHOTOS_BUCKET, uploadedPaths, 'Edit listing photo cleanup');
 
         return Response.json({ error: 'Could not save new photos.' }, { status: 500 });
       }
@@ -602,7 +461,7 @@ export async function DELETE(request, { params }) {
 
     const photoPaths = [
       ...new Set(
-        (photos || []).map((photo) => getStoragePathFromPublicUrl(photo.image_url, 'listing-photos')).filter(Boolean),
+        (photos || []).map((photo) => getStoragePathFromPublicUrl(photo.image_url, LISTING_PHOTOS_BUCKET)).filter(Boolean),
       ),
     ];
 
@@ -611,7 +470,7 @@ export async function DELETE(request, { params }) {
     await safeDelete(supabaseAdmin.from('listing_photos').delete().eq('listing_id', listingId), 'listing photo rows');
     await safeDelete(supabaseAdmin.from('listings').delete().eq('id', listingId).eq('user_id', user.id), 'listing');
 
-    await removeStorageFiles(supabaseAdmin, photoPaths);
+    await removeStorageFiles(supabaseAdmin, LISTING_PHOTOS_BUCKET, photoPaths, 'Listing photo storage cleanup');
 
     return Response.json({ success: true }, { status: 200 });
   } catch (error) {
