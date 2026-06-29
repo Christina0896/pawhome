@@ -293,7 +293,7 @@ export default function ProfilePage() {
     }
 
     const updatedProfile = result.profile;
-    
+
     if (password) {
       const { error: passwordError } = await supabase.auth.updateUser({
         password,
@@ -464,7 +464,7 @@ export default function ProfilePage() {
                   className="h-12 w-full rounded-xl border border-(--border-beige) bg-white px-4 text-sm font-semibold text-(--secondary-green) outline-none transition focus:border-(--primary-green) focus:ring-4 focus:ring-[rgba(14,79,42,0.10)]"
                 >
                   <option value="Buyer">Buyer</option>
-                  <option value="Private Owner">Private Seller</option>
+                  <option value="Private Seller">Private Seller</option>
                   <option value="Breeder">Breeder</option>
                   <option value="Shelter / Rescue">Shelter / Rescue</option>
                 </select>

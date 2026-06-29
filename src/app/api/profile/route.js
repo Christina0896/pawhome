@@ -17,7 +17,7 @@ function cleanText(value) {
 function normalizeAccountType(value) {
   const accountType = cleanText(value) || 'Buyer';
 
-  if (accountType === 'Private Owner') {
+  if (accountType === 'Private Seller') {
     return 'Private Seller';
   }
 

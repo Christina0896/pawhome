@@ -599,7 +599,7 @@ export default function EditListingPage() {
               value={formData.seller_type}
               onChange={handleChange}
               error={errors.seller_type}
-              options={['Private Owner', 'Breeder', 'Shelter / Rescue']}
+              options={['Private Seller', 'Breeder', 'Shelter / Rescue']}
               required
             />
 

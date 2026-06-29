@@ -41,7 +41,7 @@ function normalizeSellerType(value) {
     return 'Registered Breeder';
   }
 
-  if (cleaned === 'Private Seller' || cleaned === 'Private Owner') {
+  if (cleaned === 'Private Seller' || cleaned === 'Seller') {
     return 'Private Seller';
   }
 
