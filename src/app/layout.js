@@ -1,5 +1,6 @@
 import { Nunito_Sans, Lora } from 'next/font/google';
 import './globals.css';
+import AgeInputEnhancer from '../components/AgeInputEnhancer';
 import { AuthProvider } from '../context/AuthContext';
 import { ToastProvider } from '../context/ToastContext';
 
@@ -55,7 +56,10 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <body className={`${nunitoSans.variable} ${lora.variable}`}>
         <ToastProvider>
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            <AgeInputEnhancer />
+            {children}
+          </AuthProvider>
         </ToastProvider>
       </body>
     </html>
