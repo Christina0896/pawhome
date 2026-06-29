@@ -12,6 +12,7 @@ export const ALLOWED_ANIMAL_TYPES = ['Dogs', 'Cats', 'Other Pets'];
 export const ALLOWED_SEXES = ['Male', 'Female', 'Mixed Litter'];
 export const ALLOWED_YES_NO = ['Yes', 'No'];
 export const ALLOWED_SELLER_TYPES = ['Private Seller', 'Registered Breeder', 'Shelter / Rescue'];
+export const ALLOWED_AGE_UNITS = ['days', 'weeks', 'months', 'years'];
 
 export function cleanText(value, maxLength = 120) {
   return String(value || '')
@@ -34,6 +35,33 @@ export function cleanNullableText(value, maxLength = 120) {
 
 export function cleanBoolean(value) {
   return String(value) === 'true';
+}
+
+export function normalizeAgeUnit(value) {
+  const unit = cleanText(value, 20).toLowerCase();
+
+  if (ALLOWED_AGE_UNITS.includes(unit)) return unit;
+
+  return '';
+}
+
+export function buildAgeLabel(ageValue, ageUnit) {
+  const value = cleanText(ageValue, 10).replace(/\D/g, '');
+  const unit = normalizeAgeUnit(ageUnit);
+
+  if (!value || !unit) return '';
+
+  const number = Number(value);
+
+  if (!Number.isInteger(number) || number < 1 || number > 999) return '';
+
+  const labelUnit = number === 1 ? unit.replace(/s$/, '') : unit;
+
+  return `${number} ${labelUnit}`;
+}
+
+export function isValidAgeLabel(age) {
+  return /^\d{1,3}\s+(day|days|week|weeks|month|months|year|years)$/.test(cleanText(age, 40).toLowerCase());
 }
 
 export function validateImageFile(file) {
