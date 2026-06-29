@@ -3,19 +3,21 @@
 import { useEffect, useState } from 'react';
 import Header from '../../components/header';
 import Footer from '../../components/footer';
+import ListingCard from '../../components/ListingCard';
 import { supabase } from '../../lib/supabaseClient';
 import Link from 'next/link';
 import { FAVORITE_LISTING_SELECT } from '../../lib/publicListingSelect';
+import { getVerifiedAccessToken } from '../../lib/authTokens';
+import { useAuth } from '../../context/AuthContext';
 
 export default function FavoritesPage() {
+  const { user, authLoading } = useAuth();
   const [favorites, setFavorites] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const loadFavorites = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      if (authLoading) return;
 
       if (!user) {
         window.dispatchEvent(new Event('open-login-modal'));
@@ -41,7 +43,36 @@ export default function FavoritesPage() {
     };
 
     loadFavorites();
-  }, []);
+  }, [user, authLoading]);
+
+  const handleRemoveFavorite = async (_event, listingId) => {
+    const previousFavorites = favorites;
+
+    setFavorites((current) => current.filter((favorite) => String(favorite.listing_id) !== String(listingId)));
+
+    try {
+      const accessToken = await getVerifiedAccessToken();
+
+      if (!accessToken) {
+        setFavorites(previousFavorites);
+        return;
+      }
+
+      const response = await fetch(`/api/favorites/${listingId}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        setFavorites(previousFavorites);
+      }
+    } catch (error) {
+      console.warn('Remove favourite request failed:', error);
+      setFavorites(previousFavorites);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#FAF6EC]">
@@ -56,7 +87,7 @@ export default function FavoritesPage() {
           <p className="mt-3 text-sm text-[#5F6F64]">Listings you saved for later.</p>
         </div>
 
-        {loading ? (
+        {loading || authLoading ? (
           <p className="text-sm text-[#5F6F64]">Loading favorites...</p>
         ) : favorites.length === 0 ? (
           <div className="rounded-2xl border border-[#E8DFD1] bg-white px-8 py-14 text-center shadow-sm">
@@ -73,52 +104,16 @@ export default function FavoritesPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-6 md:grid-cols-3 lg:grid-cols-4">
-            {favorites.map((favorite) => {
-              const listing = favorite.listings;
-              const sortedPhotos = [...(listing?.listing_photos || [])].sort((a, b) => a.sort_order - b.sort_order);
-
-              const mainImage = sortedPhotos[0]?.image_url;
-
-              return (
-                <Link
-                  key={favorite.id}
-                  href={`/listings/${listing.id}`}
-                  className="overflow-hidden rounded-2xl border border-[#E8DFD1] bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-md"
-                >
-                  <div className="h-48 bg-[#DDEDD8]">
-                    {mainImage ? (
-                      <img src={mainImage} alt={listing.title} className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="flex h-full items-center justify-center text-4xl">🐾</div>
-                    )}
-                  </div>
-
-                  <div className="p-5">
-                    <div className="flex items-start justify-between gap-3">
-                      <h2 className="text-lg font-bold text-[#123524]">{listing.title}</h2>
-
-                      {listing.price && <p className="text-sm font-bold text-[#0E4F2A]">€{listing.price}</p>}
-                    </div>
-
-                    <p className="mt-2 text-sm text-[#5F6F64]">{listing.breed || listing.animal_type}</p>
-
-                    <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold">
-                      {listing.age && (
-                        <span className="rounded-full bg-[#FAF6EC] px-3 py-1 text-[#123524]">{listing.age}</span>
-                      )}
-
-                      {listing.sex && (
-                        <span className="rounded-full bg-[#FAF6EC] px-3 py-1 text-[#123524]">{listing.sex}</span>
-                      )}
-
-                      {listing.county && (
-                        <span className="rounded-full bg-[#FAF6EC] px-3 py-1 text-[#123524]">{listing.county}</span>
-                      )}
-                    </div>
-                  </div>
-                </Link>
-              );
-            })}
+            {favorites.map((favorite) => (
+              <ListingCard
+                key={favorite.id}
+                listing={favorite.listings}
+                isFavorite
+                onFavoriteClick={handleRemoveFavorite}
+                showDescription={false}
+                compact
+              />
+            ))}
           </div>
         )}
       </main>
