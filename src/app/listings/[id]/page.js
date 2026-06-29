@@ -1,26 +1,12 @@
-import { createClient } from '@supabase/supabase-js';
 import Link from 'next/link';
 import Header from '../../../components/header';
 import Footer from '../../../components/footer';
 import { PUBLIC_LISTING_SELECT } from '../../../lib/publicListingSelect';
+import { getSupabaseServerClient } from '../../../lib/supabaseServer';
 import AdminListingPreviewClient from './AdminListingPreviewClient';
 import ListingDetailClient from './ListingDetailClient';
 
 export const dynamic = 'force-dynamic';
-
-function getSupabaseServerClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !supabaseAnonKey) return null;
-
-  return createClient(supabaseUrl, supabaseAnonKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
-  });
-}
 
 async function getListing(listingId) {
   const supabase = getSupabaseServerClient();
