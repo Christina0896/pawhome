@@ -1,20 +1,6 @@
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseServerClient } from '../lib/supabaseServer';
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://pawhome.ie';
-
-function getSupabaseSitemapClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !supabaseAnonKey) return null;
-
-  return createClient(supabaseUrl, supabaseAnonKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
-  });
-}
 
 export default async function sitemap() {
   const staticRoutes = [
@@ -30,7 +16,7 @@ export default async function sitemap() {
     lastModified: new Date(),
   }));
 
-  const supabase = getSupabaseSitemapClient();
+  const supabase = getSupabaseServerClient();
 
   if (!supabase) return staticRoutes;
 
