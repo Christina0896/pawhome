@@ -3,6 +3,14 @@
 import { useEffect } from 'react';
 
 const AGE_UNITS = ['days', 'weeks', 'months', 'years'];
+const MIXED_LITTER_REQUIRED_FIELDS = [
+  'litter_size',
+  'available_litter_count',
+  'male_count',
+  'female_count',
+  'date_of_birth',
+  'ready_to_leave',
+];
 
 function parseAge(value) {
   const text = String(value || '').trim().toLowerCase();
@@ -102,6 +110,40 @@ function enhanceAgeInput(input) {
   });
 }
 
+function getCustomSelectValue(labelText) {
+  const label = [...document.querySelectorAll('label')].find((item) =>
+    item.textContent?.toLowerCase().includes(labelText.toLowerCase()),
+  );
+  const root = label?.closest('[data-dropdown-root]');
+
+  return root?.querySelector('button span')?.textContent?.trim() || '';
+}
+
+function getSexValue() {
+  const nativeSex = document.querySelector('select[name="sex"]');
+
+  if (nativeSex?.value) return nativeSex.value;
+
+  return getCustomSelectValue('sex');
+}
+
+function syncMixedLitterRequirements() {
+  const path = window.location.pathname;
+
+  if (!path.startsWith('/post-ad') && !path.includes('/profile/listings/')) return;
+
+  const isMixedLitter = getSexValue() === 'Mixed Litter';
+
+  MIXED_LITTER_REQUIRED_FIELDS.forEach((fieldName) => {
+    const field = document.querySelector(`[name="${fieldName}"]`);
+
+    if (!field) return;
+
+    field.required = isMixedLitter;
+    field.setAttribute('aria-required', isMixedLitter ? 'true' : 'false');
+  });
+}
+
 function getCurrentAgePayload() {
   const input = document.querySelector('input[name="age"][data-age-enhanced="true"]');
   const select = document.querySelector('select[data-age-unit-select="true"]');
@@ -139,12 +181,16 @@ export default function AgeInputEnhancer() {
       if (!path.startsWith('/post-ad') && !path.includes('/profile/listings/')) return;
 
       document.querySelectorAll('input[name="age"]').forEach((input) => enhanceAgeInput(input));
+      syncMixedLitterRequirements();
     };
 
     enhanceAll();
 
     const observer = new MutationObserver(enhanceAll);
-    observer.observe(document.body, { childList: true, subtree: true });
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true, characterData: true });
+
+    document.addEventListener('change', enhanceAll, true);
+    document.addEventListener('click', () => window.setTimeout(enhanceAll, 0), true);
 
     const originalFetch = window.fetch;
 
