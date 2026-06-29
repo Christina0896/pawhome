@@ -1,5 +1,6 @@
 'use client';
 import { getVerifiedAccessToken } from '../../../lib/authTokens';
+import { PUBLIC_LISTING_SELECT } from '../../../lib/publicListingSelect';
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import Header from '../../../components/header';
@@ -66,53 +67,6 @@ const yesNo = (value) => {
 const sortPhotos = (photos) => {
   return [...(photos || [])].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
 };
-const PUBLIC_LISTING_SELECT = `
-  id,
-  user_id,
-  title,
-  listing_type,
-  animal_type,
-  breed,
-  age,
-  sex,
-  price,
-  price_negotiable,
-  county,
-  city,
-  town,
-  city_town,
-  location_town,
-  location,
-  seller_name,
-  seller_type,
-  seller_member_since,
-  microchipped,
-  vaccinated,
-  wormed,
-  vet_checked,
-  spayed_neutered,
-  health_tested,
-  kennel_club_registered,
-  litter_size,
-  available_litter_count,
-  male_count,
-  female_count,
-  date_of_birth,
-  ready_to_leave,
-  mother_can_be_seen,
-  registration_number,
-  organisation_name,
-  description,
-  status,
-  views,
-  favourites_count,
-  phone_clicks,
-  created_at,
-  listing_photos (
-    image_url,
-    sort_order
-  )
-`;
 
 export default function ListingDetailPage() {
   const params = useParams();
@@ -547,8 +501,7 @@ export default function ListingDetailPage() {
 
   const mainImage = photos[selectedPhotoIndex]?.image_url || '/images/placeholder-pet.jpg';
 
-  const locationTown =
-    listing.town || listing.city || listing.city_town || listing.location_town || listing.location || '';
+  const locationTown = listing.city || '';
 
   const locationText = [locationTown, listing.county, 'Ireland'].filter(Boolean).join(', ');
 
