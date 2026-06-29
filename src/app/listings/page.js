@@ -1,8 +1,8 @@
-import { createClient } from '@supabase/supabase-js';
 import Header from '../../components/header';
 import Footer from '../../components/footer';
 import ListingsClient from './ListingsClient';
 import { PUBLIC_LISTING_SELECT } from '../../lib/publicListingSelect';
+import { getSupabaseServerClient } from '../../lib/supabaseServer';
 
 const PAGE_SIZE = 24;
 
@@ -21,20 +21,6 @@ export const metadata = {
     type: 'website',
   },
 };
-
-function getSupabaseServerClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !supabaseAnonKey) return null;
-
-  return createClient(supabaseUrl, supabaseAnonKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
-  });
-}
 
 function getParam(searchParams, key) {
   const value = searchParams?.[key];
