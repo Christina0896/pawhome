@@ -3,7 +3,7 @@ import { requireSameOrigin } from '../../../lib/requireSameOrigin';
 
 export const dynamic = 'force-dynamic';
 
-const ALLOWED_ACCOUNT_TYPES = ['Buyer', 'Private Owner', 'Breeder', 'Shelter / Rescue'];
+const ALLOWED_ACCOUNT_TYPES = ['Buyer', 'Private Seller', 'Breeder', 'Shelter / Rescue'];
 const ALLOWED_PHONE_CODES = ['+353', '+44', '+49', '+351', '+33', '+34'];
 
 const MAX_NAME_LENGTH = 80;
