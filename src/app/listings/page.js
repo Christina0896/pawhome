@@ -3,6 +3,22 @@ import Header from '../../components/header';
 import Footer from '../../components/footer';
 import ListingsClient from './ListingsClient';
 
+export const metadata = {
+  title: 'Pets for Sale and Adoption in Ireland | PawHome',
+  description:
+    'Browse approved dogs, cats, and other pets for sale or adoption across Ireland from private owners, breeders, rescues, and shelters.',
+  alternates: {
+    canonical: '/listings',
+  },
+  openGraph: {
+    title: 'Pets for Sale and Adoption in Ireland | PawHome',
+    description: 'Find approved pet listings across Ireland from private owners, breeders, rescues, and shelters.',
+    url: '/listings',
+    siteName: 'PawHome',
+    type: 'website',
+  },
+};
+
 export default function ListingsPage() {
   return (
     <Suspense

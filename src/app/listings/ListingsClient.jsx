@@ -1,7 +1,7 @@
 'use client';
 import { PUBLIC_LISTING_SELECT } from '../../lib/publicListingSelect';
 import { getVerifiedAccessToken } from '../../lib/authTokens';
-import { Suspense, useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import Header from '../../components/header';
 import Footer from '../../components/footer';
 import { supabase } from '../../lib/supabaseClient';
@@ -18,6 +18,7 @@ import {
   HeartIcon,
   PawIcon,
 } from '../../components/Icons';
+const PAGE_SIZE = 24;
 
 export default function ListingsClient() {
   const searchParams = useSearchParams();
@@ -70,28 +71,94 @@ export default function ListingsClient() {
   });
 
   const [sortBy, setSortBy] = useState('newest');
+  const [page, setPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+
+  const totalPages = Math.max(Math.ceil(totalCount / PAGE_SIZE), 1);
 
   useEffect(() => {
     const fetchListings = async () => {
+      setLoading(true);
+
       const {
         data: { user },
       } = await supabase.auth.getUser();
 
       setCurrentUser(user);
 
-      const { data, error } = await supabase
-        .from('listings')
-        .select(PUBLIC_LISTING_SELECT)
-        .eq('status', 'approved')
-        .order('created_at', { ascending: false });
+      const from = (page - 1) * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+
+      let query = supabase.from('listings').select(PUBLIC_LISTING_SELECT, { count: 'exact' }).eq('status', 'approved');
+
+      if (filters.animalType) {
+        query = query.eq('animal_type', filters.animalType);
+      }
+
+      if (filters.listingType) {
+        query = query.eq('listing_type', filters.listingType);
+      }
+
+      if (filters.breed) {
+        query = query.ilike('breed', `%${filters.breed}%`);
+      }
+
+      if (filters.county) {
+        query = query.eq('county', filters.county);
+      }
+
+      if (filters.minPrice !== '') {
+        query = query.gte('price', Number(filters.minPrice));
+      }
+
+      if (filters.maxPrice !== '') {
+        query = query.lte('price', Number(filters.maxPrice));
+      }
+
+      if (filters.age) {
+        query = query.ilike('age', `%${filters.age}%`);
+      }
+
+      if (filters.sex) {
+        query = query.eq('sex', filters.sex);
+      }
+
+      if (filters.vaccinated) {
+        query = query.eq('vaccinated', 'Yes');
+      }
+
+      if (filters.microchipped) {
+        query = query.eq('microchipped', 'Yes');
+      }
+
+      if (filters.kennelClubRegistered) {
+        query = query.in('kennel_club_registered', ['Yes', 'IKC Registered', 'KC Registered']);
+      }
+
+      if (filters.neutered) {
+        query = query.eq('spayed_neutered', 'Yes');
+      }
+
+      if (sortBy === 'price-low') {
+        query = query.order('price', { ascending: true, nullsFirst: false });
+      } else if (sortBy === 'price-high') {
+        query = query.order('price', { ascending: false, nullsFirst: false });
+      } else {
+        query = query.order('created_at', { ascending: false });
+      }
+
+      const { data, error, count } = await query.range(from, to);
 
       if (error) {
         console.error('Listings fetch error:', error);
+        setListings([]);
+        setTotalCount(0);
         setLoading(false);
         return;
       }
 
       setListings(data || []);
+      setTotalCount(count || 0);
 
       if (user) {
         const { data: favoritesData, error: favoritesError } = await supabase
@@ -110,10 +177,12 @@ export default function ListingsClient() {
     };
 
     fetchListings();
-  }, []);
+  }, [filters, sortBy, page]);
 
   const handleFilterChange = (e) => {
     const { name, value, type, checked } = e.target;
+
+    setPage(1);
 
     setFilters((prev) => ({
       ...prev,
@@ -140,83 +209,6 @@ export default function ListingsClient() {
   };
 
   const breedOptions = filters.animalType === 'Dogs' ? dogBreeds : filters.animalType === 'Cats' ? catBreeds : [];
-
-  const filteredListings = useMemo(() => {
-    const normalize = (value) =>
-      String(value ?? '')
-        .trim()
-        .toLowerCase();
-
-    const isYes = (value) => {
-      const normalized = normalize(value);
-
-      return ['yes', 'true', '1', 'ikc registered', 'kc registered'].includes(normalized);
-    };
-
-    let result = [...listings];
-
-    if (filters.animalType) {
-      result = result.filter((listing) => normalize(listing.animal_type) === normalize(filters.animalType));
-    }
-
-    if (filters.listingType) {
-      result = result.filter((listing) => normalize(listing.listing_type) === normalize(filters.listingType));
-    }
-
-    if (filters.breed) {
-      result = result.filter((listing) => normalize(listing.breed).includes(normalize(filters.breed)));
-    }
-
-    if (filters.county) {
-      result = result.filter((listing) => normalize(listing.county) === normalize(filters.county));
-    }
-
-    if (filters.minPrice !== '') {
-      result = result.filter((listing) => Number(listing.price ?? 0) >= Number(filters.minPrice));
-    }
-
-    if (filters.maxPrice !== '') {
-      result = result.filter((listing) => Number(listing.price ?? 0) <= Number(filters.maxPrice));
-    }
-
-    if (filters.age) {
-      result = result.filter((listing) => normalize(listing.age).includes(normalize(filters.age)));
-    }
-
-    if (filters.sex) {
-      result = result.filter((listing) => normalize(listing.sex) === normalize(filters.sex));
-    }
-
-    if (filters.vaccinated) {
-      result = result.filter((listing) => isYes(listing.vaccinated));
-    }
-
-    if (filters.microchipped) {
-      result = result.filter((listing) => isYes(listing.microchipped));
-    }
-
-    if (filters.kennelClubRegistered) {
-      result = result.filter((listing) => isYes(listing.kennel_club_registered));
-    }
-
-    if (filters.neutered) {
-      result = result.filter((listing) => isYes(listing.spayed_neutered));
-    }
-
-    if (sortBy === 'newest') {
-      result.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-    }
-
-    if (sortBy === 'price-low') {
-      result.sort((a, b) => Number(a.price || 0) - Number(b.price || 0));
-    }
-
-    if (sortBy === 'price-high') {
-      result.sort((a, b) => Number(b.price || 0) - Number(a.price || 0));
-    }
-
-    return result;
-  }, [listings, filters, sortBy]);
 
   const toggleFavorite = async (e, listingId) => {
     e.preventDefault();
@@ -496,10 +488,36 @@ export default function ListingsClient() {
           </aside>
 
           {/* Listings */}
+
+          {!loading && totalPages > 1 && (
+            <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+              <button
+                type="button"
+                disabled={page <= 1}
+                onClick={() => setPage((current) => Math.max(current - 1, 1))}
+                className="rounded-xl border border-[#E8DFD1] bg-white px-4 py-2 text-sm font-bold text-[#123524] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Previous
+              </button>
+
+              <span className="text-sm font-bold text-[#5F6F64]">
+                Page {page} of {totalPages}
+              </span>
+
+              <button
+                type="button"
+                disabled={page >= totalPages}
+                onClick={() => setPage((current) => Math.min(current + 1, totalPages))}
+                className="rounded-xl border border-[#E8DFD1] bg-white px-4 py-2 text-sm font-bold text-[#123524] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
+          )}
           <section>
             <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <p className="text-sm text-[#5F6F64]">
-                <span className="font-bold text-[#0E4F2A]">{filteredListings.length}</span> approved listings found
+                <span className="font-bold text-[#0E4F2A]">{totalCount}</span> approved listings found
               </p>
 
               <div className="flex items-center gap-3">
@@ -507,7 +525,10 @@ export default function ListingsClient() {
 
                 <select
                   value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
+                  onChange={(e) => {
+                    setPage(1);
+                    setSortBy(e.target.value);
+                  }}
                   className="h-10 rounded-lg border border-[#E8DFD1] bg-white px-3 text-sm outline-none focus:border-[#0E4F2A]"
                 >
                   <option value="newest">Newest First</option>
@@ -519,7 +540,7 @@ export default function ListingsClient() {
 
             {loading ? (
               <p className="text-sm text-[#5F6F64]">Loading listings...</p>
-            ) : filteredListings.length === 0 ? (
+            ) : listings.length === 0 ? (
               <div className="rounded-2xl border border-[#E8DFD1] bg-white px-8 py-14 text-center shadow-sm">
                 <h2 className="text-2xl font-bold text-[#123524]">No listings found</h2>
 
@@ -527,7 +548,7 @@ export default function ListingsClient() {
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
-                {filteredListings.map((listing) => {
+                {listings.map((listing) => {
                   const sortedPhotos = [...(listing.listing_photos || [])].sort((a, b) => a.sort_order - b.sort_order);
 
                   const mainImage = sortedPhotos[0]?.image_url;

@@ -182,10 +182,8 @@ const FeaturedListings = () => {
 
     const loadFavorites = async () => {
       const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      const user = session?.user || null;
+        data: { user },
+      } = await supabase.auth.getUser();
 
       if (!isMounted) return;
 
@@ -252,8 +250,6 @@ const FeaturedListings = () => {
     if (!accessToken) {
       return;
     }
-
-    setCurrentUser(user);
 
     const listingKey = String(listingId);
     const isFavorite = favoriteIds.includes(listingKey);
