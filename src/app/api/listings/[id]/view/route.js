@@ -1,46 +1,12 @@
-import { createHash } from 'crypto';
 import { getSupabaseAdminClient } from '../../../../../lib/supabaseAdmin';
 import { requireSameOrigin } from '../../../../../lib/requireSameOrigin';
+import { getRequestIp } from '../../../../../lib/apiHelpers';
+import { getIpHash, isCounterRateLimited } from '../../../../../lib/rateLimiter';
 
 export const dynamic = 'force-dynamic';
 
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
 const RATE_LIMIT_MAX_VIEWS = 1;
-
-function getIpHash(ip) {
-  const secret = process.env.COUNTER_RATE_LIMIT_SECRET;
-  if (!secret) return null;
-
-  return createHash('sha256').update(`${secret}:${ip}`).digest('hex');
-}
-
-async function isRateLimited({ supabaseAdmin, counterType, listingId, ipHash, maxHits }) {
-  const windowCutoff = new Date(Date.now() - RATE_LIMIT_WINDOW_MS).toISOString();
-
-  const { count, error: countError } = await supabaseAdmin
-    .from('counter_rate_limits')
-    .select('id', { count: 'exact', head: true })
-    .eq('counter_type', counterType)
-    .eq('listing_id', listingId)
-    .eq('ip_hash', ipHash)
-    .gte('created_at', windowCutoff);
-
-  if (countError) throw countError;
-
-  if ((count || 0) >= maxHits) {
-    return true;
-  }
-
-  const { error: insertError } = await supabaseAdmin.from('counter_rate_limits').insert({
-    counter_type: counterType,
-    listing_id: listingId,
-    ip_hash: ipHash,
-  });
-
-  if (insertError) throw insertError;
-
-  return false;
-}
 
 export async function POST(request, { params }) {
   const sameOriginError = requireSameOrigin(request);
@@ -48,6 +14,7 @@ export async function POST(request, { params }) {
   if (sameOriginError) {
     return sameOriginError;
   }
+
   const supabaseAdmin = getSupabaseAdminClient();
 
   if (!supabaseAdmin) {
@@ -61,22 +28,20 @@ export async function POST(request, { params }) {
     return Response.json({ error: 'Missing listing ID.' }, { status: 400 });
   }
 
-  const ip =
-    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || request.headers.get('x-real-ip') || 'unknown';
-
-  const ipHash = getIpHash(ip);
+  const ipHash = getIpHash(getRequestIp(request), 'COUNTER_RATE_LIMIT_SECRET');
 
   if (!ipHash) {
     return Response.json({ error: 'Counter rate limit is not configured.' }, { status: 500 });
   }
 
   try {
-    const limited = await isRateLimited({
+    const limited = await isCounterRateLimited({
       supabaseAdmin,
       counterType: 'view',
       listingId,
       ipHash,
       maxHits: RATE_LIMIT_MAX_VIEWS,
+      windowMs: RATE_LIMIT_WINDOW_MS,
     });
 
     if (limited) {
