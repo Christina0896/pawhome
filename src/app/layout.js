@@ -1,5 +1,6 @@
 import { Nunito_Sans, Lora } from 'next/font/google';
 import './globals.css';
+import AdoptionPriceEnhancer from '../components/AdoptionPriceEnhancer';
 import AgeInputEnhancer from '../components/AgeInputEnhancer';
 import { AuthProvider } from '../context/AuthContext';
 import { ToastProvider } from '../context/ToastContext';
@@ -58,6 +59,7 @@ export default function RootLayout({ children }) {
         <ToastProvider>
           <AuthProvider>
             <AgeInputEnhancer />
+            <AdoptionPriceEnhancer />
             {children}
           </AuthProvider>
         </ToastProvider>
