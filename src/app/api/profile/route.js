@@ -15,13 +15,35 @@ function cleanText(value) {
 }
 
 function normalizeAccountType(value) {
-  const accountType = cleanText(value) || 'Buyer';
+  const accountType = cleanText(value);
+  const lowerAccountType = accountType.toLowerCase();
 
-  if (accountType === 'Private Seller') {
+  if (!accountType || lowerAccountType === 'buyer') {
+    return 'Buyer';
+  }
+
+  if (
+    lowerAccountType === 'private owner' ||
+    lowerAccountType === 'private seller' ||
+    lowerAccountType === 'owner' ||
+    lowerAccountType === 'seller'
+  ) {
     return 'Private Seller';
   }
 
-  return accountType;
+  if (lowerAccountType === 'breeder') {
+    return 'Breeder';
+  }
+
+  if (
+    lowerAccountType === 'shelter / rescue' ||
+    lowerAccountType === 'shelter' ||
+    lowerAccountType === 'rescue'
+  ) {
+    return 'Shelter / Rescue';
+  }
+
+  return 'Buyer';
 }
 
 export async function PATCH(request) {
