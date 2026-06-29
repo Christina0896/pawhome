@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import ContactModal from './ContactModal';
@@ -63,8 +64,8 @@ const Header = () => {
       <header className=" top-0 z-999 border-b border-(--border-beige) bg-(--background)">
         <nav className="mx-auto flex h-16 max-w-(--page-max-width) items-center justify-between px-4 md:px-6">
           {/* Logo */}
-          <Link href="/" className="flex items-center">
-            <img src="/img/logo.png" alt="PawHome Logo" className="h-16 w-auto object-contain md:h-15" />
+          <Link href="/" className="relative flex h-16 w-[142px] items-center md:h-15">
+            <Image src="/img/logo.png" alt="PawHome Logo" fill priority sizes="142px" className="object-contain" />
           </Link>
 
           {/* Desktop navigation */}
