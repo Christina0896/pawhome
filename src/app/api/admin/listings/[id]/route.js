@@ -1,22 +1,9 @@
 import { requireAdmin } from '../../../../../lib/requireAdmin';
 import { getStoragePathFromPublicUrl } from '../../../../../lib/storagePaths';
 import { requireSameOrigin } from '../../../../../lib/requireSameOrigin';
+import { safeDelete } from '../../../../../lib/apiHelpers';
 
 const ALLOWED_STATUSES = ['pending', 'approved', 'rejected'];
-
-async function safeDelete(query, label) {
-  const { error } = await query;
-
-  if (error) {
-    console.error(`${label} delete error:`, {
-      message: error?.message,
-      code: error?.code,
-      details: error?.details,
-    });
-
-    throw error;
-  }
-}
 
 export async function PATCH(request, { params }) {
   const sameOriginError = requireSameOrigin(request);
