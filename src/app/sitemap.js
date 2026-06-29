@@ -10,7 +10,6 @@ export default async function sitemap() {
     { url: `${siteUrl}/BreedGuide`, changeFrequency: 'weekly', priority: 0.7 },
     { url: `${siteUrl}/AboutUs`, changeFrequency: 'monthly', priority: 0.6 },
     { url: `${siteUrl}/buying-safely`, changeFrequency: 'monthly', priority: 0.7 },
-    { url: `${siteUrl}/safety`, changeFrequency: 'monthly', priority: 0.6 },
   ].map((route) => ({
     ...route,
     lastModified: new Date(),
