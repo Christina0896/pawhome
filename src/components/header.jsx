@@ -1,42 +1,17 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { supabase } from '../lib/supabaseClient';
+import { useAuth } from '../context/AuthContext';
 import ContactModal from './ContactModal';
 import LoginModal from './LoginModal';
 import { HeartIcon } from './Icons';
 import Link from 'next/link';
 
 const Header = () => {
-  const [user, setUser] = useState(null);
-  const [authLoading, setAuthLoading] = useState(true);
+  const { user, authLoading, signOut } = useAuth();
   const [showContactModal, setShowContactModal] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  useEffect(() => {
-    const getUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      setUser(user);
-      setAuthLoading(false);
-    };
-
-    getUser();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user || null);
-      setAuthLoading(false);
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, []);
 
   // Allow other components to open the login modal
   useEffect(() => {
@@ -52,16 +27,11 @@ const Header = () => {
   }, []);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
+    await signOut();
     window.location.href = '/';
   };
 
-  const handleFavoritesClick = async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
+  const handleFavoritesClick = () => {
     setMobileMenuOpen(false);
 
     if (!user) {
@@ -71,16 +41,13 @@ const Header = () => {
 
     window.location.href = '/favorites';
   };
+
   const handleLoginClick = () => {
     setMobileMenuOpen(false);
     setShowLoginModal(true);
   };
 
-  const handlePostAdClick = async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
+  const handlePostAdClick = () => {
     setMobileMenuOpen(false);
 
     if (!user) {
