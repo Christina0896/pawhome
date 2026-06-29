@@ -1,17 +1,10 @@
 import { Resend } from 'resend';
 import { getSupabaseAdminClient } from '../../../lib/supabaseAdmin';
 import { requireSameOrigin } from '../../../lib/requireSameOrigin';
+import { escapeHtml } from '../../../lib/formatters';
+import { getAuthenticatedUser } from '../../../lib/apiHelpers';
 
 export const dynamic = 'force-dynamic';
-
-function escapeHtml(value = '') {
-  return String(value)
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#039;');
-}
 
 export async function POST(request) {
   const sameOriginError = requireSameOrigin(request);
@@ -19,6 +12,7 @@ export async function POST(request) {
   if (sameOriginError) {
     return sameOriginError;
   }
+
   const supabaseAdmin = getSupabaseAdminClient();
   const resendApiKey = process.env.RESEND_API_KEY;
   const fromEmail = process.env.CONTACT_FROM_EMAIL;
@@ -28,22 +22,11 @@ export async function POST(request) {
     return Response.json({ error: 'Notification service is not configured.' }, { status: 500 });
   }
 
-  const authHeader = request.headers.get('authorization');
-
-  if (!authHeader?.startsWith('Bearer ')) {
-    return Response.json({ error: 'Unauthorized.' }, { status: 401 });
-  }
-
   try {
-    const token = authHeader.replace('Bearer ', '');
+    const { user, error: authError } = await getAuthenticatedUser(supabaseAdmin, request, 'Unauthorized.');
 
-    const {
-      data: { user },
-      error: userError,
-    } = await supabaseAdmin.auth.getUser(token);
-
-    if (userError || !user) {
-      return Response.json({ error: 'Unauthorized.' }, { status: 401 });
+    if (authError) {
+      return authError;
     }
 
     const { listingId } = await request.json();
@@ -85,7 +68,6 @@ export async function POST(request) {
     }
 
     const adminUrl = `${siteUrl}/admin`;
-
     const resend = new Resend(resendApiKey);
 
     const { error: emailError } = await resend.emails.send({
@@ -106,8 +88,6 @@ export async function POST(request) {
           <p><strong>Seller:</strong> ${escapeHtml(listing.seller_name)}</p>
 
           <hr />
-
-          
 
           <p>
             <a href="${adminUrl}">Open admin dashboard</a>
