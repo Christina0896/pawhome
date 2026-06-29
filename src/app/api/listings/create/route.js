@@ -8,12 +8,14 @@ import {
   ALLOWED_SEXES,
   ALLOWED_YES_NO,
   addWeeksToDate,
+  buildAgeLabel,
   cleanBoolean,
   cleanNullableText,
   cleanPhone,
   cleanText,
   getImageExtension,
   getMinimumLegalAgeWeeks,
+  isValidAgeLabel,
   validateImageFile,
 } from '../../../../lib/listingValidation';
 
@@ -63,7 +65,7 @@ export async function POST(request) {
     const listingType = cleanText(body.get('listing_type'), 40);
     const animalType = cleanText(body.get('animal_type'), 40);
     const breed = cleanText(body.get('breed'), 80);
-    const age = cleanText(body.get('age'), 40);
+    const age = buildAgeLabel(body.get('age_value') || body.get('age'), body.get('age_unit')) || cleanText(body.get('age'), 40);
     const sex = cleanText(body.get('sex'), 40);
     const county = cleanText(body.get('county'), 80);
     const city = cleanText(body.get('city'), 80);
@@ -112,8 +114,8 @@ export async function POST(request) {
       return Response.json({ error: 'Please enter a breed or pet type.' }, { status: 400 });
     }
 
-    if (!age) {
-      return Response.json({ error: "Please enter the pet's age." }, { status: 400 });
+    if (!age || !isValidAgeLabel(age)) {
+      return Response.json({ error: "Please enter the pet's age as a number and select days, weeks, months, or years." }, { status: 400 });
     }
 
     if (!ALLOWED_SEXES.includes(sex)) {
