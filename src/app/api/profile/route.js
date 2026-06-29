@@ -14,6 +14,16 @@ function cleanText(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+function normalizeAccountType(value) {
+  const accountType = cleanText(value) || 'Buyer';
+
+  if (accountType === 'Private Owner') {
+    return 'Private Seller';
+  }
+
+  return accountType;
+}
+
 export async function PATCH(request) {
   const sameOriginError = requireSameOrigin(request);
 
@@ -47,7 +57,7 @@ export async function PATCH(request) {
 
     const firstName = cleanText(body.first_name);
     const lastName = cleanText(body.last_name);
-    const accountType = cleanText(body.account_type) || 'Buyer';
+    const accountType = normalizeAccountType(body.account_type);
     const phoneCode = cleanText(body.phone_code) || '+353';
     const phoneNumber = cleanText(body.phone_number);
     const county = cleanText(body.county);
