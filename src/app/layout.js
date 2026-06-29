@@ -1,5 +1,6 @@
 import { Nunito_Sans, Lora } from 'next/font/google';
 import './globals.css';
+import { AuthProvider } from '../context/AuthContext';
 
 const nunitoSans = Nunito_Sans({
   variable: '--font-nunito-sans',
@@ -19,7 +20,9 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body className={`${nunitoSans.variable} ${lora.variable}`}>{children}</body>
+      <body className={`${nunitoSans.variable} ${lora.variable}`}>
+        <AuthProvider>{children}</AuthProvider>
+      </body>
     </html>
   );
 }
