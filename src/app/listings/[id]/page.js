@@ -3,6 +3,7 @@ import Link from 'next/link';
 import Header from '../../../components/header';
 import Footer from '../../../components/footer';
 import { PUBLIC_LISTING_SELECT } from '../../../lib/publicListingSelect';
+import AdminListingPreviewClient from './AdminListingPreviewClient';
 import ListingDetailClient from './ListingDetailClient';
 
 export const dynamic = 'force-dynamic';
@@ -101,9 +102,24 @@ function ListingUnavailable() {
   );
 }
 
-export default async function ListingDetailPage({ params }) {
+export default async function ListingDetailPage({ params, searchParams }) {
   const resolvedParams = await params;
+  const resolvedSearchParams = await searchParams;
   const listingId = resolvedParams?.id;
+  const isAdminPreview = resolvedSearchParams?.adminPreview === 'true';
+
+  if (isAdminPreview) {
+    return (
+      <div className="min-h-screen bg-(--background)">
+        <Header />
+
+        <AdminListingPreviewClient listingId={listingId} />
+
+        <Footer />
+      </div>
+    );
+  }
+
   const { listing, similarListings } = await getListing(listingId);
 
   return (
