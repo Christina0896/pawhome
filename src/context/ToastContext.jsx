@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 const ToastContext = createContext(null);
 
@@ -27,6 +27,18 @@ export function ToastProvider({ children }) {
     },
     [removeToast],
   );
+
+  useEffect(() => {
+    const originalAlert = window.alert;
+
+    window.alert = (message) => {
+      showToast(String(message || ''), 'error');
+    };
+
+    return () => {
+      window.alert = originalAlert;
+    };
+  }, [showToast]);
 
   const value = useMemo(
     () => ({
