@@ -1,7 +1,9 @@
 'use client';
+
 import { PUBLIC_LISTING_SELECT } from '../lib/publicListingSelect';
 import { getVerifiedAccessToken } from '../lib/authTokens';
 import { supabase } from '../lib/supabaseClient';
+import { useAuth } from '../context/AuthContext';
 import {
   FemaleIcon,
   MaleIcon,
@@ -52,12 +54,9 @@ const getSexIcon = (sex) => {
 };
 
 const FeaturedListings = () => {
-  // Listing state
+  const { user } = useAuth();
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  // Auth/favorites state
-  const [currentUser, setCurrentUser] = useState(null);
   const [favoriteIds, setFavoriteIds] = useState([]);
 
   const pathname = usePathname();
@@ -108,18 +107,12 @@ const FeaturedListings = () => {
   }, []);
 
   const fetchFavouriteIds = useCallback(async () => {
+    if (!user) {
+      setFavoriteIds([]);
+      return;
+    }
+
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      setCurrentUser(user);
-
-      if (!user) {
-        setFavoriteIds([]);
-        return;
-      }
-
       const { data, error } = await supabase.from('favorites').select('listing_id').eq('user_id', user.id);
 
       if (error) {
@@ -131,10 +124,9 @@ const FeaturedListings = () => {
       setFavoriteIds((data || []).map((fav) => String(fav.listing_id)));
     } catch (err) {
       console.warn('Featured favourites crashed:', err);
-      setCurrentUser(null);
       setFavoriteIds([]);
     }
-  }, []);
+  }, [user]);
 
   const refreshFeaturedSection = useCallback(() => {
     fetchFeaturedListings();
@@ -176,69 +168,6 @@ const FeaturedListings = () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [refreshFeaturedSection]);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    const loadFavorites = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!isMounted) return;
-
-      setCurrentUser(user);
-
-      if (!user) {
-        setFavoriteIds([]);
-        return;
-      }
-
-      const { data, error } = await supabase.from('favorites').select('listing_id').eq('user_id', user.id);
-
-      if (error) {
-        console.error('Load featured favorites error:', error);
-        return;
-      }
-
-      if (!isMounted) return;
-
-      setFavoriteIds((data || []).map((fav) => String(fav.listing_id)));
-    };
-
-    loadFavorites();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      const user = session?.user || null;
-
-      setCurrentUser(user);
-
-      if (!user) {
-        setFavoriteIds([]);
-        return;
-      }
-
-      supabase
-        .from('favorites')
-        .select('listing_id')
-        .eq('user_id', user.id)
-        .then(({ data, error }) => {
-          if (error) {
-            console.error('Reload featured favorites error:', error);
-            return;
-          }
-
-          setFavoriteIds((data || []).map((fav) => String(fav.listing_id)));
-        });
-    });
-
-    return () => {
-      isMounted = false;
-      subscription.unsubscribe();
-    };
-  }, []);
 
   // Add/remove listing from favorites
   const toggleFavorite = async (e, listingId) => {
@@ -424,9 +353,7 @@ const FeaturedListings = () => {
               🐾
             </div>
 
-            <h3 className="text-2xl font-bold text-(--secondary-green)">
-              Be one of the first to list a pet on PawHome
-            </h3>
+            <h3 className="text-2xl font-bold text-(--secondary-green)">Be one of the first to list a pet on PawHome</h3>
 
             <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-(--muted-green-text)">
               PawHome is launching soon. Responsible owners, breeders, and rescues can start by posting the first
@@ -434,10 +361,7 @@ const FeaturedListings = () => {
             </p>
 
             <div className="mt-7 flex justify-center gap-4">
-              <Link
-                href="/post-ad"
-                className="rounded-xl bg-(--primary-green) px-6 py-3 text-sm font-semibold text-white"
-              >
+              <Link href="/post-ad" className="rounded-xl bg-(--primary-green) px-6 py-3 text-sm font-semibold text-white">
                 Post an Ad
               </Link>
 
