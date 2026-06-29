@@ -2,19 +2,11 @@ import { createHash } from 'crypto';
 import { Resend } from 'resend';
 import { getSupabaseAdminClient } from '../../../lib/supabaseAdmin';
 import { requireSameOrigin } from '../../../lib/requireSameOrigin';
+import { escapeHtml } from '../../../lib/formatters';
 
 const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
 const RATE_LIMIT_MAX_REQUESTS = 5;
 const RATE_LIMIT_CLEANUP_MS = 24 * 60 * 60 * 1000;
-
-function escapeHtml(value = '') {
-  return String(value)
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#039;');
-}
 
 function getIpHash(ip) {
   const secret = process.env.CONTACT_RATE_LIMIT_SECRET;
