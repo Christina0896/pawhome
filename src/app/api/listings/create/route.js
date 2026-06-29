@@ -73,7 +73,8 @@ export async function POST(request) {
     const description = cleanText(body.get('description'), 800);
 
     const priceRaw = cleanText(body.get('price'), 20);
-    const price = priceRaw === '' ? null : Number(priceRaw);
+    const submittedPrice = priceRaw === '' ? null : Number(priceRaw);
+    const price = listingType === 'For Adoption' ? submittedPrice : submittedPrice;
 
     const microchipped = cleanText(body.get('microchipped'), 20);
     const vaccinated = cleanNullableText(body.get('vaccinated'), 20);
@@ -95,7 +96,7 @@ export async function POST(request) {
     const registrationNumber = cleanNullableText(body.get('registrationNumber'), 120);
     const organisationName = cleanNullableText(body.get('organisationName'), 120);
 
-    const priceNegotiable = cleanBoolean(body.get('price_negotiable'));
+    const priceNegotiable = listingType === 'For Adoption' ? false : cleanBoolean(body.get('price_negotiable'));
     const photos = body.getAll('photos');
 
     if (title.length < 5) {
@@ -123,6 +124,10 @@ export async function POST(request) {
     }
 
     if ((listingType === 'For Sale' || listingType === 'For Stud') && (!price || price <= 0)) {
+      return Response.json({ error: 'Please enter a valid price.' }, { status: 400 });
+    }
+
+    if (price !== null && !Number.isFinite(price)) {
       return Response.json({ error: 'Please enter a valid price.' }, { status: 400 });
     }
 
