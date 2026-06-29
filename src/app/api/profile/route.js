@@ -1,3 +1,4 @@
+import { getAuthenticatedUser } from '../../../lib/apiHelpers';
 import { getSupabaseAdminClient } from '../../../lib/supabaseAdmin';
 import { requireSameOrigin } from '../../../lib/requireSameOrigin';
 
@@ -58,21 +59,13 @@ export async function PATCH(request) {
     return Response.json({ error: 'Profile service is not configured.' }, { status: 500 });
   }
 
-  const authHeader = request.headers.get('authorization') || '';
-  const token = authHeader.replace('Bearer ', '').trim();
+  const authResult = await getAuthenticatedUser(supabaseAdmin, request);
 
-  if (!token) {
-    return Response.json({ error: 'Not authenticated.' }, { status: 401 });
+  if (authResult.error) {
+    return authResult.error;
   }
 
-  const {
-    data: { user },
-    error: userError,
-  } = await supabaseAdmin.auth.getUser(token);
-
-  if (userError || !user) {
-    return Response.json({ error: 'Invalid session.' }, { status: 401 });
-  }
+  const { user } = authResult;
 
   try {
     const body = await request.json();
@@ -104,7 +97,7 @@ export async function PATCH(request) {
       return Response.json({ error: 'Phone number is too long.' }, { status: 400 });
     }
 
-    if (phoneNumber && !/^[0-9\s\-()+]+$/.test(phoneNumber)) {
+    if (phoneNumber && !/^[0-9\s()+-]+$/.test(phoneNumber)) {
       return Response.json({ error: 'Invalid phone number.' }, { status: 400 });
     }
 
