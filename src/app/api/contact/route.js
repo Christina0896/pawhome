@@ -1,62 +1,13 @@
-import { createHash } from 'crypto';
 import { Resend } from 'resend';
 import { getSupabaseAdminClient } from '../../../lib/supabaseAdmin';
 import { requireSameOrigin } from '../../../lib/requireSameOrigin';
+import { getRequestIp } from '../../../lib/apiHelpers';
 import { escapeHtml } from '../../../lib/formatters';
+import { getIpHash, isIpRateLimited } from '../../../lib/rateLimiter';
 
 const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
 const RATE_LIMIT_MAX_REQUESTS = 5;
 const RATE_LIMIT_CLEANUP_MS = 24 * 60 * 60 * 1000;
-
-function getIpHash(ip) {
-  const secret = process.env.CONTACT_RATE_LIMIT_SECRET;
-
-  if (!secret) {
-    return null;
-  }
-
-  return createHash('sha256').update(`${secret}:${ip}`).digest('hex');
-}
-
-async function isRateLimited(ip) {
-  const supabaseAdmin = getSupabaseAdminClient();
-
-  if (!supabaseAdmin) {
-    throw new Error('Rate limiter database client is not configured.');
-  }
-
-  const ipHash = getIpHash(ip);
-
-  if (!ipHash) {
-    throw new Error('CONTACT_RATE_LIMIT_SECRET is not configured.');
-  }
-
-  const cleanupCutoff = new Date(Date.now() - RATE_LIMIT_CLEANUP_MS).toISOString();
-
-  await supabaseAdmin.from('contact_rate_limits').delete().lt('created_at', cleanupCutoff);
-
-  const { error: insertError } = await supabaseAdmin.from('contact_rate_limits').insert({
-    ip_hash: ipHash,
-  });
-
-  if (insertError) {
-    throw insertError;
-  }
-
-  const windowCutoff = new Date(Date.now() - RATE_LIMIT_WINDOW_MS).toISOString();
-
-  const { count, error: countError } = await supabaseAdmin
-    .from('contact_rate_limits')
-    .select('id', { count: 'exact', head: true })
-    .eq('ip_hash', ipHash)
-    .gte('created_at', windowCutoff);
-
-  if (countError) {
-    throw countError;
-  }
-
-  return (count || 0) > RATE_LIMIT_MAX_REQUESTS;
-}
 
 export async function POST(request) {
   const sameOriginError = requireSameOrigin(request);
@@ -72,11 +23,27 @@ export async function POST(request) {
     return Response.json({ error: 'Email service is not configured.' }, { status: 500 });
   }
 
-  const ip =
-    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || request.headers.get('x-real-ip') || 'unknown';
+  const supabaseAdmin = getSupabaseAdminClient();
+
+  if (!supabaseAdmin) {
+    return Response.json({ error: 'Contact form is temporarily unavailable.' }, { status: 500 });
+  }
+
+  const ipHash = getIpHash(getRequestIp(request), 'CONTACT_RATE_LIMIT_SECRET');
+
+  if (!ipHash) {
+    return Response.json({ error: 'Contact form is temporarily unavailable.' }, { status: 500 });
+  }
 
   try {
-    const limited = await isRateLimited(ip);
+    const limited = await isIpRateLimited({
+      supabaseAdmin,
+      tableName: 'contact_rate_limits',
+      ipHash,
+      maxHits: RATE_LIMIT_MAX_REQUESTS,
+      windowMs: RATE_LIMIT_WINDOW_MS,
+      cleanupMs: RATE_LIMIT_CLEANUP_MS,
+    });
 
     if (limited) {
       return Response.json({ error: 'Too many messages. Please try again later.' }, { status: 429 });
