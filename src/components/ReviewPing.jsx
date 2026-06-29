@@ -30,12 +30,36 @@ function removeAdminCard(listingId) {
   }
 }
 
+function getActiveAdminTab() {
+  const buttons = [...document.querySelectorAll('button')];
+  const activeButton = buttons.find((button) => button.className.includes('bg-(--primary-green)') && button.textContent?.trim());
+  return activeButton?.textContent?.trim().toLowerCase() || '';
+}
+
+function syncAdminActions() {
+  if (window.location.pathname !== '/admin') return;
+
+  const activeTab = getActiveAdminTab();
+  const rejectButtons = [...document.querySelectorAll('button')].filter((button) => button.textContent?.trim() === 'Reject');
+
+  rejectButtons.forEach((button) => {
+    button.style.display = activeTab === 'approved' ? 'none' : '';
+  });
+}
+
 export default function ReviewPing() {
   useEffect(() => {
     const shouldRun =
       window.location.pathname.includes('/profile/listings/') || window.location.pathname === '/admin';
 
     if (!shouldRun) return undefined;
+
+    syncAdminActions();
+
+    const observer = new MutationObserver(syncAdminActions);
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true });
+
+    document.addEventListener('click', () => window.setTimeout(syncAdminActions, 0), true);
 
     const baseFetch = window.fetch;
 
@@ -69,6 +93,7 @@ export default function ReviewPing() {
     };
 
     return () => {
+      observer.disconnect();
       window.fetch = baseFetch;
     };
   }, []);
