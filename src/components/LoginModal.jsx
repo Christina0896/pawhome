@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import Link from 'next/link';
 
+const PASSWORD_RESET_SENT_MESSAGE = 'If your email is in our database, you will receive a password reset email.';
+
 const LoginModal = ({ onClose }) => {
   // Modal mode: login form or password reset form
   const [mode, setMode] = useState('login');
@@ -44,7 +46,16 @@ const LoginModal = ({ onClose }) => {
     });
 
     if (error) {
-      setMessage('Something went wrong. Please try again.');
+      const errorMessage = String(error.message || '').toLowerCase();
+
+      if (errorMessage.includes('invalid login credentials')) {
+        setMessage('No account was found with this email, or the password is incorrect. Please check your details or register first.');
+      } else if (errorMessage.includes('email not confirmed')) {
+        setMessage('Please verify your email before logging in.');
+      } else {
+        setMessage('Something went wrong. Please try again.');
+      }
+
       setLoading(false);
       return;
     }
@@ -67,12 +78,10 @@ const LoginModal = ({ onClose }) => {
     });
 
     if (error) {
-      setMessage('Something went wrong. Please try again.');
-      setLoading(false);
-      return;
+      console.warn('Password reset request failed:', error.message);
     }
 
-    setMessage('Password reset email sent. Check your inbox.');
+    setMessage(PASSWORD_RESET_SENT_MESSAGE);
     setLoading(false);
   };
 
@@ -181,7 +190,7 @@ const LoginModal = ({ onClose }) => {
               <h2 className="text-[26px] font-bold text-(--secondary-green)">Reset password</h2>
 
               <p className="mt-2 text-sm text-(--muted-green-text)">
-                Enter your email and we will send you a password reset link.
+                Enter your email and we will send you a password reset link if the address is registered.
               </p>
             </div>
 
