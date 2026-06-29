@@ -1,121 +1,26 @@
 import { getSupabaseAdminClient } from '../../../../lib/supabaseAdmin';
 import { requireSameOrigin } from '../../../../lib/requireSameOrigin';
+import { getAuthenticatedUser, removeStorageFiles } from '../../../../lib/apiHelpers';
+import {
+  ALLOWED_ANIMAL_TYPES,
+  ALLOWED_LISTING_TYPES,
+  ALLOWED_SELLER_TYPES,
+  ALLOWED_SEXES,
+  ALLOWED_YES_NO,
+  addWeeksToDate,
+  cleanBoolean,
+  cleanNullableText,
+  cleanPhone,
+  cleanText,
+  getImageExtension,
+  getMinimumLegalAgeWeeks,
+  validateImageFile,
+} from '../../../../lib/listingValidation';
 
 export const dynamic = 'force-dynamic';
 
 const REQUIRE_VERIFICATION_TO_POST = true;
-const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
-const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-
-const IMAGE_EXTENSION_BY_TYPE = {
-  'image/jpeg': 'jpg',
-  'image/png': 'png',
-  'image/webp': 'webp',
-};
-
-const ALLOWED_LISTING_TYPES = ['For Sale', 'For Stud', 'For Adoption'];
-const ALLOWED_ANIMAL_TYPES = ['Dogs', 'Cats', 'Other Pets'];
-const ALLOWED_SEXES = ['Male', 'Female', 'Mixed Litter'];
-const ALLOWED_YES_NO = ['Yes', 'No'];
-const ALLOWED_SELLER_TYPES = ['Private Seller', 'Registered Breeder', 'Shelter / Rescue'];
-
-function cleanText(value, maxLength = 120) {
-  return String(value || '')
-    .replace(/[<>]/g, '')
-    .trim()
-    .slice(0, maxLength);
-}
-
-function cleanPhone(value) {
-  return String(value || '')
-    .replace(/[^\d+\s()-]/g, '')
-    .trim()
-    .slice(0, 30);
-}
-
-function cleanNullableText(value, maxLength = 120) {
-  const cleaned = cleanText(value, maxLength);
-  return cleaned || null;
-}
-
-function cleanBoolean(value) {
-  return String(value) === 'true';
-}
-
-function validateImageFile(file) {
-  if (!file || typeof file === 'string') {
-    return 'Invalid image file.';
-  }
-
-  if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
-    return 'Only JPG, PNG, and WebP images are allowed.';
-  }
-
-  if (file.name?.toLowerCase().endsWith('.svg')) {
-    return 'SVG images are not allowed.';
-  }
-
-  if (file.size > MAX_IMAGE_SIZE_BYTES) {
-    return 'Each photo must be 5 MB or smaller.';
-  }
-
-  return '';
-}
-
-function getMinimumLegalAgeWeeks(animalType, breed) {
-  const cleanAnimalType = String(animalType || '')
-    .trim()
-    .toLowerCase();
-  const cleanBreed = String(breed || '')
-    .trim()
-    .toLowerCase();
-
-  if (cleanAnimalType === 'dogs' || cleanAnimalType === 'cats') return 8;
-
-  if (cleanBreed.includes('rabbit')) return 6;
-
-  if (
-    cleanBreed.includes('guinea pig') ||
-    cleanBreed.includes('gerbil') ||
-    cleanBreed.includes('hamster') ||
-    cleanBreed.includes('mouse') ||
-    cleanBreed.includes('mice') ||
-    cleanBreed.includes('rat')
-  ) {
-    return 4;
-  }
-
-  if (cleanBreed.includes('ferret')) return 8;
-
-  return null;
-}
-
-function addWeeksToDate(dateString, weeks) {
-  if (!dateString || !weeks) return null;
-
-  const date = new Date(dateString);
-
-  if (Number.isNaN(date.getTime())) return null;
-
-  date.setDate(date.getDate() + weeks * 7);
-
-  return date;
-}
-
-async function removeUploadedStorageFiles(supabaseAdmin, paths = []) {
-  const safePaths = [...new Set(paths)].filter(Boolean);
-
-  if (safePaths.length === 0) return;
-
-  const { error } = await supabaseAdmin.storage.from('listing-photos').remove(safePaths);
-
-  if (error) {
-    console.error('Listing create storage rollback failed:', {
-      message: error?.message,
-      code: error?.code,
-    });
-  }
-}
+const LISTING_PHOTOS_BUCKET = 'listing-photos';
 
 async function deleteListingRows(supabaseAdmin, listingId) {
   if (!listingId) return;
@@ -139,20 +44,10 @@ export async function POST(request) {
     return Response.json({ error: 'Listing service is not configured.' }, { status: 500 });
   }
 
-  const authHeader = request.headers.get('authorization') || '';
-  const token = authHeader.replace('Bearer ', '').trim();
+  const { user, error: authError } = await getAuthenticatedUser(supabaseAdmin, request);
 
-  if (!token) {
-    return Response.json({ error: 'Not authenticated.' }, { status: 401 });
-  }
-
-  const {
-    data: { user },
-    error: userError,
-  } = await supabaseAdmin.auth.getUser(token);
-
-  if (userError || !user) {
-    return Response.json({ error: 'Invalid session.' }, { status: 401 });
+  if (authError) {
+    return authError;
   }
 
   const isEmailVerified = Boolean(user.email_confirmed_at || user.confirmed_at);
@@ -199,7 +94,6 @@ export async function POST(request) {
     const organisationName = cleanNullableText(body.get('organisationName'), 120);
 
     const priceNegotiable = cleanBoolean(body.get('price_negotiable'));
-
     const photos = body.getAll('photos');
 
     if (title.length < 5) {
@@ -372,11 +266,11 @@ export async function POST(request) {
 
     for (let i = 0; i < photos.length; i++) {
       const file = photos[i];
-      const fileExt = IMAGE_EXTENSION_BY_TYPE[file.type];
+      const fileExt = getImageExtension(file);
       const randomPart = crypto.randomUUID();
       const fileName = `${user.id}/${listingData.id}-${i}-${Date.now()}-${randomPart}.${fileExt}`;
 
-      const { error: uploadError } = await supabaseAdmin.storage.from('listing-photos').upload(fileName, file, {
+      const { error: uploadError } = await supabaseAdmin.storage.from(LISTING_PHOTOS_BUCKET).upload(fileName, file, {
         cacheControl: '3600',
         upsert: false,
         contentType: file.type,
@@ -388,7 +282,7 @@ export async function POST(request) {
           code: uploadError.code,
         });
 
-        await removeUploadedStorageFiles(supabaseAdmin, uploadedPaths);
+        await removeStorageFiles(supabaseAdmin, LISTING_PHOTOS_BUCKET, uploadedPaths, 'Listing create storage rollback');
         await deleteListingRows(supabaseAdmin, listingData.id);
 
         return Response.json({ error: 'Photo upload failed. Your listing was not created.' }, { status: 500 });
@@ -396,7 +290,7 @@ export async function POST(request) {
 
       uploadedPaths.push(fileName);
 
-      const { data: publicUrlData } = supabaseAdmin.storage.from('listing-photos').getPublicUrl(fileName);
+      const { data: publicUrlData } = supabaseAdmin.storage.from(LISTING_PHOTOS_BUCKET).getPublicUrl(fileName);
 
       photoRows.push({
         listing_id: listingData.id,
@@ -413,7 +307,7 @@ export async function POST(request) {
         code: photoDbError.code,
       });
 
-      await removeUploadedStorageFiles(supabaseAdmin, uploadedPaths);
+      await removeStorageFiles(supabaseAdmin, LISTING_PHOTOS_BUCKET, uploadedPaths, 'Listing create storage rollback');
       await deleteListingRows(supabaseAdmin, listingData.id);
 
       return Response.json(
