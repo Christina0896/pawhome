@@ -1,6 +1,5 @@
 export const PUBLIC_LISTING_SELECT = `
   id,
-  user_id,
   title,
   listing_type,
   animal_type,
@@ -47,7 +46,6 @@ export const FAVORITE_LISTING_SELECT = `
   listing_id,
   listings!inner (
     id,
-    user_id,
     title,
     listing_type,
     animal_type,
