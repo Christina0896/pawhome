@@ -1,32 +1,35 @@
 const MUTATING_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE'];
 
+function addOrigin(allowedOrigins, value) {
+  if (!value) return;
+
+  try {
+    allowedOrigins.add(new URL(value).origin);
+  } catch {
+    // Ignore invalid values. The request will still be checked against other valid origins.
+  }
+}
+
 function getAllowedOrigins(request) {
   const allowedOrigins = new Set();
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
 
-  if (siteUrl) {
-    try {
-      allowedOrigins.add(new URL(siteUrl).origin);
-      return allowedOrigins;
-    } catch {
-      if (process.env.NODE_ENV === 'production') {
-        return allowedOrigins;
-      }
-    }
-  }
-
-  if (process.env.NODE_ENV === 'production') {
-    return allowedOrigins;
-  }
+  addOrigin(allowedOrigins, process.env.NEXT_PUBLIC_SITE_URL);
 
   const host = request.headers.get('host');
 
-  if (!host) {
-    return allowedOrigins;
+  if (host) {
+    allowedOrigins.add(`https://${host}`);
+
+    if (process.env.NODE_ENV !== 'production') {
+      allowedOrigins.add(`http://${host}`);
+    }
   }
 
-  allowedOrigins.add(`http://${host}`);
-  allowedOrigins.add(`https://${host}`);
+  const vercelUrl = process.env.VERCEL_URL;
+
+  if (vercelUrl) {
+    allowedOrigins.add(`https://${vercelUrl}`);
+  }
 
   return allowedOrigins;
 }
