@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { CalendarIcon, FemaleIcon, HeartIcon, LocationIcon, MaleIcon, MixedGenderIcon, PawIcon } from './Icons';
 
@@ -73,7 +74,13 @@ export default function ListingCard({
     >
       <div className={`relative overflow-hidden bg-(--light-green) ${compact ? 'h-48' : 'h-[230px]'}`}>
         {mainImage ? (
-          <img src={mainImage} alt={title} className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
+          <Image
+            src={mainImage}
+            alt={title}
+            fill
+            sizes={compact ? '(max-width: 768px) 100vw, 25vw' : '(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw'}
+            className="object-cover transition duration-300 group-hover:scale-105"
+          />
         ) : (
           <div className="flex h-full items-center justify-center text-(--primary-green)">
             <PawIcon className="h-12 w-12" />
