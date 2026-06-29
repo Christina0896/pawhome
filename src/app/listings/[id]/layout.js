@@ -1,20 +1,6 @@
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseServerClient } from '../../../lib/supabaseServer';
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://pawhome.ie';
-
-function getSupabaseMetadataClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !supabaseAnonKey) return null;
-
-  return createClient(supabaseUrl, supabaseAnonKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
-  });
-}
 
 function trimDescription(value) {
   const text = String(value || '')
@@ -46,7 +32,7 @@ export async function generateMetadata({ params }) {
     };
   }
 
-  const supabase = getSupabaseMetadataClient();
+  const supabase = getSupabaseServerClient();
 
   if (!supabase) {
     return {
