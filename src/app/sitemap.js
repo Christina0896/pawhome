@@ -1,6 +1,120 @@
+import { counties } from '../data/countyList';
+import { dogBreeds, catBreeds, otherPetTypes } from '../data/petOptions';
 import { getSupabaseServerClient } from '../lib/supabaseServer';
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://pawhome.ie';
+
+const coreSeoSlugs = [
+  'pets-for-sale',
+  'pets-for-adoption',
+  'dogs-for-sale',
+  'dogs-for-adoption',
+  'dogs-for-stud',
+  'puppies-for-sale',
+  'cats-for-sale',
+  'cats-for-adoption',
+  'kittens-for-sale',
+  'other-pets-for-sale',
+  'other-pets-for-adoption',
+];
+
+const priorityDogBreeds = [
+  'Golden Retriever',
+  'Labrador Retriever',
+  'German Shepherd',
+  'French Bulldog',
+  'Cocker Spaniel',
+  'Cockapoo',
+  'Cavalier King Charles Spaniel',
+  'Poodle',
+  'Toy Poodle',
+  'Border Collie',
+  'Australian Shepherd',
+  'Dachshund',
+  'Jack Russell Terrier',
+  'Rottweiler',
+  'Staffordshire Bull Terrier',
+  'Whippet',
+  'Greyhound',
+  'Mixed Breed',
+];
+
+const priorityCatBreeds = [
+  'Maine Coon',
+  'British Shorthair',
+  'Bengal',
+  'Ragdoll',
+  'Persian',
+  'Siamese',
+  'Sphynx',
+  'Russian Blue',
+  'Scottish Fold',
+  'Mixed Breed',
+];
+
+const priorityCounties = ['Dublin', 'Cork', 'Galway', 'Limerick', 'Kildare', 'Meath', 'Waterford', 'Wexford'];
+
+function slugify(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function unique(values) {
+  return [...new Set(values.filter(Boolean))];
+}
+
+function buildSeoLandingRoutes() {
+  const routes = [];
+
+  coreSeoSlugs.forEach((slug) => {
+    routes.push(slug);
+    priorityCounties.forEach((county) => routes.push(`${slug}/${slugify(county)}`));
+  });
+
+  priorityDogBreeds
+    .filter((breed) => dogBreeds.includes(breed))
+    .forEach((breed) => {
+      const basePuppySlug = `${slugify(breed)}-puppies`;
+      const baseDogSlug = `${slugify(breed)}-dogs`;
+      routes.push(basePuppySlug, baseDogSlug);
+      priorityCounties.forEach((county) => {
+        routes.push(`${basePuppySlug}/${slugify(county)}`);
+        routes.push(`${baseDogSlug}/${slugify(county)}`);
+      });
+    });
+
+  priorityCatBreeds
+    .filter((breed) => catBreeds.includes(breed))
+    .forEach((breed) => {
+      const baseKittenSlug = `${slugify(breed)}-kittens`;
+      const baseCatSlug = `${slugify(breed)}-cats`;
+      routes.push(baseKittenSlug, baseCatSlug);
+      priorityCounties.forEach((county) => {
+        routes.push(`${baseKittenSlug}/${slugify(county)}`);
+        routes.push(`${baseCatSlug}/${slugify(county)}`);
+      });
+    });
+
+  otherPetTypes.forEach((type) => {
+    const saleSlug = `${slugify(type)}-for-sale`;
+    const adoptionSlug = `${slugify(type)}-for-adoption`;
+    routes.push(saleSlug, adoptionSlug);
+    priorityCounties.forEach((county) => {
+      routes.push(`${saleSlug}/${slugify(county)}`);
+      routes.push(`${adoptionSlug}/${slugify(county)}`);
+    });
+  });
+
+  return unique(routes).map((slug) => ({
+    url: `${siteUrl}/${slug}`,
+    lastModified: new Date(),
+    changeFrequency: 'daily',
+    priority: slug.includes('/') ? 0.72 : 0.78,
+  }));
+}
 
 export default async function sitemap() {
   const staticRoutes = [
@@ -17,9 +131,10 @@ export default async function sitemap() {
     lastModified: new Date(),
   }));
 
+  const seoLandingRoutes = buildSeoLandingRoutes();
   const supabase = getSupabaseServerClient();
 
-  if (!supabase) return staticRoutes;
+  if (!supabase) return [...staticRoutes, ...seoLandingRoutes];
 
   const { data: listings } = await supabase
     .from('listings')
@@ -35,5 +150,5 @@ export default async function sitemap() {
     priority: 0.8,
   }));
 
-  return [...staticRoutes, ...listingRoutes];
+  return [...staticRoutes, ...seoLandingRoutes, ...listingRoutes];
 }
