@@ -16,10 +16,14 @@ function getField(name) {
   return document.querySelector(`[name="${name}"]`);
 }
 
-function getFieldByLabel(labelText) {
-  const label = [...document.querySelectorAll('label')].find((item) =>
+function getLabel(labelText) {
+  return [...document.querySelectorAll('label')].find((item) =>
     item.textContent?.replace('*', '').trim().toLowerCase() === labelText.toLowerCase(),
   );
+}
+
+function getFieldByLabel(labelText) {
+  const label = getLabel(labelText);
 
   return label?.closest('div')?.querySelector('input, select, textarea') || null;
 }
@@ -38,6 +42,10 @@ function isAdoption() {
 
 function isMixedLitter() {
   return getSelectText('sex') === 'Mixed Litter';
+}
+
+function isDogSelected() {
+  return getSelectText('animal type') === 'Dogs';
 }
 
 function cleanNumber(value) {
@@ -153,6 +161,17 @@ function syncAdoptionPrice() {
   }
 }
 
+function syncKennelClubField() {
+  const label = getLabel('IKC / KC Registered');
+  const root = label?.closest('.data-dropdown-root') || label?.closest('.relative') || label?.parentElement;
+
+  if (!root) return;
+
+  const showForDogs = isDogSelected();
+  root.style.display = showForDogs ? '' : 'none';
+  root.setAttribute('aria-hidden', showForDogs ? 'false' : 'true');
+}
+
 function syncRequiredStar(label, required) {
   if (!label) return;
 
@@ -176,9 +195,7 @@ function syncMixedLitterFields() {
 
   MIXED_LITTER_FIELDS.forEach(([name, labelText, min]) => {
     const field = getField(name) || getFieldByLabel(labelText);
-    const label = [...document.querySelectorAll('label')].find((item) =>
-      item.textContent?.replace('*', '').trim().toLowerCase() === labelText.toLowerCase(),
-    );
+    const label = getLabel(labelText);
 
     if (!field) return;
 
@@ -196,6 +213,7 @@ function syncMixedLitterFields() {
 function syncForm() {
   enhanceAgeField();
   syncAdoptionPrice();
+  syncKennelClubField();
   syncMixedLitterFields();
 }
 
@@ -214,6 +232,11 @@ function patchSubmitData(body) {
 
   if (body.get('listing_type') === 'For Adoption') {
     body.set('price_negotiable', 'false');
+  }
+
+  if (body.get('animal_type') !== 'Dogs') {
+    body.set('kc_registered', '');
+    body.set('kennel_club_registered', '');
   }
 }
 
