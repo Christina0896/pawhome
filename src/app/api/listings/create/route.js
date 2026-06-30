@@ -74,7 +74,7 @@ export async function POST(request) {
 
     const priceRaw = cleanText(body.get('price'), 20);
     const submittedPrice = priceRaw === '' ? null : Number(priceRaw);
-    const price = listingType === 'For Adoption' ? submittedPrice : submittedPrice;
+    const price = submittedPrice;
 
     const microchipped = cleanText(body.get('microchipped'), 20);
     const vaccinated = cleanNullableText(body.get('vaccinated'), 20);
@@ -167,12 +167,24 @@ export async function POST(request) {
     const isMixedLitter = sex === 'Mixed Litter';
 
     if (isDogOrCat && isMixedLitter) {
-      if (!litterSize || !availableLitterCount) {
-        return Response.json({ error: 'Please enter complete litter information.' }, { status: 400 });
+      if (!litterSize || !availableLitterCount || !dateOfBirth || !readyToLeave) {
+        return Response.json({ error: 'Please enter complete litter information, including date of birth and ready-to-leave date.' }, { status: 400 });
       }
 
       const litterSizeNumber = Number(litterSize);
       const availableLitterNumber = Number(availableLitterCount);
+
+      if (!Number.isInteger(litterSizeNumber) || litterSizeNumber < 1) {
+        return Response.json({ error: 'Litter size must be at least 1.' }, { status: 400 });
+      }
+
+      if (!Number.isInteger(availableLitterNumber) || availableLitterNumber < 1) {
+        return Response.json({ error: 'Available count must be at least 1.' }, { status: 400 });
+      }
+
+      if (!Number.isInteger(maleCount) || maleCount < 0 || !Number.isInteger(femaleCount) || femaleCount < 0) {
+        return Response.json({ error: 'Boys and girls must be valid numbers.' }, { status: 400 });
+      }
 
       if (availableLitterNumber > litterSizeNumber) {
         return Response.json({ error: 'Available cannot be higher than litter size.' }, { status: 400 });
@@ -180,10 +192,6 @@ export async function POST(request) {
 
       if (maleCount + femaleCount !== availableLitterNumber) {
         return Response.json({ error: 'Boys and girls together must match the available count.' }, { status: 400 });
-      }
-
-      if (!dateOfBirth || !readyToLeave) {
-        return Response.json({ error: 'Please enter litter date of birth and ready-to-leave date.' }, { status: 400 });
       }
 
       const minimumWeeks = getMinimumLegalAgeWeeks(animalType, breed);
