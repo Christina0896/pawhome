@@ -8,7 +8,7 @@ import { getVerifiedAccessToken } from '../../lib/authTokens';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../context/AuthContext';
 import { counties } from '../../data/countyList';
-import { dogBreeds, catBreeds } from '../../data/petOptions';
+import { dogBreeds, catBreeds, otherPetTypes } from '../../data/petOptions';
 
 const PAGE_SIZE = 24;
 
@@ -64,7 +64,12 @@ export default function ListingsClient({
 
   const totalPages = Math.max(Math.ceil(initialTotalCount / PAGE_SIZE), 1);
   const currentPage = Math.min(Math.max(Number(initialPage) || 1, 1), totalPages);
-  const breedOptions = filters.animalType === 'Dogs' ? dogBreeds : filters.animalType === 'Cats' ? catBreeds : [];
+  const isOtherPets = filters.animalType === 'Other Pets';
+  const isDogs = filters.animalType === 'Dogs';
+  const isCats = filters.animalType === 'Cats';
+  const breedOptions = isDogs ? dogBreeds : isCats ? catBreeds : isOtherPets ? otherPetTypes : [];
+  const breedFilterLabel = isOtherPets ? 'Category' : 'Breed / Type';
+  const breedFilterPlaceholder = isOtherPets ? 'All Categories' : 'All Breeds';
 
   useEffect(() => {
     setFilters({ ...emptyFilters, ...initialFilters });
@@ -110,10 +115,12 @@ export default function ListingsClient({
   };
 
   const handleAnimalTypeChange = (e) => {
+    const nextAnimalType = e.target.value;
     const nextFilters = {
       ...filters,
-      animalType: e.target.value,
+      animalType: nextAnimalType,
       breed: '',
+      kennelClubRegistered: nextAnimalType === 'Dogs' ? filters.kennelClubRegistered : false,
     };
 
     setFilters(nextFilters);
@@ -256,30 +263,20 @@ export default function ListingsClient({
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-semibold text-[#123524]">Breed / Type</label>
-              {filters.animalType === 'Other Pets' ? (
-                <input
-                  name="breed"
-                  value={filters.breed}
-                  onChange={handleFilterChange}
-                  placeholder="Type pet type"
-                  className="h-10 w-full rounded-lg border border-[#E8DFD1] bg-white px-3 text-sm outline-none focus:border-[#0E4F2A]"
-                />
-              ) : (
-                <select
-                  name="breed"
-                  value={filters.breed}
-                  onChange={handleFilterChange}
-                  className="h-10 w-full rounded-lg border border-[#E8DFD1] bg-white px-3 text-sm outline-none focus:border-[#0E4F2A]"
-                >
-                  <option value="">All Breeds</option>
-                  {breedOptions.map((breed) => (
-                    <option key={breed} value={breed}>
-                      {breed}
-                    </option>
-                  ))}
-                </select>
-              )}
+              <label className="mb-2 block text-sm font-semibold text-[#123524]">{breedFilterLabel}</label>
+              <select
+                name="breed"
+                value={filters.breed}
+                onChange={handleFilterChange}
+                className="h-10 w-full rounded-lg border border-[#E8DFD1] bg-white px-3 text-sm outline-none focus:border-[#0E4F2A]"
+              >
+                <option value="">{breedFilterPlaceholder}</option>
+                {breedOptions.map((breed) => (
+                  <option key={breed} value={breed}>
+                    {breed}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div>
@@ -361,15 +358,17 @@ export default function ListingsClient({
                 <input type="checkbox" name="microchipped" checked={filters.microchipped} onChange={handleFilterChange} />
                 Microchipped
               </label>
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  name="kennelClubRegistered"
-                  checked={filters.kennelClubRegistered}
-                  onChange={handleFilterChange}
-                />
-                KC
-              </label>
+              {isDogs && (
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    name="kennelClubRegistered"
+                    checked={filters.kennelClubRegistered}
+                    onChange={handleFilterChange}
+                  />
+                  KC
+                </label>
+              )}
               <label className="flex items-center gap-2">
                 <input type="checkbox" name="neutered" checked={filters.neutered} onChange={handleFilterChange} />
                 Neutered
