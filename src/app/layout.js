@@ -16,6 +16,35 @@ const lora = Lora({
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://pawhome.ie';
 
+const siteStructuredData = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'Organization',
+      '@id': `${siteUrl}/#organization`,
+      name: 'PawHome',
+      url: siteUrl,
+      logo: `${siteUrl}/img/logo.png`,
+      description:
+        'PawHome is a pet marketplace for dogs, cats, puppies, kittens, adoption listings, breeders, rescues and shelters across Ireland.',
+    },
+    {
+      '@type': 'WebSite',
+      '@id': `${siteUrl}/#website`,
+      name: 'PawHome',
+      url: siteUrl,
+      publisher: {
+        '@id': `${siteUrl}/#organization`,
+      },
+      potentialAction: {
+        '@type': 'SearchAction',
+        target: `${siteUrl}/listings?breed={search_term_string}`,
+        'query-input': 'required name=search_term_string',
+      },
+    },
+  ],
+};
+
 export const metadata = {
   metadataBase: new URL(siteUrl),
   title: {
@@ -55,6 +84,10 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body className={`${nunitoSans.variable} ${lora.variable}`}>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(siteStructuredData).replace(/</g, '\\u003c') }}
+        />
         <ToastProvider>
           <AuthProvider>
             <ReviewPing />
