@@ -82,7 +82,7 @@ export async function POST(request) {
     const vetChecked = cleanNullableText(body.get('vet_checked'), 20);
     const spayedNeutered = cleanNullableText(body.get('spayed_neutered'), 20);
     const healthTested = cleanNullableText(body.get('health_tested'), 20);
-    const kennelClubRegistered = cleanNullableText(body.get('kc_registered'), 20);
+    const kennelClubRegistered = animalType === 'Dogs' ? cleanNullableText(body.get('kc_registered'), 20) : null;
 
     const litterSize = cleanNullableText(body.get('litter_size'), 10);
     const availableLitterCount = cleanNullableText(body.get('available_litter_count'), 10);
