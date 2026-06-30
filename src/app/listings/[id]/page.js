@@ -8,6 +8,140 @@ import ListingDetailClient from './ListingDetailClient';
 
 export const dynamic = 'force-dynamic';
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://pawhome.ie';
+
+function absoluteUrl(value) {
+  const url = String(value || '').trim();
+
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  if (url.startsWith('/')) return `${siteUrl}${url}`;
+
+  return `${siteUrl}/${url}`;
+}
+
+function trimText(value, maxLength = 155) {
+  const text = String(value || '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (text.length <= maxLength) return text;
+
+  return `${text.slice(0, maxLength - 3).trim()}...`;
+}
+
+function getSortedPhotoUrls(listing) {
+  return [...(listing?.listing_photos || [])]
+    .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
+    .map((photo) => absoluteUrl(photo.image_url))
+    .filter(Boolean);
+}
+
+function buildListingStructuredData(listing) {
+  if (!listing) return null;
+
+  const canonical = `${siteUrl}/listings/${listing.id}`;
+  const images = getSortedPhotoUrls(listing);
+  const name = listing.title || `${listing.breed || listing.animal_type || 'Pet'} available in Ireland`;
+  const location = [listing.city, listing.county].filter(Boolean).join(', ');
+  const description = trimText(
+    listing.description ||
+      `${listing.breed || listing.animal_type || 'Pet'} ${listing.listing_type || 'listing'}${
+        location ? ` in ${location}` : ' in Ireland'
+      } on PawHome.`,
+    500,
+  );
+
+  const additionalProperty = [
+    listing.animal_type ? { '@type': 'PropertyValue', name: 'Animal type', value: listing.animal_type } : null,
+    listing.breed ? { '@type': 'PropertyValue', name: 'Breed', value: listing.breed } : null,
+    listing.listing_type ? { '@type': 'PropertyValue', name: 'Listing type', value: listing.listing_type } : null,
+    listing.age ? { '@type': 'PropertyValue', name: 'Age', value: listing.age } : null,
+    listing.sex ? { '@type': 'PropertyValue', name: 'Sex', value: listing.sex } : null,
+    listing.county ? { '@type': 'PropertyValue', name: 'County', value: listing.county } : null,
+    listing.microchipped ? { '@type': 'PropertyValue', name: 'Microchipped', value: listing.microchipped } : null,
+    listing.vaccinated ? { '@type': 'PropertyValue', name: 'Vaccinated', value: listing.vaccinated } : null,
+  ].filter(Boolean);
+
+  const productNode = {
+    '@type': 'Product',
+    '@id': `${canonical}#listing`,
+    name,
+    description,
+    image: images.length > 0 ? images : [`${siteUrl}/img/logo.png`],
+    category: `${listing.animal_type || 'Pet'} listing`,
+    brand: {
+      '@type': 'Brand',
+      name: 'PawHome',
+    },
+    additionalProperty,
+  };
+
+  if (listing.price && Number.isFinite(Number(listing.price))) {
+    productNode.offers = {
+      '@type': 'Offer',
+      url: canonical,
+      priceCurrency: 'EUR',
+      price: Number(listing.price),
+      availability: 'https://schema.org/InStock',
+      seller: {
+        '@type': 'Organization',
+        name: 'PawHome',
+      },
+    };
+  }
+
+  return {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'BreadcrumbList',
+        '@id': `${canonical}#breadcrumb`,
+        itemListElement: [
+          {
+            '@type': 'ListItem',
+            position: 1,
+            name: 'Home',
+            item: siteUrl,
+          },
+          {
+            '@type': 'ListItem',
+            position: 2,
+            name: 'Pet listings',
+            item: `${siteUrl}/listings`,
+          },
+          {
+            '@type': 'ListItem',
+            position: 3,
+            name,
+            item: canonical,
+          },
+        ],
+      },
+      {
+        '@type': 'WebPage',
+        '@id': `${canonical}#webpage`,
+        url: canonical,
+        name,
+        description,
+        isPartOf: {
+          '@type': 'WebSite',
+          name: 'PawHome',
+          url: siteUrl,
+        },
+        primaryImageOfPage: images[0] || `${siteUrl}/img/logo.png`,
+        breadcrumb: {
+          '@id': `${canonical}#breadcrumb`,
+        },
+        mainEntity: {
+          '@id': `${canonical}#listing`,
+        },
+      },
+      productNode,
+    ],
+  };
+}
+
 async function getListing(listingId) {
   const supabase = getSupabaseServerClient();
 
@@ -108,9 +242,16 @@ export default async function ListingDetailPage({ params, searchParams }) {
   }
 
   const { listing, similarListings } = await getListing(listingId);
+  const listingStructuredData = buildListingStructuredData(listing);
 
   return (
     <div className="min-h-screen bg-(--background)">
+      {listingStructuredData && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(listingStructuredData).replace(/</g, '\\u003c') }}
+        />
+      )}
       <Header />
 
       {listing ? <ListingDetailClient listing={listing} similarListings={similarListings} /> : <ListingUnavailable />}
