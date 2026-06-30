@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 
 const AGE_UNITS = ['days', 'weeks', 'months', 'years'];
+const OTHER_PET_CATEGORIES = ['Rodents', 'Reptiles', 'Rabbits', 'Livestock', 'Poultry', 'Birds', 'Fish', 'Horses', 'Invertebrates'];
 const MIXED_LITTER_FIELDS = [
   ['litter_size', 'Litter Size', '1'],
   ['available_litter_count', 'Available', '1'],
@@ -19,6 +20,12 @@ function getField(name) {
 function getLabel(labelText) {
   return [...document.querySelectorAll('label')].find((item) =>
     item.textContent?.replace('*', '').trim().toLowerCase() === labelText.toLowerCase(),
+  );
+}
+
+function getLabelContaining(labelText) {
+  return [...document.querySelectorAll('label')].find((item) =>
+    item.textContent?.toLowerCase().includes(labelText.toLowerCase()),
   );
 }
 
@@ -46,6 +53,10 @@ function isMixedLitter() {
 
 function isDogSelected() {
   return getSelectText('animal type') === 'Dogs';
+}
+
+function isOtherPetSelected() {
+  return getSelectText('animal type') === 'Other Pets';
 }
 
 function cleanNumber(value) {
@@ -87,6 +98,7 @@ function setReactInputValue(input, value) {
   const descriptor = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value');
   descriptor?.set?.call(input, value);
   input.dispatchEvent(new Event('input', { bubbles: true }));
+  input.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
 function enhanceAgeField() {
@@ -172,6 +184,57 @@ function syncKennelClubField() {
   root.setAttribute('aria-hidden', showForDogs ? 'false' : 'true');
 }
 
+function syncOtherPetCategoryField() {
+  const input = getField('breed');
+  const label = getLabelContaining('breed') || getLabelContaining('category');
+  const otherPetSelected = isOtherPetSelected();
+  const root = input?.closest('.data-dropdown-root') || input?.closest('.relative');
+
+  if (!input || !label || !root) return;
+
+  if (otherPetSelected) {
+    label.innerHTML = 'Category <span class="text-(--primary-orange)">*</span>';
+    input.placeholder = 'Select category';
+    input.style.display = 'none';
+
+    let select = root.querySelector('select[data-other-pet-category-select="true"]');
+
+    if (!select) {
+      select = document.createElement('select');
+      select.dataset.otherPetCategorySelect = 'true';
+      select.className = 'h-[45px] w-full rounded-xl border border-(--border-beige) bg-white px-4 text-sm text-(--secondary-green) outline-none transition focus:border-(--primary-green) focus:ring-4 focus:ring-[rgba(14,79,42,0.10)]';
+      select.innerHTML = '<option value="">Select category</option>';
+
+      OTHER_PET_CATEGORIES.forEach((category) => {
+        const option = document.createElement('option');
+        option.value = category;
+        option.textContent = category;
+        select.appendChild(option);
+      });
+
+      select.addEventListener('change', () => {
+        setReactInputValue(input, select.value);
+      });
+
+      input.parentElement?.insertBefore(select, input);
+    }
+
+    select.style.display = '';
+    select.required = true;
+    select.value = OTHER_PET_CATEGORIES.includes(input.value) ? input.value : '';
+  } else {
+    label.innerHTML = 'Breed <span class="text-(--primary-orange)">*</span>';
+    input.placeholder = 'Start typing...';
+    input.style.display = '';
+
+    const select = root.querySelector('select[data-other-pet-category-select="true"]');
+    if (select) {
+      select.style.display = 'none';
+      select.required = false;
+    }
+  }
+}
+
 function syncRequiredStar(label, required) {
   if (!label) return;
 
@@ -214,6 +277,7 @@ function syncForm() {
   enhanceAgeField();
   syncAdoptionPrice();
   syncKennelClubField();
+  syncOtherPetCategoryField();
   syncMixedLitterFields();
 }
 
@@ -228,6 +292,12 @@ function patchSubmitData(body) {
     body.set('age', ageLabel);
     body.set('age_value', cleanNumber(ageInput?.value));
     body.set('age_unit', cleanAgeUnit(ageUnit));
+  }
+
+  const categorySelect = document.querySelector('select[data-other-pet-category-select="true"]');
+
+  if (body.get('animal_type') === 'Other Pets' && categorySelect?.value) {
+    body.set('breed', categorySelect.value);
   }
 
   if (body.get('listing_type') === 'For Adoption') {
