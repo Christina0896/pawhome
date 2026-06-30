@@ -101,6 +101,27 @@ function setReactInputValue(input, value) {
   input.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
+function closeAgeUnitMenu(root) {
+  const menu = root?.querySelector('[data-age-unit-menu="true"]');
+  const arrow = root?.querySelector('[data-age-unit-arrow="true"]');
+
+  if (menu) menu.style.display = 'none';
+  if (arrow) arrow.classList.remove('rotate-180');
+}
+
+function openAgeUnitMenu(root) {
+  const menu = root?.querySelector('[data-age-unit-menu="true"]');
+  const arrow = root?.querySelector('[data-age-unit-arrow="true"]');
+
+  if (menu) menu.style.display = '';
+  if (arrow) arrow.classList.add('rotate-180');
+}
+
+function updateAgeUnitButton(root, value) {
+  const text = root?.querySelector('[data-age-unit-text="true"]');
+  if (text) text.textContent = cleanAgeUnit(value);
+}
+
 function enhanceAgeField() {
   const input = getField('age');
 
@@ -119,14 +140,14 @@ function enhanceAgeField() {
   input.className = 'h-full min-w-0 flex-1 border-0 bg-white px-4 text-sm text-(--secondary-green) outline-none ring-0 placeholder:text-(--muted-green-text) focus:outline-none focus:ring-0';
 
   const wrapper = document.createElement('div');
-  wrapper.className = `flex h-[45px] w-full items-center overflow-hidden rounded-xl border bg-white text-sm text-(--secondary-green) transition ${
+  wrapper.className = `relative flex h-[45px] w-full items-center overflow-visible rounded-xl border bg-white text-sm text-(--secondary-green) transition ${
     originalClassName.includes('border-red-400') ? 'border-red-400' : 'border-(--border-beige) focus-within:border-(--primary-green)'
   }`;
 
   const select = document.createElement('select');
   select.name = 'age_unit_visual';
   select.dataset.postAdAgeUnit = 'true';
-  select.className = 'h-full shrink-0 border-l border-(--border-beige) bg-white px-3 text-xs font-bold text-(--secondary-green) outline-none';
+  select.style.display = 'none';
 
   AGE_UNITS.forEach((unit) => {
     const option = document.createElement('option');
@@ -137,9 +158,56 @@ function enhanceAgeField() {
 
   select.value = parsed.unit;
 
+  const unitButton = document.createElement('button');
+  unitButton.type = 'button';
+  unitButton.dataset.ageUnitButton = 'true';
+  unitButton.className = 'flex h-full shrink-0 items-center gap-2 border-l border-(--border-beige) px-3 text-xs font-bold text-(--secondary-green) outline-none transition hover:bg-(--background) focus:outline-none';
+  unitButton.innerHTML = `<span data-age-unit-text="true">${parsed.unit}</span><span data-age-unit-arrow="true" class="shrink-0 text-xs text-(--primary-green) transition">▼</span>`;
+
+  const menu = document.createElement('div');
+  menu.dataset.ageUnitMenu = 'true';
+  menu.className = 'absolute right-0 top-full z-[9999] mt-2 w-36 max-h-72 overflow-y-auto rounded-xl border border-(--border-beige) bg-white shadow-lg';
+  menu.style.display = 'none';
+
+  AGE_UNITS.forEach((unit) => {
+    const option = document.createElement('button');
+    option.type = 'button';
+    option.className = 'block w-full border-b border-(--border-beige) px-4 py-3 text-left text-sm text-(--secondary-green) outline-none transition hover:bg-(--background) focus:outline-none';
+    option.textContent = unit;
+
+    option.addEventListener('mousedown', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      select.value = unit;
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+      updateAgeUnitButton(wrapper, unit);
+      closeAgeUnitMenu(wrapper);
+    });
+
+    menu.appendChild(option);
+  });
+
+  unitButton.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const isOpen = menu.style.display !== 'none';
+
+    document.querySelectorAll('[data-age-unit-menu="true"]').forEach((item) => {
+      item.style.display = 'none';
+    });
+    document.querySelectorAll('[data-age-unit-arrow="true"]').forEach((item) => {
+      item.classList.remove('rotate-180');
+    });
+
+    if (!isOpen) openAgeUnitMenu(wrapper);
+  });
+
   input.parentElement?.insertBefore(wrapper, input);
   wrapper.appendChild(input);
   wrapper.appendChild(select);
+  wrapper.appendChild(unitButton);
+  wrapper.appendChild(menu);
 
   setReactInputValue(input, parsed.value);
 
@@ -393,7 +461,7 @@ function setSubmittingState(isSubmitting) {
   });
 }
 
-function closeOtherPetMenusOnOutside(event) {
+function closeCustomMenusOnOutside(event) {
   const target = event.target;
 
   document.querySelectorAll('[data-other-pet-category-menu="true"]').forEach((menu) => {
@@ -401,6 +469,14 @@ function closeOtherPetMenusOnOutside(event) {
 
     if (root && !root.contains(target)) {
       closeCategoryMenu(root);
+    }
+  });
+
+  document.querySelectorAll('[data-age-unit-menu="true"]').forEach((menu) => {
+    const root = menu.closest('.relative');
+
+    if (root && !root.contains(target)) {
+      closeAgeUnitMenu(root);
     }
   });
 }
@@ -418,7 +494,7 @@ export default function PostAdFormEnhancer() {
 
     document.addEventListener('click', syncForm, true);
     document.addEventListener('change', syncForm, true);
-    document.addEventListener('mousedown', closeOtherPetMenusOnOutside, true);
+    document.addEventListener('mousedown', closeCustomMenusOnOutside, true);
 
     const originalFetch = window.fetch;
 
@@ -450,7 +526,7 @@ export default function PostAdFormEnhancer() {
       window.clearInterval(interval);
       document.removeEventListener('click', syncForm, true);
       document.removeEventListener('change', syncForm, true);
-      document.removeEventListener('mousedown', closeOtherPetMenusOnOutside, true);
+      document.removeEventListener('mousedown', closeCustomMenusOnOutside, true);
       window.fetch = originalFetch;
     };
   }, []);
