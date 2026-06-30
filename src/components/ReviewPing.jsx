@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import PostAdFormEnhancer from '../app/post-ad/PostAdFormEnhancer';
 
 function getEditId(url) {
   const match = String(url || '').match(/\/api\/profile\/listings\/(\d+)/);
@@ -48,6 +49,12 @@ function syncAdminActions() {
 }
 
 export default function ReviewPing() {
+  const [isPostAdPage, setIsPostAdPage] = useState(false);
+
+  useEffect(() => {
+    setIsPostAdPage(window.location.pathname === '/post-ad');
+  }, []);
+
   useEffect(() => {
     const shouldRun =
       window.location.pathname.includes('/profile/listings/') || window.location.pathname === '/admin';
@@ -57,9 +64,10 @@ export default function ReviewPing() {
     syncAdminActions();
 
     const observer = new MutationObserver(syncAdminActions);
-    observer.observe(document.body, { childList: true, subtree: true, attributes: true });
+    observer.observe(document.body, { childList: true, subtree: true });
 
-    document.addEventListener('click', () => window.setTimeout(syncAdminActions, 0), true);
+    const syncAfterClick = () => window.setTimeout(syncAdminActions, 0);
+    document.addEventListener('click', syncAfterClick, true);
 
     const baseFetch = window.fetch;
 
@@ -94,9 +102,10 @@ export default function ReviewPing() {
 
     return () => {
       observer.disconnect();
+      document.removeEventListener('click', syncAfterClick, true);
       window.fetch = baseFetch;
     };
   }, []);
 
-  return null;
+  return isPostAdPage ? <PostAdFormEnhancer /> : null;
 }
