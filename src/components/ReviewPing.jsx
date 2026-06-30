@@ -78,7 +78,7 @@ export default function ReviewPing() {
   const [isPostAdPage, setIsPostAdPage] = useState(false);
 
   useEffect(() => {
-    setIsPostAdPage(window.location.pathname === '/post-ad');
+    setIsPostAdPage(window.location.pathname.startsWith('/post-ad'));
   }, []);
 
   useEffect(() => {
