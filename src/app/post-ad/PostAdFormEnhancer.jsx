@@ -217,9 +217,36 @@ function patchSubmitData(body) {
   }
 }
 
+function getSubmitButtons() {
+  return [...document.querySelectorAll('button[type="submit"], button')].filter((button) =>
+    button.textContent?.toLowerCase().includes('submit') || button.textContent?.toLowerCase().includes('post'),
+  );
+}
+
+function setSubmittingState(isSubmitting) {
+  getSubmitButtons().forEach((button) => {
+    if (isSubmitting) {
+      button.dataset.originalText = button.dataset.originalText || button.textContent || '';
+      button.disabled = true;
+      button.setAttribute('aria-disabled', 'true');
+      button.classList.add('opacity-60', 'cursor-not-allowed');
+      button.textContent = 'Submitting...';
+    } else {
+      button.disabled = false;
+      button.setAttribute('aria-disabled', 'false');
+      button.classList.remove('opacity-60', 'cursor-not-allowed');
+
+      if (button.dataset.originalText) {
+        button.textContent = button.dataset.originalText;
+      }
+    }
+  });
+}
+
 export default function PostAdFormEnhancer() {
   useEffect(() => {
     let tries = 0;
+    let createRequestInFlight = false;
     const interval = window.setInterval(() => {
       tries += 1;
       syncForm();
@@ -232,14 +259,28 @@ export default function PostAdFormEnhancer() {
 
     const originalFetch = window.fetch;
 
-    window.fetch = (input, init = {}) => {
+    window.fetch = async (input, init = {}) => {
       const url = typeof input === 'string' ? input : input?.url || '';
+      const isCreateListing = url.includes('/api/listings/create') && init?.body instanceof FormData;
 
-      if (url.includes('/api/listings/create') && init?.body instanceof FormData) {
-        patchSubmitData(init.body);
+      if (!isCreateListing) {
+        return originalFetch(input, init);
       }
 
-      return originalFetch(input, init);
+      if (createRequestInFlight) {
+        return Response.json({ error: 'Your ad is already being submitted. Please wait.' }, { status: 409 });
+      }
+
+      createRequestInFlight = true;
+      setSubmittingState(true);
+      patchSubmitData(init.body);
+
+      try {
+        return await originalFetch(input, init);
+      } finally {
+        createRequestInFlight = false;
+        setSubmittingState(false);
+      }
     };
 
     return () => {
