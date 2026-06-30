@@ -308,6 +308,7 @@ export default function PostAdPage() {
       if (profileError || !profileData) {
         console.error('Profile fetch error:', profileError);
         alert('Your profile could not be loaded. Please go to your profile and save your details.');
+        setLoading(false);
         window.location.href = '/profile';
         return;
       }

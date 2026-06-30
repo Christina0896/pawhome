@@ -13,7 +13,9 @@ const MIXED_LITTER_REQUIRED_FIELDS = [
 ];
 
 function parseAge(value) {
-  const text = String(value || '').trim().toLowerCase();
+  const text = String(value || '')
+    .trim()
+    .toLowerCase();
   const match = text.match(/^(\d{1,3})(?:\s+)?(day|days|week|weeks|month|months|year|years)?$/);
 
   if (!match) {
@@ -34,7 +36,9 @@ function parseAge(value) {
 }
 
 function buildAgeLabel(value, unit) {
-  const cleanValue = String(value || '').replace(/\D/g, '').slice(0, 3);
+  const cleanValue = String(value || '')
+    .replace(/\D/g, '')
+    .slice(0, 3);
   const cleanUnit = AGE_UNITS.includes(unit) ? unit : 'weeks';
 
   if (!cleanValue) return '';
@@ -65,16 +69,20 @@ function enhanceAgeInput(input) {
 
   const wrapper = document.createElement('div');
   wrapper.className = `flex h-[45px] w-full items-center overflow-hidden rounded-xl border bg-white text-sm text-(--secondary-green) transition ${
-    input.className.includes('border-red-400') ? 'border-red-400' : 'border-(--border-beige) focus-within:border-(--primary-green)'
+    input.className.includes('border-red-400')
+      ? 'border-red-400'
+      : 'border-(--border-beige) focus-within:border-(--primary-green)'
   }`;
 
   const originalClassName = input.className;
-  input.className = 'h-full min-w-0 flex-1 border-0 bg-white px-4 text-sm text-(--secondary-green) outline-none ring-0 placeholder:text-(--muted-green-text) focus:outline-none focus:ring-0';
+  input.className =
+    'h-full min-w-0 flex-1 border-0 bg-white px-4 text-sm text-(--secondary-green) outline-none ring-0 placeholder:text-(--muted-green-text) focus:outline-none focus:ring-0';
 
   const select = document.createElement('select');
   select.dataset.ageUnitSelect = 'true';
   select.name = 'age_unit_visual';
-  select.className = 'h-full shrink-0 border-l border-(--border-beige) bg-white px-3 text-xs font-bold text-(--secondary-green) outline-none';
+  select.className =
+    'h-full shrink-0 border-l border-(--border-beige) bg-white px-3 text-xs font-bold text-(--secondary-green) outline-none';
 
   AGE_UNITS.forEach((unit) => {
     const option = document.createElement('option');
@@ -139,8 +147,16 @@ function syncMixedLitterRequirements() {
 
     if (!field) return;
 
-    field.required = isMixedLitter;
-    field.setAttribute('aria-required', isMixedLitter ? 'true' : 'false');
+    const nextRequired = Boolean(isMixedLitter);
+    const nextAria = nextRequired ? 'true' : 'false';
+
+    if (field.required !== nextRequired) {
+      field.required = nextRequired;
+    }
+
+    if (field.getAttribute('aria-required') !== nextAria) {
+      field.setAttribute('aria-required', nextAria);
+    }
   });
 }
 
@@ -187,7 +203,7 @@ export default function AgeInputEnhancer() {
     enhanceAll();
 
     const observer = new MutationObserver(enhanceAll);
-    observer.observe(document.body, { childList: true, subtree: true, attributes: true, characterData: true });
+    observer.observe(document.body, { childList: true, subtree: true });
 
     document.addEventListener('change', enhanceAll, true);
     document.addEventListener('click', () => window.setTimeout(enhanceAll, 0), true);
