@@ -4,16 +4,24 @@ import { useEffect } from 'react';
 
 const AGE_UNITS = ['days', 'weeks', 'months', 'years'];
 const MIXED_LITTER_FIELDS = [
-  'litter_size',
-  'available_litter_count',
-  'male_count',
-  'female_count',
-  'date_of_birth',
-  'ready_to_leave',
+  ['litter_size', 'Litter Size', '1'],
+  ['available_litter_count', 'Available', '1'],
+  ['male_count', 'Number of Boys', '0'],
+  ['female_count', 'Number of Girls', '0'],
+  ['date_of_birth', 'Date of Birth', ''],
+  ['ready_to_leave', 'Ready to Leave', ''],
 ];
 
 function getField(name) {
   return document.querySelector(`[name="${name}"]`);
+}
+
+function getFieldByLabel(labelText) {
+  const label = [...document.querySelectorAll('label')].find((item) =>
+    item.textContent?.replace('*', '').trim().toLowerCase() === labelText.toLowerCase(),
+  );
+
+  return label?.closest('div')?.querySelector('input, select, textarea') || null;
 }
 
 function getSelectText(labelText) {
@@ -145,14 +153,43 @@ function syncAdoptionPrice() {
   }
 }
 
+function syncRequiredStar(label, required) {
+  if (!label) return;
+
+  const existingStar = label.querySelector('[data-required-star="true"]');
+
+  if (required && !existingStar) {
+    const star = document.createElement('span');
+    star.dataset.requiredStar = 'true';
+    star.className = 'text-(--primary-orange)';
+    star.textContent = ' *';
+    label.appendChild(star);
+  }
+
+  if (!required && existingStar) {
+    existingStar.remove();
+  }
+}
+
 function syncMixedLitterFields() {
   const required = isMixedLitter();
 
-  MIXED_LITTER_FIELDS.forEach((name) => {
-    const field = getField(name);
+  MIXED_LITTER_FIELDS.forEach(([name, labelText, min]) => {
+    const field = getField(name) || getFieldByLabel(labelText);
+    const label = [...document.querySelectorAll('label')].find((item) =>
+      item.textContent?.replace('*', '').trim().toLowerCase() === labelText.toLowerCase(),
+    );
+
     if (!field) return;
+
     field.required = required;
     field.setAttribute('aria-required', required ? 'true' : 'false');
+
+    if (min !== '' && field.type === 'number') {
+      field.min = min;
+    }
+
+    syncRequiredStar(label, required);
   });
 }
 
