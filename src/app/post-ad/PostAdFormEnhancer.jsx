@@ -202,7 +202,7 @@ function syncOtherPetCategoryField() {
     if (!select) {
       select = document.createElement('select');
       select.dataset.otherPetCategorySelect = 'true';
-      select.className = 'h-[45px] w-full rounded-xl border border-(--border-beige) bg-white px-4 text-sm text-(--secondary-green) outline-none transition focus:border-(--primary-green) focus:ring-4 focus:ring-[rgba(14,79,42,0.10)]';
+      select.className = 'h-full min-w-0 flex-1 border-0 bg-transparent px-0 text-sm text-(--secondary-green) outline-none ring-0 focus:outline-none focus:ring-0';
       select.innerHTML = '<option value="">Select category</option>';
 
       OTHER_PET_CATEGORIES.forEach((category) => {
