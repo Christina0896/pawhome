@@ -218,16 +218,62 @@ function enhanceAgeField() {
   return true;
 }
 
+function updateNegotiableCircle(input) {
+  const circle = input?.closest('label')?.querySelector('[data-negotiable-circle="true"]');
+  if (!circle) return;
+
+  circle.className = `flex h-4 w-4 items-center justify-center rounded-full border text-[10px] font-black transition ${
+    input.checked
+      ? 'border-(--primary-green) bg-(--primary-green) text-white'
+      : 'border-(--border-beige) bg-white text-transparent'
+  }`;
+  circle.textContent = input.checked ? '✓' : '';
+}
+
+function styleNegotiableControl(input, label) {
+  if (!input || !label) return;
+
+  if (!label.dataset.negotiableStyled) {
+    [...label.childNodes].forEach((node) => {
+      if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) node.remove();
+    });
+
+    const circle = document.createElement('span');
+    circle.dataset.negotiableCircle = 'true';
+
+    const text = document.createElement('span');
+    text.textContent = 'Price negotiable';
+
+    input.className = 'sr-only';
+    input.insertAdjacentElement('afterend', circle);
+    circle.insertAdjacentElement('afterend', text);
+
+    label.dataset.negotiableStyled = 'true';
+  }
+
+  label.className = 'mt-2 inline-flex cursor-pointer items-center gap-2 text-xs font-bold text-(--muted-green-text)';
+  updateNegotiableCircle(input);
+}
+
 function syncAdoptionPrice() {
   const priceInput = getField('price');
+  const priceLabel = getLabel('Price');
   const adoptionSelected = isAdoption();
   const negotiableInput = [...document.querySelectorAll('input[type="checkbox"]')].find((checkbox) =>
-    checkbox.closest('label')?.textContent?.toLowerCase().includes('negotiable'),
+    checkbox.closest('label')?.textContent?.toLowerCase().includes('negotiable') || checkbox.closest('label')?.dataset.negotiableStyled === 'true',
   );
   const negotiableLabel = negotiableInput?.closest('label');
+  const priceWrapper = priceInput?.closest('div.flex');
+  const priceField = priceWrapper?.parentElement;
 
   if (priceInput) {
     priceInput.required = !adoptionSelected;
+  }
+
+  syncRequiredStar(priceLabel, !adoptionSelected);
+
+  if (negotiableInput && negotiableLabel && priceWrapper && priceField && negotiableLabel.parentElement !== priceField) {
+    priceWrapper.insertAdjacentElement('afterend', negotiableLabel);
   }
 
   if (negotiableInput) {
@@ -236,8 +282,28 @@ function syncAdoptionPrice() {
   }
 
   if (negotiableLabel) {
-    negotiableLabel.style.display = adoptionSelected ? 'none' : '';
+    styleNegotiableControl(negotiableInput, negotiableLabel);
+    negotiableLabel.style.display = adoptionSelected ? 'none' : 'inline-flex';
   }
+}
+
+function updateKcToggle(root) {
+  const button = root?.querySelector('[data-kc-registered-toggle="true"]');
+  const circle = root?.querySelector('[data-kc-registered-circle="true"]');
+  const active = root?.dataset.kcRegisteredValue === 'Yes';
+
+  if (!button || !circle) return;
+
+  button.className = `flex h-[45px] w-full items-center justify-between rounded-xl border px-4 text-sm font-semibold transition ${
+    active
+      ? 'border-(--primary-green) bg-(--light-green) text-(--secondary-green)'
+      : 'border-(--border-beige) bg-white text-(--muted-green-text) hover:border-(--primary-green)'
+  }`;
+
+  circle.className = `flex h-5 w-5 items-center justify-center rounded-full border text-xs ${
+    active ? 'border-(--primary-green) bg-(--primary-green) text-white' : 'border-(--border-beige) bg-white'
+  }`;
+  circle.textContent = active ? '✓' : '';
 }
 
 function syncKennelClubField() {
@@ -249,6 +315,40 @@ function syncKennelClubField() {
   const showForDogs = isDogSelected();
   root.style.display = showForDogs ? '' : 'none';
   root.setAttribute('aria-hidden', showForDogs ? 'false' : 'true');
+
+  if (!showForDogs) return;
+
+  const originalButton = [...root.querySelectorAll('button')].find((button) => button.dataset.kcRegisteredToggle !== 'true');
+  const originalValue = originalButton?.querySelector('span')?.textContent?.trim();
+
+  if (!root.dataset.kcRegisteredValue) {
+    root.dataset.kcRegisteredValue = originalValue === 'Yes' ? 'Yes' : 'No';
+  }
+
+  [...root.querySelectorAll('button')].forEach((button) => {
+    if (button.dataset.kcRegisteredToggle !== 'true') button.style.display = 'none';
+  });
+
+  let toggle = root.querySelector('[data-kc-registered-toggle="true"]');
+
+  if (!toggle) {
+    toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.dataset.kcRegisteredToggle = 'true';
+    toggle.innerHTML = '<span>Dog is IKC / KC registered</span><span data-kc-registered-circle="true"></span>';
+
+    toggle.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      root.dataset.kcRegisteredValue = root.dataset.kcRegisteredValue === 'Yes' ? 'No' : 'Yes';
+      updateKcToggle(root);
+    });
+
+    root.appendChild(toggle);
+  }
+
+  toggle.style.display = '';
+  updateKcToggle(root);
 }
 
 function closeCategoryMenu(root) {
@@ -447,7 +547,14 @@ function patchSubmitData(body) {
     body.set('price_negotiable', 'false');
   }
 
-  if (body.get('animal_type') !== 'Dogs') {
+  const kcLabel = getLabel('IKC / KC Registered');
+  const kcRoot = kcLabel?.closest('.data-dropdown-root') || kcLabel?.closest('.relative') || kcLabel?.parentElement;
+
+  if (body.get('animal_type') === 'Dogs') {
+    const kcValue = kcRoot?.dataset.kcRegisteredValue || body.get('kc_registered') || 'No';
+    body.set('kc_registered', kcValue);
+    body.set('kennel_club_registered', kcValue);
+  } else {
     body.set('kc_registered', '');
     body.set('kennel_club_registered', '');
   }
