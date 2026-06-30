@@ -358,7 +358,12 @@ export default function ListingsClient({
                 Vaccinated
               </label>
               <label className="flex items-center gap-2">
-                <input type="checkbox" name="microchipped" checked={filters.microchipped} onChange={handleFilterChange} />
+                <input
+                  type="checkbox"
+                  name="microchipped"
+                  checked={filters.microchipped}
+                  onChange={handleFilterChange}
+                />
                 Microchipped
               </label>
               <label className="flex items-center gap-2">
@@ -368,7 +373,7 @@ export default function ListingsClient({
                   checked={filters.kennelClubRegistered}
                   onChange={handleFilterChange}
                 />
-                KC
+                IKC
               </label>
               <label className="flex items-center gap-2">
                 <input type="checkbox" name="neutered" checked={filters.neutered} onChange={handleFilterChange} />
