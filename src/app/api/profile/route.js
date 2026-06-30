@@ -15,6 +15,10 @@ function cleanText(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+function cleanPhone(value) {
+  return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
 function normalizeAccountType(value) {
   const accountType = cleanText(value);
   const lowerAccountType = accountType.toLowerCase();
@@ -152,6 +156,25 @@ export async function PATCH(request) {
       });
 
       return Response.json({ error: 'Could not save profile.' }, { status: 500 });
+    }
+
+    const sellerName = cleanText(`${firstName} ${lastName}`) || 'Seller';
+    const contactPhone = cleanPhone(`${phoneCode} ${phoneNumber}`);
+
+    const { error: listingSyncError } = await supabaseAdmin
+      .from('listings')
+      .update({
+        seller_name: sellerName,
+        seller_type: accountType,
+        contact_phone: contactPhone,
+      })
+      .eq('user_id', user.id);
+
+    if (listingSyncError) {
+      console.error('Listing seller sync failed:', {
+        message: listingSyncError.message,
+        code: listingSyncError.code,
+      });
     }
 
     return Response.json({ success: true, profile: updatedProfile }, { status: 200 });
