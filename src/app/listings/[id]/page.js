@@ -93,13 +93,14 @@ export default async function ListingDetailPage({ params, searchParams }) {
   const resolvedSearchParams = await searchParams;
   const listingId = resolvedParams?.id;
   const isAdminPreview = resolvedSearchParams?.adminPreview === 'true';
+  const isOwnerPreview = resolvedSearchParams?.ownerPreview === 'true';
 
-  if (isAdminPreview) {
+  if (isAdminPreview || isOwnerPreview) {
     return (
       <div className="min-h-screen bg-(--background)">
         <Header />
 
-        <AdminListingPreviewClient listingId={listingId} />
+        <AdminListingPreviewClient listingId={listingId} mode={isOwnerPreview ? 'owner' : 'admin'} />
 
         <Footer />
       </div>
