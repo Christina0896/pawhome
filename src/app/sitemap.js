@@ -7,9 +7,11 @@ export default async function sitemap() {
     { url: siteUrl, changeFrequency: 'daily', priority: 1 },
     { url: `${siteUrl}/listings`, changeFrequency: 'daily', priority: 0.9 },
     { url: `${siteUrl}/shelters`, changeFrequency: 'weekly', priority: 0.7 },
-    { url: `${siteUrl}/BreedGuide`, changeFrequency: 'weekly', priority: 0.7 },
-    { url: `${siteUrl}/AboutUs`, changeFrequency: 'monthly', priority: 0.6 },
+    { url: `${siteUrl}/breed-guide`, changeFrequency: 'weekly', priority: 0.7 },
+    { url: `${siteUrl}/about`, changeFrequency: 'monthly', priority: 0.6 },
     { url: `${siteUrl}/buying-safely`, changeFrequency: 'monthly', priority: 0.7 },
+    { url: `${siteUrl}/privacy`, changeFrequency: 'yearly', priority: 0.3 },
+    { url: `${siteUrl}/terms`, changeFrequency: 'yearly', priority: 0.3 },
   ].map((route) => ({
     ...route,
     lastModified: new Date(),
