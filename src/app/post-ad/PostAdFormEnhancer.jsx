@@ -184,6 +184,31 @@ function syncKennelClubField() {
   root.setAttribute('aria-hidden', showForDogs ? 'false' : 'true');
 }
 
+function closeCategoryMenu(root) {
+  const menu = root?.querySelector('[data-other-pet-category-menu="true"]');
+  const arrow = root?.querySelector('[data-other-pet-category-arrow="true"]');
+
+  if (menu) menu.style.display = 'none';
+  if (arrow) arrow.classList.remove('rotate-180');
+}
+
+function openCategoryMenu(root) {
+  const menu = root?.querySelector('[data-other-pet-category-menu="true"]');
+  const arrow = root?.querySelector('[data-other-pet-category-arrow="true"]');
+
+  if (menu) menu.style.display = '';
+  if (arrow) arrow.classList.add('rotate-180');
+}
+
+function updateCategoryButton(root, value) {
+  const text = root?.querySelector('[data-other-pet-category-text="true"]');
+
+  if (!text) return;
+
+  text.textContent = value || 'Select category';
+  text.className = `block truncate ${value ? 'text-(--secondary-green)' : 'text-(--muted-green-text)'}`;
+}
+
 function syncOtherPetCategoryField() {
   const input = getField('breed');
   const label = getLabelContaining('breed') || getLabelContaining('category');
@@ -197,41 +222,73 @@ function syncOtherPetCategoryField() {
     input.placeholder = 'Select category';
     input.style.display = 'none';
 
-    let select = root.querySelector('select[data-other-pet-category-select="true"]');
+    let button = root.querySelector('button[data-other-pet-category-button="true"]');
+    let menu = root.querySelector('[data-other-pet-category-menu="true"]');
 
-    if (!select) {
-      select = document.createElement('select');
-      select.dataset.otherPetCategorySelect = 'true';
-      select.className = 'h-full min-w-0 flex-1 border-0 bg-transparent px-0 text-sm text-(--secondary-green) outline-none ring-0 focus:outline-none focus:ring-0';
-      select.innerHTML = '<option value="">Select category</option>';
+    if (!button) {
+      button = document.createElement('button');
+      button.type = 'button';
+      button.dataset.otherPetCategoryButton = 'true';
+      button.className = 'flex h-full min-w-0 flex-1 items-center justify-between bg-transparent text-left text-sm outline-none ring-0 focus:outline-none focus:ring-0';
+      button.innerHTML = '<span data-other-pet-category-text="true" class="block truncate text-(--muted-green-text)">Select category</span><span data-other-pet-category-arrow="true" class="ml-3 shrink-0 text-xs text-(--primary-green) transition">▼</span>';
 
-      OTHER_PET_CATEGORIES.forEach((category) => {
-        const option = document.createElement('option');
-        option.value = category;
-        option.textContent = category;
-        select.appendChild(option);
+      button.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const currentMenu = root.querySelector('[data-other-pet-category-menu="true"]');
+        const isOpen = currentMenu?.style.display !== 'none';
+
+        document.querySelectorAll('[data-other-pet-category-menu="true"]').forEach((item) => {
+          item.style.display = 'none';
+        });
+        document.querySelectorAll('[data-other-pet-category-arrow="true"]').forEach((item) => {
+          item.classList.remove('rotate-180');
+        });
+
+        if (!isOpen) openCategoryMenu(root);
       });
 
-      select.addEventListener('change', () => {
-        setReactInputValue(input, select.value);
-      });
-
-      input.parentElement?.insertBefore(select, input);
+      input.parentElement?.insertBefore(button, input);
     }
 
-    select.style.display = '';
-    select.required = true;
-    select.value = OTHER_PET_CATEGORIES.includes(input.value) ? input.value : '';
+    if (!menu) {
+      menu = document.createElement('div');
+      menu.dataset.otherPetCategoryMenu = 'true';
+      menu.className = 'absolute left-0 right-0 top-full z-[9999] mt-2 max-h-72 overflow-y-auto rounded-xl border border-(--border-beige) bg-white shadow-lg';
+      menu.style.display = 'none';
+
+      OTHER_PET_CATEGORIES.forEach((category) => {
+        const option = document.createElement('button');
+        option.type = 'button';
+        option.className = 'block w-full border-b border-(--border-beige) px-4 py-3 text-left text-sm text-(--secondary-green) outline-none transition hover:bg-(--background) focus:outline-none';
+        option.textContent = category;
+
+        option.addEventListener('mousedown', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          setReactInputValue(input, category);
+          updateCategoryButton(root, category);
+          closeCategoryMenu(root);
+        });
+
+        menu.appendChild(option);
+      });
+
+      root.appendChild(menu);
+    }
+
+    button.style.display = '';
+    updateCategoryButton(root, OTHER_PET_CATEGORIES.includes(input.value) ? input.value : '');
   } else {
     label.innerHTML = 'Breed <span class="text-(--primary-orange)">*</span>';
     input.placeholder = 'Start typing...';
     input.style.display = '';
 
-    const select = root.querySelector('select[data-other-pet-category-select="true"]');
-    if (select) {
-      select.style.display = 'none';
-      select.required = false;
-    }
+    const button = root.querySelector('button[data-other-pet-category-button="true"]');
+    if (button) button.style.display = 'none';
+
+    closeCategoryMenu(root);
   }
 }
 
@@ -294,10 +351,10 @@ function patchSubmitData(body) {
     body.set('age_unit', cleanAgeUnit(ageUnit));
   }
 
-  const categorySelect = document.querySelector('select[data-other-pet-category-select="true"]');
+  const categoryInput = getField('breed');
 
-  if (body.get('animal_type') === 'Other Pets' && categorySelect?.value) {
-    body.set('breed', categorySelect.value);
+  if (body.get('animal_type') === 'Other Pets' && categoryInput?.value) {
+    body.set('breed', categoryInput.value);
   }
 
   if (body.get('listing_type') === 'For Adoption') {
@@ -336,6 +393,18 @@ function setSubmittingState(isSubmitting) {
   });
 }
 
+function closeOtherPetMenusOnOutside(event) {
+  const target = event.target;
+
+  document.querySelectorAll('[data-other-pet-category-menu="true"]').forEach((menu) => {
+    const root = menu.closest('.data-dropdown-root') || menu.closest('.relative');
+
+    if (root && !root.contains(target)) {
+      closeCategoryMenu(root);
+    }
+  });
+}
+
 export default function PostAdFormEnhancer() {
   useEffect(() => {
     let tries = 0;
@@ -349,6 +418,7 @@ export default function PostAdFormEnhancer() {
 
     document.addEventListener('click', syncForm, true);
     document.addEventListener('change', syncForm, true);
+    document.addEventListener('mousedown', closeOtherPetMenusOnOutside, true);
 
     const originalFetch = window.fetch;
 
@@ -380,6 +450,7 @@ export default function PostAdFormEnhancer() {
       window.clearInterval(interval);
       document.removeEventListener('click', syncForm, true);
       document.removeEventListener('change', syncForm, true);
+      document.removeEventListener('mousedown', closeOtherPetMenusOnOutside, true);
       window.fetch = originalFetch;
     };
   }, []);
