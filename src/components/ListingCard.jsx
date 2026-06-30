@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
+import AnimalTypeIcon from './AnimalTypeIcon';
 import { CalendarIcon, FemaleIcon, HeartIcon, LocationIcon, MaleIcon, MixedGenderIcon, PawIcon } from './Icons';
 
 function formatDate(date) {
@@ -44,6 +45,27 @@ function getPriceDisplay(listing) {
   return '';
 }
 
+function getAnimalPillLabel(listing) {
+  if (!listing) return '';
+
+  if (listing.animal_type === 'Other Pets') {
+    return listing.breed || 'Other Pet';
+  }
+
+  return listing.animal_type || listing.breed || '';
+}
+
+function InfoPill({ icon, children }) {
+  if (!children) return null;
+
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-(--background) px-3 py-1 text-xs font-semibold text-(--primary-green)">
+      {icon && <span className="text-(--primary-green)">{icon}</span>}
+      {children}
+    </span>
+  );
+}
+
 export default function ListingCard({
   listing,
   isFavorite = false,
@@ -57,6 +79,7 @@ export default function ListingCard({
   const title = listing.title || `${listing.breed || listing.animal_type || 'Pet'} available`;
   const mainImage = getMainImage(listing.listing_photos);
   const priceDisplay = getPriceDisplay(listing);
+  const animalPillLabel = getAnimalPillLabel(listing);
 
   const handleFavoriteClick = (event) => {
     event.preventDefault();
@@ -116,24 +139,36 @@ export default function ListingCard({
         </div>
 
         <div className="mt-3 flex flex-wrap gap-1">
+          {animalPillLabel && (
+            <InfoPill
+              icon={
+                <AnimalTypeIcon
+                  animalType={listing.animal_type}
+                  category={listing.breed}
+                  className="h-3.5 w-3.5"
+                />
+              }
+            >
+              {animalPillLabel}
+            </InfoPill>
+          )}
+
           {listing.age && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-(--background) px-3 py-1 text-xs font-semibold text-(--primary-green)">
-              <CalendarIcon className="h-3.5 w-3.5 text-(--primary-green)" /> {listing.age}
-            </span>
+            <InfoPill icon={<CalendarIcon className="h-3.5 w-3.5 text-(--primary-green)" />}>
+              {listing.age}
+            </InfoPill>
           )}
 
           {listing.sex && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-(--background) px-3 py-1 text-xs font-semibold text-(--primary-green)">
-              <span className="text-sm leading-none">{getSexIcon(listing.sex)}</span>
+            <InfoPill icon={<span className="text-sm leading-none">{getSexIcon(listing.sex)}</span>}>
               {listing.sex}
-            </span>
+            </InfoPill>
           )}
 
           {listing.county && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-(--background) px-3 py-1 text-xs font-semibold text-(--primary-green)">
-              <LocationIcon className="h-3.5 w-3.5 text-(--primary-green)" />
+            <InfoPill icon={<LocationIcon className="h-3.5 w-3.5 text-(--primary-green)" />}>
               {listing.county}
-            </span>
+            </InfoPill>
           )}
         </div>
 
