@@ -13,50 +13,49 @@ const MIXED_LITTER_FIELDS = [
   ['ready_to_leave', 'Ready to Leave', ''],
 ];
 
+function normaliseText(value) {
+  return String(value || '').replace('*', '').replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
 function getField(name) {
   return document.querySelector(`[name="${name}"]`);
 }
 
 function getLabel(labelText) {
-  return [...document.querySelectorAll('label')].find((item) =>
-    item.textContent?.replace('*', '').trim().toLowerCase() === labelText.toLowerCase(),
-  );
+  const target = normaliseText(labelText);
+  return [...document.querySelectorAll('label')].find((item) => normaliseText(item.textContent) === target);
 }
 
 function getLabelContaining(labelText) {
-  return [...document.querySelectorAll('label')].find((item) =>
-    item.textContent?.toLowerCase().includes(labelText.toLowerCase()),
-  );
+  const target = normaliseText(labelText);
+  return [...document.querySelectorAll('label')].find((item) => normaliseText(item.textContent).includes(target));
 }
 
 function getFieldByLabel(labelText) {
   const label = getLabel(labelText);
-
   return label?.closest('div')?.querySelector('input, select, textarea') || null;
 }
 
 function getSelectText(labelText) {
-  const label = [...document.querySelectorAll('label')].find((item) =>
-    item.textContent?.toLowerCase().includes(labelText.toLowerCase()),
-  );
+  const label = getLabel(labelText) || getLabelContaining(labelText);
   const root = label?.closest('.data-dropdown-root') || label?.parentElement?.parentElement;
   return root?.querySelector('button span')?.textContent?.trim() || '';
 }
 
 function isAdoption() {
-  return getSelectText('ad type') === 'For Adoption';
+  return getSelectText('Ad Type') === 'For Adoption';
 }
 
 function isMixedLitter() {
-  return getSelectText('sex') === 'Mixed Litter';
+  return getSelectText('Sex') === 'Mixed Litter';
 }
 
 function isDogSelected() {
-  return getSelectText('animal type') === 'Dogs';
+  return getSelectText('Animal Type') === 'Dogs';
 }
 
 function isOtherPetSelected() {
-  return getSelectText('animal type') === 'Other Pets';
+  return getSelectText('Animal Type') === 'Other Pets';
 }
 
 function cleanNumber(value) {
@@ -161,12 +160,12 @@ function enhanceAgeField() {
   const unitButton = document.createElement('button');
   unitButton.type = 'button';
   unitButton.dataset.ageUnitButton = 'true';
-  unitButton.className = 'flex h-full shrink-0 items-center gap-2 border-l border-(--border-beige) px-3 text-xs font-bold text-(--secondary-green) outline-none transition hover:bg-(--background) focus:outline-none';
+  unitButton.className = 'flex h-full w-[92px] shrink-0 items-center justify-center gap-2 border-l border-(--border-beige) px-3 text-xs font-bold text-(--secondary-green) outline-none transition hover:bg-(--background) focus:outline-none';
   unitButton.innerHTML = `<span data-age-unit-text="true">${parsed.unit}</span><span data-age-unit-arrow="true" class="shrink-0 text-xs text-(--primary-green) transition">▼</span>`;
 
   const menu = document.createElement('div');
   menu.dataset.ageUnitMenu = 'true';
-  menu.className = 'absolute right-0 top-full z-[9999] mt-2 w-36 max-h-72 overflow-y-auto rounded-xl border border-(--border-beige) bg-white shadow-lg';
+  menu.className = 'absolute right-0 top-full z-[9999] mt-2 w-[112px] max-h-72 overflow-y-auto rounded-xl border border-(--border-beige) bg-white shadow-lg';
   menu.style.display = 'none';
 
   AGE_UNITS.forEach((unit) => {
@@ -277,87 +276,99 @@ function updateCategoryButton(root, value) {
   text.className = `block truncate ${value ? 'text-(--secondary-green)' : 'text-(--muted-green-text)'}`;
 }
 
+function resetCategoryFieldToBreed(root, input, label) {
+  if (label) label.innerHTML = 'Breed <span class="text-(--primary-orange)">*</span>';
+  if (input) {
+    input.placeholder = 'Start typing...';
+    input.style.display = '';
+  }
+
+  const button = root?.querySelector('button[data-other-pet-category-button="true"]');
+  if (button) button.style.display = 'none';
+
+  closeCategoryMenu(root);
+}
+
 function syncOtherPetCategoryField() {
   const input = getField('breed');
   const label = getLabelContaining('breed') || getLabelContaining('category');
-  const otherPetSelected = isOtherPetSelected();
   const root = input?.closest('.data-dropdown-root') || input?.closest('.relative');
+  const otherPetSelected = isOtherPetSelected();
 
   if (!input || !label || !root) return;
 
-  if (otherPetSelected) {
-    label.innerHTML = 'Category <span class="text-(--primary-orange)">*</span>';
-    input.placeholder = 'Select category';
-    input.style.display = 'none';
+  if (!otherPetSelected) {
+    resetCategoryFieldToBreed(root, input, label);
+    return;
+  }
 
-    let button = root.querySelector('button[data-other-pet-category-button="true"]');
-    let menu = root.querySelector('[data-other-pet-category-menu="true"]');
+  label.innerHTML = 'Category <span class="text-(--primary-orange)">*</span>';
+  input.placeholder = 'Select category';
+  input.style.display = 'none';
 
-    if (!button) {
-      button = document.createElement('button');
-      button.type = 'button';
-      button.dataset.otherPetCategoryButton = 'true';
-      button.className = 'flex h-full min-w-0 flex-1 items-center justify-between bg-transparent text-left text-sm outline-none ring-0 focus:outline-none focus:ring-0';
-      button.innerHTML = '<span data-other-pet-category-text="true" class="block truncate text-(--muted-green-text)">Select category</span><span data-other-pet-category-arrow="true" class="ml-3 shrink-0 text-xs text-(--primary-green) transition">▼</span>';
+  let button = root.querySelector('button[data-other-pet-category-button="true"]');
+  let menu = root.querySelector('[data-other-pet-category-menu="true"]');
 
-      button.addEventListener('click', (event) => {
+  if (!button) {
+    button = document.createElement('button');
+    button.type = 'button';
+    button.dataset.otherPetCategoryButton = 'true';
+    button.className = 'flex h-full min-w-0 flex-1 items-center justify-between bg-transparent text-left text-sm outline-none ring-0 focus:outline-none focus:ring-0';
+    button.innerHTML = '<span data-other-pet-category-text="true" class="block truncate text-(--muted-green-text)">Select category</span><span data-other-pet-category-arrow="true" class="ml-3 shrink-0 text-xs text-(--primary-green) transition">▼</span>';
+
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (!isOtherPetSelected()) {
+        resetCategoryFieldToBreed(root, input, label);
+        return;
+      }
+
+      const currentMenu = root.querySelector('[data-other-pet-category-menu="true"]');
+      const isOpen = currentMenu?.style.display !== 'none';
+
+      document.querySelectorAll('[data-other-pet-category-menu="true"]').forEach((item) => {
+        item.style.display = 'none';
+      });
+      document.querySelectorAll('[data-other-pet-category-arrow="true"]').forEach((item) => {
+        item.classList.remove('rotate-180');
+      });
+
+      if (!isOpen) openCategoryMenu(root);
+    });
+
+    input.parentElement?.insertBefore(button, input);
+  }
+
+  if (!menu) {
+    menu = document.createElement('div');
+    menu.dataset.otherPetCategoryMenu = 'true';
+    menu.className = 'absolute left-0 right-0 top-full z-[9999] mt-2 max-h-72 overflow-y-auto rounded-xl border border-(--border-beige) bg-white shadow-lg';
+    menu.style.display = 'none';
+
+    OTHER_PET_CATEGORIES.forEach((category) => {
+      const option = document.createElement('button');
+      option.type = 'button';
+      option.className = 'block w-full border-b border-(--border-beige) px-4 py-3 text-left text-sm text-(--secondary-green) outline-none transition hover:bg-(--background) focus:outline-none';
+      option.textContent = category;
+
+      option.addEventListener('mousedown', (event) => {
         event.preventDefault();
         event.stopPropagation();
-
-        const currentMenu = root.querySelector('[data-other-pet-category-menu="true"]');
-        const isOpen = currentMenu?.style.display !== 'none';
-
-        document.querySelectorAll('[data-other-pet-category-menu="true"]').forEach((item) => {
-          item.style.display = 'none';
-        });
-        document.querySelectorAll('[data-other-pet-category-arrow="true"]').forEach((item) => {
-          item.classList.remove('rotate-180');
-        });
-
-        if (!isOpen) openCategoryMenu(root);
+        setReactInputValue(input, category);
+        updateCategoryButton(root, category);
+        closeCategoryMenu(root);
       });
 
-      input.parentElement?.insertBefore(button, input);
-    }
+      menu.appendChild(option);
+    });
 
-    if (!menu) {
-      menu = document.createElement('div');
-      menu.dataset.otherPetCategoryMenu = 'true';
-      menu.className = 'absolute left-0 right-0 top-full z-[9999] mt-2 max-h-72 overflow-y-auto rounded-xl border border-(--border-beige) bg-white shadow-lg';
-      menu.style.display = 'none';
-
-      OTHER_PET_CATEGORIES.forEach((category) => {
-        const option = document.createElement('button');
-        option.type = 'button';
-        option.className = 'block w-full border-b border-(--border-beige) px-4 py-3 text-left text-sm text-(--secondary-green) outline-none transition hover:bg-(--background) focus:outline-none';
-        option.textContent = category;
-
-        option.addEventListener('mousedown', (event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          setReactInputValue(input, category);
-          updateCategoryButton(root, category);
-          closeCategoryMenu(root);
-        });
-
-        menu.appendChild(option);
-      });
-
-      root.appendChild(menu);
-    }
-
-    button.style.display = '';
-    updateCategoryButton(root, OTHER_PET_CATEGORIES.includes(input.value) ? input.value : '');
-  } else {
-    label.innerHTML = 'Breed <span class="text-(--primary-orange)">*</span>';
-    input.placeholder = 'Start typing...';
-    input.style.display = '';
-
-    const button = root.querySelector('button[data-other-pet-category-button="true"]');
-    if (button) button.style.display = 'none';
-
-    closeCategoryMenu(root);
+    root.appendChild(menu);
   }
+
+  button.style.display = '';
+  updateCategoryButton(root, OTHER_PET_CATEGORIES.includes(input.value) ? input.value : '');
 }
 
 function syncRequiredStar(label, required) {
@@ -404,6 +415,13 @@ function syncForm() {
   syncKennelClubField();
   syncOtherPetCategoryField();
   syncMixedLitterFields();
+}
+
+function scheduleSyncForm() {
+  syncForm();
+  window.setTimeout(syncForm, 0);
+  window.setTimeout(syncForm, 75);
+  window.setTimeout(syncForm, 175);
 }
 
 function patchSubmitData(body) {
@@ -492,8 +510,8 @@ export default function PostAdFormEnhancer() {
       if (tries > 40) window.clearInterval(interval);
     }, 250);
 
-    document.addEventListener('click', syncForm, true);
-    document.addEventListener('change', syncForm, true);
+    document.addEventListener('click', scheduleSyncForm, true);
+    document.addEventListener('change', scheduleSyncForm, true);
     document.addEventListener('mousedown', closeCustomMenusOnOutside, true);
 
     const originalFetch = window.fetch;
@@ -524,8 +542,8 @@ export default function PostAdFormEnhancer() {
 
     return () => {
       window.clearInterval(interval);
-      document.removeEventListener('click', syncForm, true);
-      document.removeEventListener('change', syncForm, true);
+      document.removeEventListener('click', scheduleSyncForm, true);
+      document.removeEventListener('change', scheduleSyncForm, true);
       document.removeEventListener('mousedown', closeCustomMenusOnOutside, true);
       window.fetch = originalFetch;
     };
