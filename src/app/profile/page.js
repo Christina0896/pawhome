@@ -5,8 +5,16 @@ import Header from '../../components/header';
 import Footer from '../../components/footer';
 import { supabase } from '../../lib/supabaseClient';
 import Link from 'next/link';
+import { getVerifiedAccessToken } from '../../lib/authTokens';
 
 const allowedAvatarTypes = ['image/jpeg', 'image/png', 'image/webp'];
+const MAX_AVATAR_SIZE = 2 * 1024 * 1024;
+
+const AVATAR_EXTENSION_BY_TYPE = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+};
 
 const sortListingPhotos = (photos) => {
   return [...(photos || [])].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
@@ -23,6 +31,7 @@ export default function ProfilePage() {
   // Auth/profile state
   const [user, setUser] = useState(null);
   const [myListings, setMyListings] = useState([]);
+  const [profile, setProfile] = useState(null);
 
   // UI state
   const [loading, setLoading] = useState(true);
@@ -57,15 +66,36 @@ export default function ProfilePage() {
 
       setUser(user);
 
-      const userMetadata = user.user_metadata || {};
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (profileError) {
+        console.error('Profile fetch error:', profileError);
+      }
+
+      const safeProfile = profileData || {
+        first_name: '',
+        last_name: '',
+        account_type: 'Buyer',
+        phone_code: '+353',
+        phone_number: '',
+        county: '',
+        avatar_url: null,
+        phone_verified: false,
+      };
+
+      setProfile(safeProfile);
 
       setProfileForm({
-        first_name: userMetadata.first_name || '',
-        last_name: userMetadata.last_name || '',
-        account_type: userMetadata.account_type || 'Buyer',
-        phone_code: userMetadata.phone_code || '+353',
-        phone_number: userMetadata.phone_number || userMetadata.phone || '',
-        county: userMetadata.county || '',
+        first_name: safeProfile.first_name || '',
+        last_name: safeProfile.last_name || '',
+        account_type: safeProfile.account_type || 'Buyer',
+        phone_code: safeProfile.phone_code || '+353',
+        phone_number: safeProfile.phone_number || '',
+        county: safeProfile.county || '',
         password: '',
       });
 
@@ -95,14 +125,12 @@ export default function ProfilePage() {
     loadProfile();
   }, []);
 
-  const metadata = user?.user_metadata || {};
+  const fullName = `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim();
 
-  const fullName = `${metadata.first_name || ''} ${metadata.last_name || ''}`.trim();
+  const phone = `${profile?.phone_code || ''} ${profile?.phone_number || ''}`.trim();
 
-  const phone = `${metadata.phone_code || ''} ${metadata.phone_number || metadata.phone || ''}`.trim();
-
-  const emailVerified = Boolean(metadata.email_verified || user?.email_confirmed_at);
-  const phoneVerified = Boolean(metadata.phone_verified);
+  const emailVerified = Boolean(user?.email_confirmed_at || user?.confirmed_at);
+  const phoneVerified = Boolean(profile?.phone_verified);
 
   const memberSince = user?.created_at
     ? new Date(user.created_at).toLocaleDateString('en-IE', {
@@ -112,8 +140,8 @@ export default function ProfilePage() {
     : '-';
 
   // Upload profile picture to Supabase storage
-  const handleAvatarUpload = async (e) => {
-    const file = e.target.files?.[0];
+  const handleAvatarUpload = async (event) => {
+    const file = event.target.files?.[0];
 
     if (!file || !user) return;
 
@@ -122,58 +150,80 @@ export default function ProfilePage() {
       return;
     }
 
+    if (file.size > MAX_AVATAR_SIZE) {
+      alert('Profile picture must be 2 MB or smaller.');
+      return;
+    }
+
     setAvatarUploading(true);
 
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${user.id}/avatar-${Date.now()}.${fileExt}`;
+    try {
+      const accessToken = await getVerifiedAccessToken();
 
-    const { error: uploadError } = await supabase.storage.from('avatars').upload(fileName, file, {
-      upsert: true,
-    });
+      if (!accessToken) {
+        setAvatarUploading(false);
+        return;
+      }
 
-    if (uploadError) {
-      console.error('Avatar upload error:', uploadError);
-      alert(uploadError.message || 'Could not upload profile picture.');
+      const formData = new FormData();
+      formData.append('avatar', file);
+
+      const response = await fetch('/api/profile/avatar', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        console.warn('Avatar upload API failed:', result);
+        alert(result.error || 'Could not upload profile picture.');
+        setAvatarUploading(false);
+        return;
+      }
+
+      setProfile(result.profile);
       setAvatarUploading(false);
-      return;
-    }
-
-    const { data: publicUrlData } = supabase.storage.from('avatars').getPublicUrl(fileName);
-
-    const avatarUrl = publicUrlData.publicUrl;
-
-    const { data, error: updateError } = await supabase.auth.updateUser({
-      data: {
-        ...metadata,
-        avatar_url: avatarUrl,
-      },
-    });
-
-    if (updateError) {
-      console.error('Avatar update error:', updateError);
-      alert('Profile picture uploaded, but could not update your profile.');
+    } catch (error) {
+      console.error('Avatar upload error:', error);
+      alert('Could not upload profile picture. Please try again.');
       setAvatarUploading(false);
-      return;
     }
-
-    setUser(data.user);
-    setAvatarUploading(false);
   };
 
   const handleRemoveAvatar = async () => {
-    const { data, error } = await supabase.auth.updateUser({
-      data: {
-        ...metadata,
-        avatar_url: null,
-      },
-    });
+    if (!user) return;
 
-    if (error) {
+    try {
+      const accessToken = await getVerifiedAccessToken();
+
+      if (!accessToken) {
+        return;
+      }
+
+      const response = await fetch('/api/profile/avatar', {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        console.warn('Avatar remove API failed:', result);
+        alert(result.error || 'Could not remove profile picture.');
+        return;
+      }
+
+      setProfile(result.profile);
+    } catch (error) {
+      console.error('Avatar remove error:', error);
       alert('Could not remove profile picture.');
-      return;
     }
-
-    setUser(data.user);
   };
 
   const handleProfileFormChange = (e) => {
@@ -195,8 +245,20 @@ export default function ProfilePage() {
     setProfileSaving(true);
     setProfileMessage('');
 
-    const updatedMetadata = {
-      ...metadata,
+    const password = profileForm.password.trim();
+
+    if (password) {
+      const strongPassword =
+        password.length >= 10 && /[A-Z]/.test(password) && /[a-z]/.test(password) && /[0-9]/.test(password);
+
+      if (!strongPassword) {
+        setProfileSaving(false);
+        setProfileMessage('Password must be at least 10 characters and include uppercase, lowercase, and a number.');
+        return;
+      }
+    }
+
+    const updatedProfilePayload = {
       first_name: profileForm.first_name.trim(),
       last_name: profileForm.last_name.trim(),
       account_type: profileForm.account_type,
@@ -205,31 +267,47 @@ export default function ProfilePage() {
       county: profileForm.county.trim(),
     };
 
-    const updatePayload = {
-      data: updatedMetadata,
-    };
+    const accessToken = await getVerifiedAccessToken();
 
-    if (profileForm.password.trim()) {
-      if (profileForm.password.trim().length < 8) {
-        setProfileSaving(false);
-        setProfileMessage('Password must be at least 8 characters.');
-        return;
-      }
-
-      updatePayload.password = profileForm.password.trim();
+    if (!accessToken) {
+      setProfileSaving(false);
+      return;
     }
+    const response = await fetch('/api/profile', {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify(updatedProfilePayload),
+    });
 
-    const { data, error } = await supabase.auth.updateUser(updatePayload);
+    const result = await response.json();
 
-    setProfileSaving(false);
+    if (!response.ok) {
+      console.warn('Profile save API failed:', result);
 
-    if (error) {
-      console.error('Profile update error:', error);
-      setProfileMessage(error.message || 'Could not save settings.');
+      setProfileSaving(false);
+      setProfileMessage(result.error || 'Could not save settings. Please try again.');
       return;
     }
 
-    setUser(data.user);
+    const updatedProfile = result.profile;
+
+    if (password) {
+      const { error: passwordError } = await supabase.auth.updateUser({
+        password,
+      });
+
+      if (passwordError) {
+        console.warn('Password update failed:', passwordError);
+        setProfileSaving(false);
+        setProfileMessage(passwordError.message || 'Could not update password.');
+        return;
+      }
+    }
+    setProfile(updatedProfile);
+    setProfileSaving(false);
 
     setProfileForm((current) => ({
       ...current,
@@ -244,15 +322,33 @@ export default function ProfilePage() {
 
     if (!confirmDelete) return;
 
-    const { error } = await supabase.from('listings').delete().eq('id', listingId).eq('user_id', user.id);
+    try {
+      const accessToken = await getVerifiedAccessToken();
 
-    if (error) {
+      if (!accessToken) {
+        return;
+      }
+
+      const response = await fetch(`/api/profile/listings/${listingId}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        console.warn('Delete listing API failed:', result);
+        alert(result.error || 'Could not delete listing. Please try again.');
+        return;
+      }
+
+      setMyListings((current) => current.filter((listing) => listing.id !== listingId));
+    } catch (error) {
       console.error('Delete listing error:', error);
       alert('Could not delete listing. Please try again.');
-      return;
     }
-
-    setMyListings((current) => current.filter((listing) => listing.id !== listingId));
   };
 
   const handleDeleteProfile = async () => {
@@ -260,9 +356,42 @@ export default function ProfilePage() {
 
     if (!confirmDelete) return;
 
-    alert(
-      'Profile deletion should be handled securely with a server action or Supabase Edge Function. For now, this button is only a placeholder.',
+    const secondConfirm = window.confirm(
+      'This will permanently delete your account, listings, saved favourites, and uploaded photos. Continue?',
     );
+
+    if (!secondConfirm) return;
+
+    setLoading(true);
+
+    try {
+      const accessToken = await getVerifiedAccessToken();
+
+      if (!accessToken) {
+        setLoading(false);
+        return;
+      }
+      const response = await fetch('/api/delete-profile', {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Profile could not be deleted.');
+      }
+
+      await supabase.auth.signOut();
+
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Delete profile error:', error);
+      alert('Something went wrong. Please try again.');
+      setLoading(false);
+    }
   };
 
   if (loading) {
@@ -296,7 +425,7 @@ export default function ProfilePage() {
           <aside className="h-fit rounded-3xl border border-(--border-beige) bg-white p-6 shadow-[0_8px_24px_rgba(18,53,36,0.05)] lg:sticky lg:top-24">
             <ProfileAvatar
               user={user}
-              metadata={metadata}
+              profile={profile}
               fullName={fullName}
               avatarUploading={avatarUploading}
               handleAvatarUpload={handleAvatarUpload}
@@ -335,7 +464,7 @@ export default function ProfilePage() {
                   className="h-12 w-full rounded-xl border border-(--border-beige) bg-white px-4 text-sm font-semibold text-(--secondary-green) outline-none transition focus:border-(--primary-green) focus:ring-4 focus:ring-[rgba(14,79,42,0.10)]"
                 >
                   <option value="Buyer">Buyer</option>
-                  <option value="Private Owner">Private Owner</option>
+                  <option value="Private Seller">Private Seller</option>
                   <option value="Breeder">Breeder</option>
                   <option value="Shelter / Rescue">Shelter / Rescue</option>
                 </select>
@@ -481,15 +610,14 @@ export default function ProfilePage() {
   );
 }
 
-const ProfileAvatar = ({ user, metadata, fullName, avatarUploading, handleAvatarUpload, handleRemoveAvatar }) => {
-  const initial = (metadata.first_name || user?.email || 'U').charAt(0).toUpperCase();
-
+const ProfileAvatar = ({ user, profile, fullName, avatarUploading, handleAvatarUpload, handleRemoveAvatar }) => {
+  const initial = (profile?.first_name || user?.email || 'U').charAt(0).toUpperCase();
   return (
     <div className="flex flex-col items-center text-center">
       <div className="relative">
         <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-(--light-green) text-4xl font-extrabold text-(--primary-green)">
-          {metadata.avatar_url ? (
-            <img src={metadata.avatar_url} alt="Profile picture" className="h-full w-full object-cover" />
+          {profile?.avatar_url ? (
+            <img src={profile.avatar_url} alt="Profile picture" className="h-full w-full object-cover" />
           ) : (
             initial
           )}
@@ -527,7 +655,7 @@ const ProfileAvatar = ({ user, metadata, fullName, avatarUploading, handleAvatar
 
       <p className="mt-1 break-all text-sm text-(--muted-green-text)">{user?.email}</p>
 
-      {metadata.avatar_url && (
+      {profile?.avatar_url && (
         <button
           type="button"
           onClick={handleRemoveAvatar}

@@ -91,6 +91,7 @@ export const dogBreeds = [
 ];
 
 export const catBreeds = [
+  'Mixed Breed',
   'Abyssinian',
   'American Bobtail',
   'American Curl',
@@ -126,7 +127,6 @@ export const catBreeds = [
   'Tonkinese',
   'Turkish Angora',
   'Turkish Van',
-  'Mixed Breed',
 ];
 
 export const otherPetTypes = [

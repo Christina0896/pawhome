@@ -4,7 +4,8 @@ import { useState } from 'react';
 import Header from '../../components/header';
 import { counties } from '../../data/countyList';
 import { supabase } from '../../lib/supabaseClient';
-import Link from 'next/link'
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -22,6 +23,7 @@ export default function RegisterPage() {
 
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
   const inputClass =
     'w-full rounded-xl border border-[var(--border-beige)] bg-white px-4 py-3 text-sm text-[var(--primary-dark-green)] outline-none transition focus:border-[var(--primary-dark-green)] focus:ring-4 focus:ring-[rgba(14,79,42,0.10)]';
@@ -46,17 +48,24 @@ export default function RegisterPage() {
       return;
     }
 
-    if (formData.password.length < 8) {
-      setMessage('Password must be at least 8 characters.');
+    setLoading(true);
+
+    const password = formData.password;
+
+    const strongPassword =
+      password.length >= 10 && /[A-Z]/.test(password) && /[a-z]/.test(password) && /[0-9]/.test(password);
+
+    if (!strongPassword) {
+      setMessage('Password must be at least 10 characters and include uppercase, lowercase, and a number.');
+      setLoading(false);
       return;
     }
 
-    setLoading(true);
-
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email: formData.email,
       password: formData.password,
       options: {
+        emailRedirectTo: `${window.location.origin}/register/success`,
         data: {
           first_name: formData.firstName,
           last_name: formData.lastName,
@@ -70,13 +79,29 @@ export default function RegisterPage() {
     });
 
     if (error) {
-      setMessage(error.message);
+      console.warn('Signup failed:', {
+        message: error.message,
+        status: error.status,
+        code: error.code,
+      });
+
+      const message = error.message?.toLowerCase() || '';
+
+      if (message.includes('rate limit')) {
+        setMessage('Too many signup emails were sent. Please wait a few minutes and try again.');
+      } else if (message.includes('already') || message.includes('registered')) {
+        setMessage('This email is already registered. Please log in or use forgot password.');
+      } else if (message.includes('redirect')) {
+        setMessage('Signup redirect URL is not configured correctly.');
+      } else {
+        setMessage(`Could not create account: ${error.message}`);
+      }
+
       setLoading(false);
       return;
     }
 
-    setMessage('Account created. Please check your email to confirm your account.');
-    setLoading(false);
+    router.push('/register/success');
   };
 
   return (
@@ -216,7 +241,7 @@ export default function RegisterPage() {
               className={inputClass}
             />
             <p className="mt-2 text-xs text-(--muted-green-text)">
-              Use at least 8 characters with a number and a letter.
+              Use at least 10 characters with uppercase, lowercase, and a number.
             </p>
           </div>
 

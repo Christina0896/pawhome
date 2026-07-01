@@ -64,7 +64,7 @@ const BrowseCards = () => {
   return (
     <div className="mx-auto max-w-[var(--page-max-width)] px-4 pb-2">
       <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-3">
-        <div className="flex h-full min-h-[128px] items-center gap-6 rounded-2xl border border-(--border-beige) bg-white/70 px-6 py-5 shadow-[0_6px_18px_rgba(18,53,36,0.06)]">
+        <div className="flex h-full min-h-[128px] items-center gap-6 rounded-2xl border border-(--border-beige) bg-[#F2F3EC] px-6 py-5 shadow-[0_6px_18px_rgba(18,53,36,0.06)]">
           <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-[#DDE6D0] ">
             <span
               aria-hidden="true"
@@ -79,23 +79,26 @@ const BrowseCards = () => {
             />
           </div>
 
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 flex-1 ">
             <h3 className="text-lg font-extrabold text-(--secondary-green)">Browse by County</h3>
 
-            <div className="mt-3 grid grid-cols-1 gap-x-8 gap-y-1 text-sm font-semibold text-(--secondary-green) sm:grid-cols-2">
+            <div className="mt-3 grid grid-cols-3 gap-x-6 gap-y-2 text-[12px] font-semibold text-(--secondary-green)">
               {countyItems.length > 0 ? (
-                countyItems.map((item) => (
+                countyItems.slice(0, 9).map((item) => (
                   <Link
                     key={item.county}
                     href={`/listings?county=${encodeURIComponent(item.county)}`}
-                    className="flex items-center transition hover:text-(--primary-orange)"
+                    className="flex min-w-0 items-center transition hover:text-(--primary-orange)"
                   >
-                    <span>{item.county}</span>
-                    <span className="ml-1 text-xs font-bold text-(--muted-green-text)">({item.count})</span>
+                    <span className="min-w-0  whitespace-nowrap">{item.county}</span>
+
+                    <span className="ml-1 shrink-0 text-[11px] font-bold text-(--muted-green-text)">
+                      ({item.count})
+                    </span>
                   </Link>
                 ))
               ) : (
-                <p className="col-span-2 text-sm text-(--muted-green-text)">No counties yet</p>
+                <p className="col-span-3 text-sm text-(--muted-green-text)">No counties yet</p>
               )}
             </div>
 
@@ -109,30 +112,32 @@ const BrowseCards = () => {
         </div>
 
         <div className="flex h-full min-h-[128px] items-center gap-6 rounded-2xl border border-(--border-beige) bg-[#FFF4EA] px-6 py-5 shadow-[0_6px_18px_rgba(18,53,36,0.06)]">
-          <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-(--primary-orange) text-white">
-            <PawIcon className="h-10 w-15" />
+          <div className="flex h-15 w-15 shrink-0 items-center justify-center rounded-full bg-(--primary-orange) text-white">
+            <PawIcon className="h-7 w-7" />
           </div>
 
           <div className="min-w-0 flex-1">
             <h3 className="text-lg font-extrabold text-(--secondary-green)">Browse by Breed</h3>
 
-            <div className="mt-3 grid grid-cols-1 gap-x-8 gap-y-1 text-sm font-semibold text-(--secondary-green) sm:grid-cols-2">
+            <div className="mt-3 grid grid-cols-3 gap-x-6 gap-y-2 text-[12px] font-semibold text-(--secondary-green)">
               {breedItems.length > 0 ? (
-                breedItems.map((item) => (
+                breedItems.slice(0, 9).map((item) => (
                   <Link
                     key={item.breed}
                     href={`/listings?breed=${encodeURIComponent(item.breed)}`}
-                    className="flex items-center transition hover:text-(--primary-orange)"
+                    className="flex min-w-0 items-center transition hover:text-(--primary-orange)"
                   >
-                    <span>{item.breed}</span>
-                    <span className="ml-1 text-xs font-bold text-(--muted-green-text)">({item.count})</span>
+                    <span className="min-w-0 truncate whitespace-nowrap">{item.breed}</span>
+
+                    <span className="ml-1 shrink-0 text-[11px] font-bold text-(--muted-green-text)">
+                      ({item.count})
+                    </span>
                   </Link>
                 ))
               ) : (
-                <p className="col-span-2 text-sm text-(--muted-green-text)">No breeds yet</p>
+                <p className="col-span-3 text-sm text-(--muted-green-text)">No breeds yet</p>
               )}
             </div>
-
             <Link
               href="/listings"
               className="mt-4 inline-flex items-center gap-2 text-sm font-extrabold text-(--primary-orange) transition hover:text-(--secondary-orange)"
@@ -144,7 +149,7 @@ const BrowseCards = () => {
 
         <div className="relative flex h-full min-h-[128px] items-center overflow-hidden rounded-2xl border border-(--border-beige) bg-[#F4F5E8] px-6 py-5 shadow-[0_6px_18px_rgba(18,53,36,0.06)]">
           <div className="z-10 flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-[#E2E5C7] text-(--primary-green)">
-            <ShieldCheckIcon />
+            <ShieldCheckIcon className="h-10 w-10" />
           </div>
 
           <div className="z-10 ml-6 max-w-[300px] pr-[130px]">

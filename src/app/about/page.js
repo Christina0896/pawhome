@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Header from '../../components/header';
 import Footer from '../../components/footer';
 import ContactModal from '../../components/ContactModal';
-import Link from 'next/link'
+import Link from 'next/link';
 
 const featureCards = [
   {
@@ -100,7 +100,6 @@ const featureCards = [
 ];
 
 export default function AboutPage() {
-  // UI state
   const [showContactModal, setShowContactModal] = useState(false);
 
   return (
@@ -109,7 +108,6 @@ export default function AboutPage() {
         <Header />
 
         <main>
-          {/* Hero */}
           <section className="mx-auto grid max-w-(--page-max-width) grid-cols-1 items-center gap-12 px-6 py-14 lg:grid-cols-2 lg:py-20">
             <div>
               <p className="text-sm font-bold uppercase tracking-[0.18em] text-(--primary-green)">About PawHome</p>
@@ -140,12 +138,11 @@ export default function AboutPage() {
               </div>
             </div>
 
-            {/* Image collage */}
-            <div className="relative min-h-[360px]">
+            <div className="relative min-h-90">
               <img
                 src="/img/about-main.jpg"
                 alt="Pets in a home"
-                className="absolute left-0 top-8 h-[260px] w-[72%] rounded-2xl object-cover shadow-[0_10px_30px_rgba(18,53,36,0.12)]"
+                className="absolute left-0 top-8 h-65 w-[72%] rounded-2xl object-cover shadow-[0_10px_30px_rgba(18,53,36,0.12)]"
               />
 
               <img
@@ -168,8 +165,7 @@ export default function AboutPage() {
             </div>
           </section>
 
-          {/* What makes us different */}
-          <section className="mx-auto max-w-[1300px] px-6 py-12">
+          <section className="mx-auto max-w-325 px-6 py-12">
             <div className="text-center">
               <h2 className="text-3xl font-extrabold text-(--secondary-green)">What makes PawHome different?</h2>
 
@@ -185,7 +181,6 @@ export default function AboutPage() {
             </div>
           </section>
 
-          {/* Personal story */}
           <section className="mx-auto grid max-w-[1300px] grid-cols-1 items-center gap-10 px-6 py-16 lg:grid-cols-2">
             <div className="relative">
               <img

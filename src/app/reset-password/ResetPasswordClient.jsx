@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '../../lib/supabaseClient';
 
-function ResetPasswordContent() {
+export default function ResetPasswordClient() {
   const searchParams = useSearchParams();
 
   const [password, setPassword] = useState('');
@@ -25,7 +25,7 @@ function ResetPasswordContent() {
           const { error } = await supabase.auth.exchangeCodeForSession(code);
 
           if (error) {
-            setMessage(error.message);
+            setMessage('Something went wrong. Please try again.');
             return;
           }
 
@@ -33,11 +33,24 @@ function ResetPasswordContent() {
           return;
         }
 
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
+        const hashParams = new URLSearchParams(window.location.hash.replace('#', ''));
 
-        if (session) {
+        const accessToken = hashParams.get('access_token');
+        const refreshToken = hashParams.get('refresh_token');
+        const type = hashParams.get('type');
+
+        if (type === 'recovery' && accessToken && refreshToken) {
+          const { error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+
+          if (error) {
+            setMessage('Something went wrong. Please try again.');
+            return;
+          }
+
+          window.history.replaceState({}, document.title, '/reset-password');
           setSessionReady(true);
           return;
         }
@@ -75,7 +88,7 @@ function ResetPasswordContent() {
     setLoading(false);
 
     if (error) {
-      setMessage(error.message);
+      setMessage('Something went wrong. Please try again.');
       return;
     }
 

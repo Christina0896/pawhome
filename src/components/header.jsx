@@ -1,42 +1,18 @@
 'use client';
 
+import Image from 'next/image';
 import { useEffect, useState } from 'react';
-import { supabase } from '../lib/supabaseClient';
+import { useAuth } from '../context/AuthContext';
 import ContactModal from './ContactModal';
 import LoginModal from './LoginModal';
 import { HeartIcon } from './Icons';
 import Link from 'next/link';
 
 const Header = () => {
-  const [user, setUser] = useState(null);
-  const [authLoading, setAuthLoading] = useState(true);
+  const { user, authLoading, signOut } = useAuth();
   const [showContactModal, setShowContactModal] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  useEffect(() => {
-    const getUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      setUser(user);
-      setAuthLoading(false);
-    };
-
-    getUser();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user || null);
-      setAuthLoading(false);
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, []);
 
   // Allow other components to open the login modal
   useEffect(() => {
@@ -52,16 +28,11 @@ const Header = () => {
   }, []);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
+    await signOut();
     window.location.href = '/';
   };
 
-  const handleFavoritesClick = async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
+  const handleFavoritesClick = () => {
     setMobileMenuOpen(false);
 
     if (!user) {
@@ -71,16 +42,13 @@ const Header = () => {
 
     window.location.href = '/favorites';
   };
+
   const handleLoginClick = () => {
     setMobileMenuOpen(false);
     setShowLoginModal(true);
   };
 
-  const handlePostAdClick = async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
+  const handlePostAdClick = () => {
     setMobileMenuOpen(false);
 
     if (!user) {
@@ -96,8 +64,8 @@ const Header = () => {
       <header className=" top-0 z-999 border-b border-(--border-beige) bg-(--background)">
         <nav className="mx-auto flex h-16 max-w-(--page-max-width) items-center justify-between px-4 md:px-6">
           {/* Logo */}
-          <Link href="/" className="flex items-center">
-            <img src="/img/logo.png" alt="PawHome Logo" className="h-16 w-auto object-contain md:h-15" />
+          <Link href="/" className="relative flex h-16 w-[142px] items-center md:h-15">
+            <Image src="/img/logo.png" alt="PawHome Logo" fill priority sizes="142px" className="object-contain" />
           </Link>
 
           {/* Desktop navigation */}
@@ -106,7 +74,7 @@ const Header = () => {
               Shelters
             </Link>
 
-            <Link href="/BreedGuide" className="inline-block transition duration-200 hover:scale-110 ">
+            <Link href="/breed-guide" className="inline-block transition duration-200 hover:scale-110 ">
               Breed Guide
             </Link>
 
@@ -117,7 +85,7 @@ const Header = () => {
             >
               Contact Us
             </button>
-            <Link href="/AboutUs" className="inline-block transition duration-200 hover:scale-110 ">
+            <Link href="/about" className="inline-block transition duration-200 hover:scale-110 ">
               About Us
             </Link>
           </div>
@@ -208,8 +176,12 @@ const Header = () => {
                 Shelters
               </Link>
 
-              <Link href="/BreedGuide" onClick={() => setMobileMenuOpen(false)} className="">
+              <Link href="/breed-guide" onClick={() => setMobileMenuOpen(false)} className="">
                 Breed Guide
+              </Link>
+
+              <Link href="/about" onClick={() => setMobileMenuOpen(false)} className="">
+                About Us
               </Link>
 
               <button

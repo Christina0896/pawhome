@@ -4,14 +4,11 @@ import { useEffect, useState } from 'react';
 import Header from '../../components/header';
 import Footer from '../../components/footer';
 import { supabase } from '../../lib/supabaseClient';
-import Link from 'next/link'
-
-const ADMIN_EMAILS = [
-  'cristinabandeira82@gmail.com',
-  // Add your own admin email here too
-];
+import Link from 'next/link';
+import { getVerifiedAdminAccessToken } from '../../lib/authTokens';
 
 const STATUS_OPTIONS = ['pending', 'approved', 'rejected', 'reports'];
+const LISTING_STATUS_FILTERS = ['pending', 'approved', 'rejected'];
 
 const formatDate = (value) => {
   if (!value) return '-';
@@ -44,6 +41,7 @@ export default function AdminPage() {
   // Auth state
   const [user, setUser] = useState(null);
   const [checkingAdmin, setCheckingAdmin] = useState(true);
+  const [accessDenied, setAccessDenied] = useState(false);
 
   // Listing state
   const [listings, setListings] = useState([]);
@@ -62,20 +60,27 @@ export default function AdminPage() {
       } = await supabase.auth.getUser();
 
       if (error || !user) {
-        window.location.href = '/';
+        setAccessDenied(true);
+        setCheckingAdmin(false);
+        setLoading(false);
         return;
       }
 
-      const isAdmin = ADMIN_EMAILS.includes(user.email);
+      const { data: adminData, error: adminError } = await supabase
+        .from('admin_users')
+        .select('user_id')
+        .eq('user_id', user.id)
+        .maybeSingle();
 
-      if (!isAdmin) {
-        window.location.href = '/';
+      if (adminError || !adminData) {
+        setAccessDenied(true);
+        setCheckingAdmin(false);
+        setLoading(false);
         return;
       }
 
       setUser(user);
       setCheckingAdmin(false);
-      loadListings(selectedStatus);
     };
 
     checkAdminAndLoad();
@@ -93,6 +98,12 @@ export default function AdminPage() {
   }, [selectedStatus, user]);
 
   const loadListings = async (status) => {
+    if (!LISTING_STATUS_FILTERS.includes(status)) {
+      setListings([]);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
 
     const { data, error } = await supabase
@@ -174,70 +185,143 @@ export default function AdminPage() {
     setLoading(false);
   };
 
-  const updateListingStatus = async (listingId, newStatus) => {
-    const { error } = await supabase.from('listings').update({ status: newStatus }).eq('id', listingId);
+  const updateListingStatus = async (listingId, status) => {
+    try {
+      const accessToken = await getVerifiedAdminAccessToken({ setAccessDenied });
 
-    if (error) {
-      console.error('Status update error:', error);
-      alert('Could not update listing status.');
-      return;
+      if (!accessToken) {
+        return;
+      }
+
+      const response = await fetch(`/api/admin/listings/${listingId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ status }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        console.warn('Update listing API failed:', result);
+        alert(result.error || 'Could not update listing.');
+        return;
+      }
+
+      setListings((current) => current.map((listing) => (listing.id === listingId ? { ...listing, status } : listing)));
+    } catch (error) {
+      console.error('Update listing status error:', error);
+      alert('Could not update listing.');
     }
-
-    setListings((current) => current.filter((listing) => listing.id !== listingId));
   };
 
   const deleteListing = async (listingId) => {
-    const confirmed = window.confirm('Are you sure you want to delete this listing? This cannot be undone.');
+    const confirmDelete = window.confirm('Are you sure you want to delete this listing?');
 
-    if (!confirmed) return;
-
-    const { error } = await supabase.from('listings').delete().eq('id', listingId);
-
-    if (error) {
-      console.error('Delete listing error:', error);
-      alert('Could not delete listing.');
+    if (!confirmDelete) {
       return;
     }
 
-    setListings((current) => current.filter((listing) => listing.id !== listingId));
+    try {
+      const accessToken = await getVerifiedAdminAccessToken({ setAccessDenied });
+
+      if (!accessToken) {
+        return;
+      }
+
+      const response = await fetch(`/api/admin/listings/${listingId}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        console.error('Delete listing API failed:', result);
+        alert(result.error || 'Could not delete listing.');
+        return;
+      }
+
+      setListings((current) => current.filter((listing) => listing.id !== listingId));
+    } catch (error) {
+      console.error('Delete listing error:', error);
+      alert('Could not delete listing.');
+    }
   };
+
   const markReportReviewed = async (reportId) => {
-  const { error } = await supabase
-    .from('listing_reports')
-    .update({ status: 'reviewed' })
-    .eq('id', reportId);
+    try {
+      const accessToken = await getVerifiedAdminAccessToken({ setAccessDenied });
 
-  if (error) {
-    console.error('Report review error:', error);
-    alert('Could not mark report as reviewed.');
-    return;
-  }
+      if (!accessToken) {
+        alert('You must be logged in as admin.');
+        return;
+      }
 
-  setReports((current) =>
-    current.map((report) =>
-      report.id === reportId ? { ...report, status: 'reviewed' } : report,
-    ),
-  );
-};
+      const response = await fetch(`/api/admin/reports/${reportId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ status: 'reviewed' }),
+      });
 
-const deleteReport = async (reportId) => {
-  const confirmed = window.confirm('Delete this report?');
+      const result = await response.json();
 
-  if (!confirmed) return;
+      if (!response.ok) {
+        console.warn('Report review API failed:', result);
+        alert(result.error || 'Could not mark report as reviewed.');
+        return;
+      }
 
-  const { error } = await supabase
-    .from('listing_reports')
-    .delete()
-    .eq('id', reportId);
+      setReports((current) =>
+        current.map((report) => (report.id === reportId ? { ...report, status: 'reviewed' } : report)),
+      );
+    } catch (error) {
+      console.warn('Report review error:', error);
+      alert('Could not mark report as reviewed.');
+    }
+  };
 
-  if (error) {
-    console.error('Delete report error:', error);
-    alert('Could not delete report.');
-    return;
-  }
+  const deleteReport = async (reportId) => {
+    const confirmed = window.confirm('Delete this report?');
 
-  setReports((current) => current.filter((report) => report.id !== reportId));
-};
+    if (!confirmed) return;
+
+    try {
+      const accessToken = await getVerifiedAdminAccessToken({ setAccessDenied });
+
+      if (!accessToken) {
+        alert('You must be logged in as admin.');
+        return;
+      }
+
+      const response = await fetch(`/api/admin/reports/${reportId}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        console.warn('Delete report API failed:', result);
+        alert(result.error || 'Could not delete report.');
+        return;
+      }
+
+      setReports((current) => current.filter((report) => report.id !== reportId));
+    } catch (error) {
+      console.warn('Delete report error:', error);
+      alert('Could not delete report.');
+    }
+  };
 
   if (checkingAdmin) {
     return (
@@ -246,6 +330,36 @@ const deleteReport = async (reportId) => {
 
         <main className="mx-auto max-w-[1280px] px-6 py-10">
           <p className="text-sm text-(--secondary-green)">Checking admin...</p>
+        </main>
+
+        <Footer />
+      </div>
+    );
+  }
+  if (accessDenied) {
+    return (
+      <div className="min-h-screen bg-(--background)">
+        <Header />
+
+        <main className="mx-auto flex min-h-[65vh] max-w-[900px] items-center justify-center px-6 py-12">
+          <div className="w-full rounded-3xl border border-red-200 bg-white p-8 text-center shadow-sm">
+            <p className="text-sm font-bold uppercase tracking-wide text-red-500">403 Forbidden</p>
+
+            <h1 className="mt-3 text-3xl font-extrabold text-(--secondary-green)">
+              You do not have access to this page
+            </h1>
+
+            <p className="mx-auto mt-4 max-w-[560px] text-sm leading-6 text-(--muted-green-text)">
+              This area is restricted to PawHome administrators only.
+            </p>
+
+            <Link
+              href="/"
+              className="mt-7 inline-flex rounded-full bg-(--primary-orange) px-6 py-3 text-sm font-bold text-white transition hover:bg-(--secondary-orange)"
+            >
+              Back to homepage
+            </Link>
+          </div>
         </main>
 
         <Footer />
@@ -291,7 +405,7 @@ const deleteReport = async (reportId) => {
         {/* Page content */}
         {selectedStatus === 'reports' ? (
           loading ? (
-            <LinkdminMessageCard text="Loading reports..." />
+            <AdminMessageCard text="Loading reports..." />
           ) : reports.length === 0 ? (
             <EmptyState selectedStatus="reports" />
           ) : (
@@ -309,7 +423,7 @@ const deleteReport = async (reportId) => {
             </div>
           )
         ) : loading ? (
-          <LinkdminMessageCard text="Loading listings..." />
+          <AdminMessageCard text="Loading listings..." />
         ) : listings.length === 0 ? (
           <EmptyState selectedStatus={selectedStatus} />
         ) : (
@@ -361,7 +475,7 @@ const ListingReviewCard = ({ listing, selectedStatus, updateListingStatus, delet
         : '-';
 
   return (
-    <Linkrticle className="overflow-hidden rounded-3xl border border-(--border-beige) bg-white shadow-sm">
+    <article className="overflow-hidden rounded-3xl border border-(--border-beige) bg-white shadow-sm">
       <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr]">
         {/* Listing image */}
         <div className="relative h-64 bg-(--light-green) lg:h-full">
@@ -438,7 +552,7 @@ const ListingReviewCard = ({ listing, selectedStatus, updateListingStatus, delet
             </p>
           </div>
 
-          <LinkdminActions
+          <AdminActions
             listingId={listing.id}
             selectedStatus={selectedStatus}
             updateListingStatus={updateListingStatus}
@@ -446,7 +560,7 @@ const ListingReviewCard = ({ listing, selectedStatus, updateListingStatus, delet
           />
         </div>
       </div>
-    </Linkrticle>
+    </article>
   );
 };
 
@@ -454,7 +568,7 @@ const ReportReviewCard = ({ report, markReportReviewed, deleteReport, updateList
   const listing = report.listings;
 
   return (
-    <Linkrticle className="overflow-hidden rounded-3xl border border-red-100 bg-white shadow-sm">
+    <article className="overflow-hidden rounded-3xl border border-red-100 bg-white shadow-sm">
       <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr]">
         <div className="relative h-64 bg-(--light-green) lg:h-full">
           {report.mainImage ? (
@@ -523,7 +637,7 @@ const ReportReviewCard = ({ report, markReportReviewed, deleteReport, updateList
             <div className="flex flex-wrap gap-2">
               {report.listing_id && (
                 <Link
-                  href={`/listings/${report.listing_id}`}
+                  href={`/listings/${report.listing_id}?adminPreview=true`}
                   target="_blank"
                   rel="noreferrer"
                   className="rounded-xl border border-(--border-beige) bg-white px-5 py-3 text-sm font-bold text-(--secondary-green) transition hover:border-(--primary-green)"
@@ -573,7 +687,7 @@ const ReportReviewCard = ({ report, markReportReviewed, deleteReport, updateList
           </div>
         </div>
       </div>
-    </Linkrticle>
+    </article>
   );
 };
 
@@ -638,7 +752,7 @@ const AdminActions = ({ listingId, selectedStatus, updateListingStatus, deleteLi
     <div className="mt-6 flex flex-col gap-3 border-t border-(--border-beige) pt-5 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex flex-wrap gap-2">
         <Link
-          href={`/listings/${listingId}`}
+          href={`/listings/${listingId}?adminPreview=true`}
           target="_blank"
           rel="noreferrer"
           className="rounded-xl border border-(--border-beige) bg-white px-5 py-3 text-sm font-bold text-(--secondary-green) transition hover:border-(--primary-green)"

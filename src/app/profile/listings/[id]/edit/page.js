@@ -7,7 +7,11 @@ import Footer from '../../../../../components/footer';
 import { supabase } from '../../../../../lib/supabaseClient';
 import { counties } from '../../../../../data/countyList';
 import { dogBreeds, catBreeds, otherPetTypes } from '../../../../../data/petOptions';
-import Link from 'next/link'
+import Link from 'next/link';
+import { getVerifiedAccessToken } from '../../../../../lib/authTokens';
+
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const MAX_LISTING_IMAGE_SIZE = 5 * 1024 * 1024;
 
 const emptyForm = {
   title: '',
@@ -202,59 +206,28 @@ export default function EditListingPage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const doesEditNeedAdminApproval = () => {
-    if (!originalFormData) return true;
-
-    const adminApprovalFields = [
-      'title',
-      'listing_type',
-      'animal_type',
-      'breed',
-      'age',
-      'sex',
-      'price',
-      'price_negotiable',
-      'county',
-      'city',
-      'seller_type',
-      'microchipped',
-      'vaccinated',
-      'wormed',
-      'vet_checked',
-      'spayed_neutered',
-      'health_tested',
-      'kennel_club_registered',
-      'litter_size',
-      'date_of_birth',
-      'ready_to_leave',
-      'mother_can_be_seen',
-      'father_can_be_seen',
-      'registration_number',
-      'organisation_name',
-    ];
-
-    return adminApprovalFields.some((field) => String(originalFormData[field] ?? '') !== String(formData[field] ?? ''));
-  };
-
-  const getStoragePathFromPublicUrl = (url) => {
-    if (!url) return null;
-
-    const marker = '/storage/v1/object/public/listing-photos/';
-    const markerIndex = url.indexOf(marker);
-
-    if (markerIndex === -1) return null;
-
-    return decodeURIComponent(url.slice(markerIndex + marker.length));
-  };
-
   const visiblePhotos = photos.filter((photo) => !photosToDelete.some((deletedPhoto) => deletedPhoto.id === photo.id));
 
   const totalPhotoCount = visiblePhotos.length + newPhotos.length;
 
   const handleAddEditPhotos = (files) => {
-    const allowedFiles = files.filter((file) => ['image/jpeg', 'image/png', 'image/webp'].includes(file.type));
+    const validFiles = [];
 
-    if (allowedFiles.length === 0) return;
+    for (const file of files) {
+      if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+        setMessage('Only JPG, PNG, or WEBP images are allowed.');
+        continue;
+      }
+
+      if (file.size > MAX_LISTING_IMAGE_SIZE) {
+        setMessage('Each photo must be 5 MB or smaller.');
+        continue;
+      }
+
+      validFiles.push(file);
+    }
+
+    if (validFiles.length === 0) return;
 
     const remainingSlots = 6 - totalPhotoCount;
 
@@ -263,13 +236,16 @@ export default function EditListingPage() {
       return;
     }
 
-    const filesToAdd = allowedFiles.slice(0, remainingSlots);
+    const filesToAdd = validFiles.slice(0, remainingSlots);
+
+    if (validFiles.length > remainingSlots) {
+      setMessage('You can upload a maximum of 6 photos.');
+    } else {
+      setMessage('');
+    }
 
     setNewPhotos((current) => [...current, ...filesToAdd]);
-
     setNewPhotoPreviews((current) => [...current, ...filesToAdd.map((file) => URL.createObjectURL(file))]);
-
-    setMessage('');
   };
 
   const handleEditPhotoChange = (e) => {
@@ -309,178 +285,54 @@ export default function EditListingPage() {
     setSaving(true);
     setMessage('');
 
-    const { error } = await supabase
-      .from('listings')
-      .update({
-        title: formData.title.trim(),
-        listing_type: formData.listing_type,
-        animal_type: formData.animal_type,
-        breed: formData.breed.trim(),
-        age: formData.age.trim(),
-        sex: formData.sex,
+    try {
+      const accessToken = await getVerifiedAccessToken();
 
-        price: Number(formData.price),
-        price_negotiable: formData.price_negotiable,
-
-        county: formData.county,
-        city: formData.city.trim(),
-
-        seller_type: formData.seller_type,
-
-        microchipped: formData.microchipped,
-        vaccinated: formData.vaccinated,
-        wormed: formData.wormed,
-        vet_checked: formData.vet_checked,
-        spayed_neutered: formData.spayed_neutered,
-        health_tested: formData.health_tested,
-        kennel_club_registered: formData.kennel_club_registered,
-
-        litter_size: formData.litter_size || null,
-        available_litter_count: formData.available_litter_count || null,
-        date_of_birth: formData.date_of_birth || null,
-        ready_to_leave: formData.ready_to_leave || null,
-        mother_can_be_seen: formData.mother_can_be_seen || null,
-
-        registration_number: formData.registration_number.trim(),
-        organisation_name: formData.organisation_name.trim(),
-
-        description: formData.description.trim(),
-
-        status: doesEditNeedAdminApproval() ? 'pending' : originalFormData.status,
-      })
-
-      .eq('id', listingId)
-      .eq('user_id', user.id);
-
-    setSaving(false);
-
-    if (photosToDelete.length > 0) {
-      const photoIdsToDelete = photosToDelete.map((photo) => photo.id).filter(Boolean);
-
-      console.log('Photos to delete:', photosToDelete);
-      console.log('Photo IDs to delete:', photoIdsToDelete);
-
-      if (photoIdsToDelete.length > 0) {
-        const { error: photoDeleteError } = await supabase.from('listing_photos').delete().in('id', photoIdsToDelete);
-
-        if (photoDeleteError) {
-          console.error('Photo DB delete error:', photoDeleteError);
-          setMessage(photoDeleteError.message || 'Could not delete old photos.');
-          setSaving(false);
-          return;
-        }
-      }
-
-      const storagePaths = photosToDelete.map((photo) => getStoragePathFromPublicUrl(photo.image_url)).filter(Boolean);
-
-      console.log('Storage paths to delete:', storagePaths);
-
-      if (storagePaths.length > 0) {
-        const { error: storageDeleteError } = await supabase.storage.from('listing-photos').remove(storagePaths);
-
-        if (storageDeleteError) {
-          console.error('Photo storage delete error:', storageDeleteError);
-        }
-      }
-    }
-
-    if (newPhotos.length > 0) {
-      const photoRows = [];
-
-      for (let i = 0; i < newPhotos.length; i++) {
-        const file = newPhotos[i];
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${user.id}/${listingId}-edit-${Date.now()}-${i}.${fileExt}`;
-
-        const { error: uploadError } = await supabase.storage.from('listing-photos').upload(fileName, file);
-
-        if (uploadError) {
-          console.error('Photo upload error:', uploadError);
-          setMessage(uploadError.message || 'Photo upload failed.');
-          setSaving(false);
-          return;
-        }
-
-        const { data: publicUrlData } = supabase.storage.from('listing-photos').getPublicUrl(fileName);
-
-        photoRows.push({
-          listing_id: listingId,
-          image_url: publicUrlData.publicUrl,
-          sort_order: visiblePhotos.length + i,
-        });
-      }
-
-      const { error: photoInsertError } = await supabase.from('listing_photos').insert(photoRows);
-
-      if (photoInsertError) {
-        console.error('Photo DB insert error:', photoInsertError);
-        setMessage(photoInsertError.message || 'Could not save new photos.');
+      if (!accessToken) {
         setSaving(false);
         return;
       }
-    }
 
-    setSaving(false);
-    window.location.href = '/profile';
-    if (photosToDelete.length > 0) {
-      const storagePaths = photosToDelete.map((photo) => getStoragePathFromPublicUrl(photo.image_url)).filter(Boolean);
+      const submitData = new FormData();
 
-      if (storagePaths.length > 0) {
-        const { error: storageDeleteError } = await supabase.storage.from('listing-photos').remove(storagePaths);
+      Object.entries(formData).forEach(([key, value]) => {
+        submitData.append(key, value ?? '');
+      });
 
-        if (storageDeleteError) {
-          console.error('Photo storage delete error:', storageDeleteError);
+      photosToDelete.forEach((photo) => {
+        if (photo.id) {
+          submitData.append('photosToDelete', String(photo.id));
         }
-      }
+      });
 
-      const photoIdsToDelete = photosToDelete.map((photo) => photo.id).filter(Boolean);
+      newPhotos.forEach((file) => {
+        submitData.append('newPhotos', file);
+      });
 
-      if (photoIdsToDelete.length > 0) {
-        const { error: photoDeleteError } = await supabase.from('listing_photos').delete().in('id', photoIdsToDelete);
+      const response = await fetch(`/api/profile/listings/${listingId}`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: submitData,
+      });
 
-        if (photoDeleteError) {
-          console.error('Photo DB delete error:', photoDeleteError);
-          setMessage(photoDeleteError.message || 'Could not delete old photos.');
-          return;
-        }
-      }
-    }
+      const result = await response.json();
 
-    if (newPhotos.length > 0) {
-      const photoRows = [];
-
-      for (let i = 0; i < newPhotos.length; i++) {
-        const file = newPhotos[i];
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${user.id}/${listingId}-edit-${Date.now()}-${i}.${fileExt}`;
-
-        const { error: uploadError } = await supabase.storage.from('listing-photos').upload(fileName, file);
-
-        if (uploadError) {
-          console.error('Photo upload error:', uploadError);
-          setMessage(uploadError.message || 'Photo upload failed.');
-          return;
-        }
-
-        const { data: publicUrlData } = supabase.storage.from('listing-photos').getPublicUrl(fileName);
-
-        photoRows.push({
-          listing_id: listingId,
-          image_url: publicUrlData.publicUrl,
-          sort_order: visiblePhotos.length + i,
-        });
-      }
-
-      const { error: photoInsertError } = await supabase.from('listing_photos').insert(photoRows);
-
-      if (photoInsertError) {
-        console.error('Photo DB insert error:', photoInsertError);
-        setMessage(photoInsertError.message || 'Could not save new photos.');
+      if (!response.ok) {
+        setMessage(result.error || 'Could not save listing. Please try again.');
+        setSaving(false);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
         return;
       }
-    }
 
-    window.location.href = '/profile';
+      setSaving(false);
+      window.location.href = '/profile';
+    } catch (error) {
+      console.error('Listing edit request failed:', error);
+      setMessage('Could not save listing. Please try again.');
+      setSaving(false);
+    }
   };
 
   if (loading) {
@@ -747,7 +599,7 @@ export default function EditListingPage() {
               value={formData.seller_type}
               onChange={handleChange}
               error={errors.seller_type}
-              options={['Private Owner', 'Breeder', 'Shelter / Rescue']}
+              options={['Private Seller', 'Breeder', 'Shelter / Rescue']}
               required
             />
 

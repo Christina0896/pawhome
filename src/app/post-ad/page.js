@@ -6,8 +6,51 @@ import { supabase } from '../../lib/supabaseClient';
 import { counties } from '../../data/countyList';
 import { dogBreeds, catBreeds, otherPetTypes } from '../../data/petOptions';
 import Link from 'next/link';
+import { getVerifiedAccessToken } from '../../lib/authTokens';
 
-const REQUIRE_VERIFICATION_TO_POST = false;
+const REQUIRE_VERIFICATION_TO_POST = true;
+const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
+const IMAGE_EXTENSION_BY_TYPE = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+};
+function cleanText(value, maxLength = 120) {
+  return String(value || '')
+    .replace(/[<>]/g, '')
+    .trim()
+    .slice(0, maxLength);
+}
+
+function cleanPhone(value) {
+  return String(value || '')
+    .replace(/[^\d+\s()-]/g, '')
+    .trim()
+    .slice(0, 30);
+}
+
+function validateImageFile(file) {
+  if (!file) {
+    return 'Invalid image file.';
+  }
+
+  if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+    return 'Only JPG, PNG, and WebP images are allowed.';
+  }
+
+  if (file.name.toLowerCase().endsWith('.svg')) {
+    return 'SVG images are not allowed.';
+  }
+
+  if (file.size > MAX_IMAGE_SIZE_BYTES) {
+    return 'Each photo must be 5 MB or smaller.';
+  }
+
+  return '';
+}
 
 // Custom select component
 function CustomSelect({
@@ -74,12 +117,20 @@ function CustomSelect({
     </div>
   );
 }
+function getSellerTypeFromAccountType(accountType) {
+  if (accountType === 'Breeder') return 'Registered Breeder';
+  if (accountType === 'Shelter / Rescue') return 'Shelter / Rescue';
+
+  return 'Private Seller';
+}
+
 export default function PostAdPage() {
   const fileInputRef = useRef(null);
   const [showAnimalDropdown, setShowAnimalDropdown] = useState(false);
   const [photos, setPhotos] = useState([]);
   const [photoPreviews, setPhotoPreviews] = useState([]);
   const [user, setUser] = useState(null);
+  const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [errors, setErrors] = useState({});
   const [formData, setFormData] = useState({
@@ -133,6 +184,14 @@ export default function PostAdPage() {
   const validateForm = () => {
     const newErrors = {};
 
+    if (!formData.title || formData.title.trim().length < 5) {
+      newErrors.title = 'Please enter a listing title with at least 5 characters.';
+    }
+
+    if (formData.title && formData.title.trim().length > 80) {
+      newErrors.title = 'Listing title cannot be longer than 80 characters.';
+    }
+
     if (!formData.listing_type) {
       newErrors.listing_type = 'Please select an ad type.';
     }
@@ -162,10 +221,6 @@ export default function PostAdPage() {
 
     if (!formData.county) {
       newErrors.county = 'Please select a county.';
-    }
-
-    if (!formData.seller_type) {
-      newErrors.seller_type = 'Please select the seller type.';
     }
 
     if (formData.animal_type === 'Dogs' && !formData.microchipped) {
@@ -216,10 +271,6 @@ export default function PostAdPage() {
       if (!formData.ready_to_leave) {
         newErrors.ready_to_leave = 'Please enter when the litter is ready to leave.';
       }
-
-      if (readyToLeaveTooEarly) {
-        newErrors.ready_to_leave = `This litter is too young to leave. Minimum age is ${minimumLegalAgeWeeks} weeks.`;
-      }
     }
 
     setErrors(newErrors);
@@ -234,25 +285,42 @@ export default function PostAdPage() {
       } = await supabase.auth.getUser();
 
       if (!user) {
-        window.location.href = '/login';
+        window.dispatchEvent(new Event('open-login-modal'));
+        setLoading(false);
         return;
       }
-      const metadata = user.user_metadata || {};
 
-      const emailVerified = Boolean(metadata.email_verified || user.email_confirmed_at);
-      const phoneVerified = Boolean(metadata.phone_verified);
+      const isEmailVerified = Boolean(user.email_confirmed_at || user.confirmed_at);
 
-      if (REQUIRE_VERIFICATION_TO_POST && (!emailVerified || !phoneVerified)) {
-        alert('Please verify your email and phone number before posting an ad.');
+      if (REQUIRE_VERIFICATION_TO_POST && !isEmailVerified) {
+        alert('Please verify your email before posting an ad.');
+        setLoading(false);
+        window.location.href = '/';
         return;
       }
-      const userMetadata = user.user_metadata || {};
 
-      const contactPhone = `${userMetadata.phone_code || ''} ${
-        userMetadata.phone_number || userMetadata.phone || ''
-      }`.trim();
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
 
+      if (profileError || !profileData) {
+        console.error('Profile fetch error:', profileError);
+        alert('Your profile could not be loaded. Please go to your profile and save your details.');
+        setLoading(false);
+        window.location.href = '/profile';
+        return;
+      }
+
+      const sellerType = getSellerTypeFromAccountType(profileData.account_type);
+
+      setProfile(profileData);
       setUser(user);
+      setFormData((current) => ({
+        ...current,
+        seller_type: sellerType,
+      }));
       setLoading(false);
     };
 
@@ -294,29 +362,50 @@ export default function PostAdPage() {
   const breedDropdownRef = useRef(null);
 
   const addPhotos = (files) => {
-    const allowedFiles = files.filter((file) => ['image/jpeg', 'image/png', 'image/webp'].includes(file.type));
+    const validFiles = [];
+    const invalidMessages = [];
 
-    if (allowedFiles.length === 0) return;
+    files.forEach((file) => {
+      const validationError = validateImageFile(file);
+
+      if (validationError) {
+        invalidMessages.push(`${file.name}: ${validationError}`);
+        return;
+      }
+
+      validFiles.push(file);
+    });
+
+    if (invalidMessages.length > 0) {
+      setErrors((prev) => ({
+        ...prev,
+        photos: invalidMessages[0],
+      }));
+    }
+
+    if (validFiles.length === 0) {
+      return;
+    }
 
     setPhotos((prevPhotos) => {
       const remainingSlots = 6 - prevPhotos.length;
-      const filesToAdd = allowedFiles.slice(0, remainingSlots);
+      const filesToAdd = validFiles.slice(0, remainingSlots);
 
       return [...prevPhotos, ...filesToAdd];
     });
 
     setPhotoPreviews((prevPreviews) => {
       const remainingSlots = 6 - prevPreviews.length;
-      const filesToAdd = allowedFiles.slice(0, remainingSlots);
+      const filesToAdd = validFiles.slice(0, remainingSlots);
       const newPreviews = filesToAdd.map((file) => URL.createObjectURL(file));
 
       return [...prevPreviews, ...newPreviews];
     });
 
-    setErrors({
-      ...errors,
+    setErrors((prev) => ({
+      ...prev,
       photos: '',
-    });
+    }));
   };
 
   const handlePhotoChange = (e) => {
@@ -336,6 +425,31 @@ export default function PostAdPage() {
     addPhotos(files);
   };
   const [hasTriedSubmit, setHasTriedSubmit] = useState(false);
+  const notifyAdminAboutNewListing = async (listingId) => {
+    try {
+      const accessToken = await getVerifiedAccessToken({ openLogin: false });
+
+      if (!accessToken) {
+        return;
+      }
+
+      const response = await fetch('/api/notify-new-listing', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ listingId }),
+      });
+
+      if (!response.ok) {
+        console.error('Admin notification failed.');
+      }
+    } catch (error) {
+      console.error('Admin notification request failed.');
+    }
+  };
+
   const handleSubmitListing = async (e) => {
     e.preventDefault();
 
@@ -352,144 +466,62 @@ export default function PostAdPage() {
       return;
     }
 
-    // rest of submit code
+    const accessToken = await getVerifiedAccessToken();
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      window.location.href = '/login';
+    if (!accessToken) {
       return;
     }
-    const userMetadata = user.user_metadata || {};
 
-    const contactPhone = `${userMetadata.phone_code || ''} ${
-      userMetadata.phone_number || userMetadata.phone || ''
-    }`.trim();
-    const sellerMemberSince = user.created_at;
+    const submitData = new FormData();
 
-    if (priceRequired && (!formData.price || Number(formData.price) <= 0)) {
-      setErrors((prev) => ({
-        ...prev,
-        price: 'Price is required.',
-      }));
-      return;
-    }
-    // 1. Insert listing first
-    const { data: listingData, error: listingError } = await supabase
-      .from('listings')
-      .insert({
-        user_id: user.id,
+    Object.entries(formData).forEach(([key, value]) => {
+      submitData.append(key, value ?? '');
+    });
 
-        title: formData.title,
-        animal_type: formData.animal_type,
-        listing_type: formData.listing_type,
-        breed: formData.breed,
+    photos.forEach((file) => {
+      submitData.append('photos', file);
+    });
 
-        age: formData.age,
-        sex: formData.sex,
-
-        county: formData.county,
-        city: formData.city,
-
-        seller_name:
-          `${user.user_metadata?.first_name || ''} ${user.user_metadata?.last_name || ''}`.trim() || 'Seller',
-
-        seller_type: formData.seller_type || 'Private Owner',
-
-        price: formData.price === '' ? null : Number(formData.price),
-        price_negotiable: formData.price_negotiable,
-
-        microchipped: formData.microchipped,
-        vaccinated: formData.vaccinated,
-        wormed: formData.wormed,
-        vet_checked: formData.vet_checked,
-        spayed_neutered: formData.spayed_neutered,
-        health_tested: formData.health_tested,
-        kennel_club_registered: formData.kc_registered,
-        breeding_rights: formData.breedingRights,
-
-        litter_size: formData.litter_size || null,
-        available_litter_count: formData.available_litter_count || null,
-        male_count: formData.sex === 'Mixed Litter' ? Number(formData.male_count || 0) : 0,
-
-        female_count: formData.sex === 'Mixed Litter' ? Number(formData.female_count || 0) : 0,
-
-        date_of_birth: formData.date_of_birth || null,
-        ready_to_leave: formData.ready_to_leave || null,
-        mother_can_be_seen: formData.mother_can_be_seen || null,
-
-        registration_number: formData.registrationNumber,
-        organisation_name: formData.organisationName,
-
-        seller_member_since: user.created_at,
-        contact_phone: contactPhone,
-
-        description: formData.description,
-        status: 'pending',
-      })
-      .select()
-      .single();
-
-    if (listingError) {
-      console.error('Listing insert error full:', listingError);
-      console.error('Message:', listingError.message);
-      console.error('Details:', listingError.details);
-      console.error('Hint:', listingError.hint);
-      console.error('Code:', listingError.code);
-
-      setErrors({
-        submit: listingError.message || listingError.details || 'Could not submit listing. Please try again.',
+    try {
+      const response = await fetch('/api/listings/create', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: submitData,
       });
 
-      return;
-    }
+      const result = await response.json();
 
-    // 2. Upload photos
-    if (photos.length > 0) {
-      const photoRows = [];
-
-      for (let i = 0; i < photos.length; i++) {
-        const file = photos[i];
-
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${user.id}/${listingData.id}-${i}-${Date.now()}.${fileExt}`;
-
-        const { error: uploadError } = await supabase.storage.from('listing-photos').upload(fileName, file);
-
-        if (uploadError) {
-          console.error('Photo upload error:', uploadError);
-          setErrors({ submit: 'Listing was created, but photo upload failed.' });
-          return;
-        }
-
-        const { data: publicUrlData } = supabase.storage.from('listing-photos').getPublicUrl(fileName);
-
-        photoRows.push({
-          listing_id: listingData.id,
-          image_url: publicUrlData.publicUrl,
-          sort_order: i,
-        });
-      }
-      const sellerName = `${user.user_metadata?.first_name || ''} ${user.user_metadata?.last_name || ''}`.trim();
-
-      // 3. Save photo URLs into listing_photos table
-
-      const { error: photoDbError } = await supabase.from('listing_photos').insert(photoRows);
-
-      if (photoDbError) {
-        console.error('Photo DB insert error:', photoDbError);
+      if (!response.ok) {
         setErrors({
-          submit: 'Listing was created, but photo records could not be saved.',
+          submit: result.error || 'Could not submit listing. Please check your details and try again.',
         });
+
+        window.scrollTo({
+          top: 0,
+          behavior: 'smooth',
+        });
+
         return;
       }
 
+      await notifyAdminAboutNewListing(result.listing.id);
+
       window.location.href = '/post-ad/success';
+    } catch (error) {
+      console.error('Listing create request failed:', error);
+
+      setErrors({
+        submit: 'Could not submit listing. Please try again.',
+      });
+
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth',
+      });
     }
   };
-
   if (loading) {
     return (
       <div className="min-h-screen bg-[#FAF6EC]">
@@ -899,34 +931,6 @@ export default function PostAdPage() {
                   }`}
                 />
               </div>
-
-              {/* Seller Type */}
-              <CustomSelect
-                id="seller_type"
-                label="Seller Type"
-                required
-                value={formData.seller_type}
-                placeholder="Select seller type"
-                error={errors.seller_type}
-                openDropdown={openDropdown}
-                setOpenDropdown={setOpenDropdown}
-                options={[
-                  { label: 'Private Owner', value: 'Private Owner' },
-                  { label: 'Breeder', value: 'Breeder' },
-                  { label: 'Shelter / Rescue', value: 'Shelter / Rescue' },
-                ]}
-                onChange={(value) => {
-                  setFormData({
-                    ...formData,
-                    seller_type: value,
-                  });
-
-                  setErrors({
-                    ...errors,
-                    seller_type: '',
-                  });
-                }}
-              />
 
               {/* Price */}
               <div>
@@ -1404,7 +1408,7 @@ export default function PostAdPage() {
                       />
 
                       {minimumReadyToLeaveDate && (
-                        <p className="mt-1 text-xs font-semibold text-(--muted-green-text)">
+                        <p className="mt-1 text-xs font-semibold text-red-600">
                           Minimum legal ready date: {minimumReadyToLeaveDate}
                         </p>
                       )}
