@@ -1,4 +1,5 @@
 import { counties } from '../data/countyList';
+import { breedGuides } from '../data/breedGuides';
 import { dogBreeds, catBreeds, otherPetTypes } from '../data/petOptions';
 import { getSupabaseServerClient } from '../lib/supabaseServer';
 
@@ -116,6 +117,15 @@ function buildSeoLandingRoutes() {
   }));
 }
 
+function buildBreedGuideRoutes() {
+  return Object.keys(breedGuides).map((slug) => ({
+    url: `${siteUrl}/breed-guide/${slug}`,
+    lastModified: new Date(),
+    changeFrequency: 'monthly',
+    priority: 0.76,
+  }));
+}
+
 export default async function sitemap() {
   const staticRoutes = [
     { url: siteUrl, changeFrequency: 'daily', priority: 1 },
@@ -132,9 +142,10 @@ export default async function sitemap() {
   }));
 
   const seoLandingRoutes = buildSeoLandingRoutes();
+  const breedGuideRoutes = buildBreedGuideRoutes();
   const supabase = getSupabaseServerClient();
 
-  if (!supabase) return [...staticRoutes, ...seoLandingRoutes];
+  if (!supabase) return [...staticRoutes, ...breedGuideRoutes, ...seoLandingRoutes];
 
   const { data: listings } = await supabase
     .from('listings')
@@ -150,5 +161,5 @@ export default async function sitemap() {
     priority: 0.8,
   }));
 
-  return [...staticRoutes, ...seoLandingRoutes, ...listingRoutes];
+  return [...staticRoutes, ...breedGuideRoutes, ...seoLandingRoutes, ...listingRoutes];
 }
