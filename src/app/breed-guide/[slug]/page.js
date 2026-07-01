@@ -6,8 +6,13 @@ export function generateStaticParams() {
   return Object.keys(breedGuides).map((slug) => ({ slug }));
 }
 
-export function generateMetadata({ params }) {
-  const guide = getBreedGuide(params.slug);
+async function resolveParams(params) {
+  return typeof params?.then === 'function' ? await params : params;
+}
+
+export async function generateMetadata({ params }) {
+  const resolvedParams = await resolveParams(params);
+  const guide = getBreedGuide(resolvedParams?.slug);
 
   if (!guide) return {};
 
@@ -27,8 +32,9 @@ export function generateMetadata({ params }) {
   };
 }
 
-export default function BreedGuideDetailPage({ params }) {
-  const guide = getBreedGuide(params.slug);
+export default async function BreedGuideDetailPage({ params }) {
+  const resolvedParams = await resolveParams(params);
+  const guide = getBreedGuide(resolvedParams?.slug);
 
   if (!guide) notFound();
 
