@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import Header from './header';
 import Footer from './footer';
@@ -60,14 +61,22 @@ function CheckList({ items }) {
   );
 }
 
-function DogColourCard({ item, large = false }) {
+function DogColourCard({ item, breedName, large = false }) {
+  const imageAlt = item.alt || `${breedName} ${item.label}`;
+
   return (
     <div className={`overflow-hidden rounded-xl border border-(--border-beige) bg-white shadow-sm ${large ? 'row-span-2' : ''}`}>
-      <div className={`relative flex ${large ? 'h-[250px]' : 'h-[104px]'} items-center justify-center bg-gradient-to-br ${item.tone}`}>
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.8),transparent_28%),radial-gradient(circle_at_75%_80%,rgba(14,79,42,0.15),transparent_35%)]" />
-        <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-white/75 text-(--primary-green) shadow-sm">
-          <PawIcon className="h-9 w-9" />
-        </div>
+      <div className={`relative flex ${large ? 'h-[250px]' : 'h-[104px]'} items-center justify-center bg-gradient-to-br ${item.tone || 'from-(--light-green) to-white'}`}>
+        {item.image ? (
+          <Image src={item.image} alt={imageAlt} fill sizes={large ? '420px' : '220px'} className="object-cover" />
+        ) : (
+          <>
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.8),transparent_28%),radial-gradient(circle_at_75%_80%,rgba(14,79,42,0.15),transparent_35%)]" />
+            <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-white/75 text-(--primary-green) shadow-sm">
+              <PawIcon className="h-9 w-9" />
+            </div>
+          </>
+        )}
       </div>
       <p className="px-3 py-2 text-center text-xs font-extrabold text-(--primary-green)">{item.label}</p>
     </div>
@@ -126,11 +135,17 @@ export default function BreedGuideTemplate({ guide }) {
                 </div>
 
                 <div className="relative flex min-h-[280px] items-center justify-center bg-gradient-to-br from-slate-300 via-stone-100 to-orange-100 text-(--primary-green)">
-                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.75),transparent_28%),radial-gradient(circle_at_78%_82%,rgba(14,79,42,0.2),transparent_36%)]" />
-                  <div className="relative max-w-[260px] rounded-2xl bg-white/75 p-5 text-center shadow-sm backdrop-blur">
-                    <PawIcon className="mx-auto h-16 w-16" />
-                    <p className="mt-3 text-sm font-bold leading-6 text-(--primary-green)">{guide.heroNote}</p>
-                  </div>
+                  {guide.heroImage ? (
+                    <Image src={guide.heroImage} alt={`${guide.name} dog`} fill priority sizes="420px" className="object-cover" />
+                  ) : (
+                    <>
+                      <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.75),transparent_28%),radial-gradient(circle_at_78%_82%,rgba(14,79,42,0.2),transparent_36%)]" />
+                      <div className="relative max-w-[260px] rounded-2xl bg-white/75 p-5 text-center shadow-sm backdrop-blur">
+                        <PawIcon className="mx-auto h-16 w-16" />
+                        <p className="mt-3 text-sm font-bold leading-6 text-(--primary-green)">{guide.heroNote}</p>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -151,10 +166,10 @@ export default function BreedGuideTemplate({ guide }) {
                 <GalleryIcon className="h-6 w-6 text-(--primary-green)" />
               </div>
               <div className="grid gap-4 md:grid-cols-[1.35fr_1fr]">
-                <DogColourCard item={guide.gallery[0]} large />
+                <DogColourCard item={guide.gallery[0]} breedName={guide.name} large />
                 <div className="grid grid-cols-2 gap-4">
                   {guide.gallery.slice(1).map((item) => (
-                    <DogColourCard key={item.label} item={item} />
+                    <DogColourCard key={item.label} item={item} breedName={guide.name} />
                   ))}
                 </div>
               </div>
