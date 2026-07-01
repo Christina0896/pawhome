@@ -74,7 +74,7 @@ const Header = () => {
               Shelters
             </Link>
 
-            <Link href="/breed" className="inline-block transition duration-200 hover:scale-110 ">
+            <Link href="/breed-guide" className="inline-block transition duration-200 hover:scale-110 ">
               Breed Guide
             </Link>
 
@@ -176,7 +176,7 @@ const Header = () => {
                 Shelters
               </Link>
 
-              <Link href="/breed" onClick={() => setMobileMenuOpen(false)} className="">
+              <Link href="/breed-guide" onClick={() => setMobileMenuOpen(false)} className="">
                 Breed Guide
               </Link>
 
