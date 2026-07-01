@@ -1,7 +1,18 @@
 import Link from 'next/link';
 import Header from '../../../components/header';
 import Footer from '../../../components/footer';
-import { CalendarIcon, HealthIcon, LocationIcon, PawIcon, ShieldCheckIcon, VetIcon } from '../../../components/Icons';
+import {
+  AgeIcon,
+  BreedIcon,
+  CalendarIcon,
+  GroupIcon,
+  HealthIcon,
+  LitterIcon,
+  LocationIcon,
+  PawIcon,
+  ShieldCheckIcon,
+  VetIcon,
+} from '../../../components/Icons';
 
 export const metadata = {
   title: 'Australian Shepherd Guide Ireland | Temperament, Care & Listings | PawHome',
@@ -21,49 +32,49 @@ export const metadata = {
 };
 
 const quickFacts = [
-  ['Size', 'Medium'],
-  ['Lifespan', '12 - 15 years'],
-  ['Family Friendly', 'Yes'],
-  ['Good with Pets', 'Usually'],
-  ['Exercise Needs', 'Very High'],
-  ['Grooming Needs', 'Medium'],
-  ['Experience', 'Intermediate'],
+  ['Size', 'Medium', BreedIcon],
+  ['Lifespan', '12 - 15 years', CalendarIcon],
+  ['Family Friendly', 'Yes', GroupIcon],
+  ['Good with Pets', 'Usually', PawIcon],
+  ['Exercise Needs', 'Very High', AgeIcon],
+  ['Grooming Needs', 'Medium', HealthIcon],
+  ['Experience', 'Intermediate', VetIcon],
 ];
 
 const sections = [
   {
     title: 'Temperament',
-    icon: '☺',
+    iconName: 'temperament',
     items: ['Intelligent and eager to learn', 'Energetic and work-driven', 'Loyal with their family', 'Can be sensitive and alert'],
     text: 'Australian Shepherds are usually clever, active dogs that bond closely with their owners. They often need structure, training and daily mental stimulation.',
   },
   {
     title: 'Size & Appearance',
-    icon: '🐕',
+    iconName: 'size',
     items: ['Male: about 51 - 58 cm', 'Female: about 46 - 53 cm', 'Athletic medium-sized build', 'Coat colours can include black, red, blue merle and red merle'],
     text: 'They have a double coat, expressive eyes and an athletic body. Some Australian Shepherds may have striking merle patterns or different coloured eyes.',
   },
   {
     title: 'Exercise & Enrichment',
-    icon: '➜',
+    iconName: 'exercise',
     items: ['Needs 1.5 - 2+ hours of activity daily', 'Enjoys training and games', 'Benefits from puzzle feeders and scent work', 'Can become restless without enough stimulation'],
     text: 'This breed is best suited to active owners who can provide exercise, training, social time and jobs to do.',
   },
   {
     title: 'Grooming & Care',
-    icon: '✂',
+    iconName: 'grooming',
     items: ['Brush several times per week', 'More brushing during shedding periods', 'Check ears and paws regularly', 'Nail trimming and dental care are important'],
     text: 'Australian Shepherds have a medium-length double coat that sheds. Regular brushing helps reduce matting and keeps the coat healthy.',
   },
   {
     title: 'Health Considerations',
-    icon: '♡',
+    iconName: 'health',
     items: ['Hip and elbow issues', 'Eye conditions', 'MDR1 drug sensitivity can occur', 'Epilepsy can occur in the breed', 'Weight and joint care are important'],
     text: 'Ask about health testing, vet checks, vaccination, microchip details and any known hereditary issues before buying or adopting.',
   },
   {
     title: 'Suitability',
-    icon: '⌂',
+    iconName: 'suitability',
     items: ['May suit active families', 'Good for owners who enjoy training', 'Best with time, space and routine', 'May not suit homes where the dog is left alone all day'],
     text: 'Australian Shepherds are not usually low-maintenance dogs. They need a household that can provide consistent exercise, attention and training.',
   },
@@ -103,12 +114,25 @@ const faqSchema = {
   })),
 };
 
+function SectionIcon({ name }) {
+  const className = 'h-6 w-6 text-(--primary-green)';
+
+  if (name === 'temperament') return <GroupIcon className={className} />;
+  if (name === 'size') return <BreedIcon className={className} />;
+  if (name === 'exercise') return <AgeIcon className={className} />;
+  if (name === 'grooming') return <HealthIcon className={className} />;
+  if (name === 'health') return <VetIcon className={className} />;
+  if (name === 'suitability') return <LocationIcon className={className} />;
+
+  return <PawIcon className={className} />;
+}
+
 function CheckList({ items }) {
   return (
     <ul className="mt-4 space-y-2 text-sm leading-6 text-(--secondary-green)">
       {items.map((item) => (
         <li key={item} className="flex gap-2">
-          <span className="font-black text-(--primary-green)">✓</span>
+          <ShieldCheckIcon className="mt-1 h-3.5 w-3.5 shrink-0 text-(--primary-green)" />
           <span>{item}</span>
         </li>
       ))}
@@ -153,9 +177,9 @@ export default function AustralianShepherdGuidePage() {
               </div>
 
               <div className="grid grid-cols-2 gap-0 border-t border-(--border-beige) bg-white sm:grid-cols-3 lg:grid-cols-7">
-                {quickFacts.map(([label, value]) => (
+                {quickFacts.map(([label, value, Icon]) => (
                   <div key={label} className="border-b border-r border-(--border-beige) px-4 py-4 text-center last:border-r-0 lg:border-b-0">
-                    <PawIcon className="mx-auto h-5 w-5 text-(--primary-green)" />
+                    <Icon className="mx-auto h-5 w-5 text-(--primary-green)" />
                     <p className="mt-2 text-xs font-bold text-(--muted-green-text)">{label}</p>
                     <p className="mt-1 text-xs font-extrabold text-(--primary-green)">{value}</p>
                   </div>
@@ -175,7 +199,7 @@ export default function AustralianShepherdGuidePage() {
                 <article key={section.title} className="rounded-2xl border border-(--border-beige) bg-white p-5 shadow-sm">
                   <div className="flex items-start justify-between gap-4">
                     <h2 className="text-xl font-extrabold text-(--primary-green)">{section.title}</h2>
-                    <span className="text-2xl text-(--primary-green)">{section.icon}</span>
+                    <SectionIcon name={section.iconName} />
                   </div>
                   <CheckList items={section.items} />
                   <p className="mt-4 text-sm leading-7 text-(--secondary-green)">{section.text}</p>
@@ -187,14 +211,14 @@ export default function AustralianShepherdGuidePage() {
               <h2 className="text-2xl font-extrabold text-(--primary-green)">Costs in Ireland (Estimated)</h2>
               <div className="mt-6 grid gap-4 text-center sm:grid-cols-2 lg:grid-cols-5">
                 {[
-                  ['Purchase/Adoption', '€800 - €2,500+'],
-                  ['Food', '€45 - €90 / month'],
-                  ['Vet Care', '€300 - €700 / year'],
-                  ['Insurance', '€20 - €50 / month'],
-                  ['Equipment', '€150 - €350'],
-                ].map(([label, value]) => (
+                  ['Purchase/Adoption', '€800 - €2,500+', PawIcon],
+                  ['Food', '€45 - €90 / month', LitterIcon],
+                  ['Vet Care', '€300 - €700 / year', VetIcon],
+                  ['Insurance', '€20 - €50 / month', ShieldCheckIcon],
+                  ['Equipment', '€150 - €350', CalendarIcon],
+                ].map(([label, value, Icon]) => (
                   <div key={label} className="rounded-xl border border-(--border-beige) bg-(--background) px-3 py-4">
-                    <VetIcon />
+                    <Icon className="mx-auto h-4 w-4 text-(--primary-green)" />
                     <p className="mt-2 text-xs font-bold text-(--muted-green-text)">{label}</p>
                     <p className="mt-1 text-sm font-extrabold text-(--primary-green)">{value}</p>
                   </div>
@@ -239,7 +263,7 @@ export default function AustralianShepherdGuidePage() {
                     <details key={question} className="group py-3">
                       <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-sm font-extrabold text-(--primary-green)">
                         {question}
-                        <span className="text-lg">+</span>
+                        <PawIcon className="h-3.5 w-3.5 shrink-0 text-(--primary-green)" />
                       </summary>
                       <p className="mt-3 text-sm leading-7 text-(--secondary-green)">{answer}</p>
                     </details>
