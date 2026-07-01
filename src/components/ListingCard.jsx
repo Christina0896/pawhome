@@ -2,8 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import AnimalTypeIcon from './AnimalTypeIcon';
-import { CalendarIcon, FemaleIcon, HeartIcon, LocationIcon, MaleIcon, MixedGenderIcon, PawIcon } from './Icons';
+import { AnimalTypeIcon, CalendarIcon, FemaleIcon, HeartIcon, LocationIcon, MaleIcon, MixedGenderIcon, PawIcon } from './Icons';
 
 function formatDate(date) {
   if (!date) return 'recently';
