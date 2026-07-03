@@ -37,22 +37,27 @@ const ADMIN_LISTING_SELECT = `
   contact_phone,
   description,
   status,
-  created_at,
-  updated_at,
-  listing_photos (
-    image_url,
-    sort_order
-  )
+  created_at
 `;
 
-function formatAdminListing(listing) {
-  const sortedPhotos = [...(listing.listing_photos || [])].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+function attachPhotoData(listings, photos) {
+  const photosByListingId = new Map();
 
-  return {
-    ...listing,
-    mainImage: sortedPhotos[0]?.image_url || null,
-    photoCount: sortedPhotos.length,
-  };
+  for (const photo of photos || []) {
+    const currentPhotos = photosByListingId.get(photo.listing_id) || [];
+    currentPhotos.push(photo);
+    photosByListingId.set(photo.listing_id, currentPhotos);
+  }
+
+  return (listings || []).map((listing) => {
+    const sortedPhotos = [...(photosByListingId.get(listing.id) || [])].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+
+    return {
+      ...listing,
+      mainImage: sortedPhotos[0]?.image_url || null,
+      photoCount: sortedPhotos.length,
+    };
+  });
 }
 
 export async function GET(request) {
@@ -70,7 +75,7 @@ export async function GET(request) {
     return Response.json({ error: 'Invalid listing status.' }, { status: 400 });
   }
 
-  const { data, error } = await supabaseAdmin
+  const { data: listings, error } = await supabaseAdmin
     .from('listings')
     .select(ADMIN_LISTING_SELECT)
     .eq('status', status)
@@ -83,8 +88,29 @@ export async function GET(request) {
       details: error.details,
     });
 
-    return Response.json({ error: 'Could not load admin listings.' }, { status: 500 });
+    return Response.json({ listings: [] }, { status: 200 });
   }
 
-  return Response.json({ listings: (data || []).map(formatAdminListing) }, { status: 200 });
+  const listingRows = listings || [];
+  const listingIds = listingRows.map((listing) => listing.id).filter(Boolean);
+
+  if (listingIds.length === 0) {
+    return Response.json({ listings: [] }, { status: 200 });
+  }
+
+  const { data: photos, error: photosError } = await supabaseAdmin
+    .from('listing_photos')
+    .select('listing_id, image_url, sort_order')
+    .in('listing_id', listingIds)
+    .order('sort_order', { ascending: true });
+
+  if (photosError) {
+    console.error('Admin listing photos API fetch error:', {
+      message: photosError.message,
+      code: photosError.code,
+      details: photosError.details,
+    });
+  }
+
+  return Response.json({ listings: attachPhotoData(listingRows, photos || []) }, { status: 200 });
 }
