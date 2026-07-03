@@ -15,20 +15,19 @@ function getAllowedOrigins(request) {
 
   addOrigin(allowedOrigins, process.env.NEXT_PUBLIC_SITE_URL);
 
-  const host = request.headers.get('host');
-
-  if (host) {
-    allowedOrigins.add(`https://${host}`);
-
-    if (process.env.NODE_ENV !== 'production') {
-      allowedOrigins.add(`http://${host}`);
-    }
-  }
-
   const vercelUrl = process.env.VERCEL_URL;
 
   if (vercelUrl) {
-    allowedOrigins.add(`https://${vercelUrl}`);
+    addOrigin(allowedOrigins, `https://${vercelUrl}`);
+  }
+
+  if (process.env.NODE_ENV !== 'production') {
+    const host = request.headers.get('host');
+
+    if (host) {
+      addOrigin(allowedOrigins, `http://${host}`);
+      addOrigin(allowedOrigins, `https://${host}`);
+    }
   }
 
   return allowedOrigins;
@@ -56,6 +55,10 @@ export function requireSameOrigin(request) {
   }
 
   const allowedOrigins = getAllowedOrigins(request);
+
+  if (allowedOrigins.size === 0) {
+    return Response.json({ error: 'Allowed site origin is not configured.' }, { status: 500 });
+  }
 
   if (!allowedOrigins.has(originValue)) {
     return Response.json({ error: 'Invalid request origin.' }, { status: 403 });
