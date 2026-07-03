@@ -8,8 +8,12 @@ import Footer from '../../components/footer';
 import { PawIcon, ShieldCheckIcon } from '../../components/Icons';
 import { supabase } from '../../lib/supabaseClient';
 import { getVerifiedAccessToken } from '../../lib/authTokens';
+import ProfileAvatarControl from './ProfileAvatarControl';
+import ProfileListingCard from './ProfileListingCard';
 
 const PROFILE_TIMEOUT_MS = 7000;
+const ALLOWED_AVATAR_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const MAX_AVATAR_SIZE = 2 * 1024 * 1024;
 
 function getDefaultProfile() {
   return {
@@ -35,12 +39,6 @@ async function fetchJsonWithTimeout(url, options = {}, timeoutMs = PROFILE_TIMEO
   } finally {
     clearTimeout(timeout);
   }
-}
-
-function getStatusClass(status) {
-  if (status === 'approved') return 'bg-green-100 text-green-700';
-  if (status === 'rejected') return 'bg-red-100 text-red-700';
-  return 'bg-orange-100 text-orange-700';
 }
 
 function VerifiedBadge() {
@@ -70,6 +68,7 @@ export default function ProfilePageClient() {
   const [profileError, setProfileError] = useState('');
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileMessage, setProfileMessage] = useState('');
+  const [avatarUploading, setAvatarUploading] = useState(false);
   const [phoneCodeSent, setPhoneCodeSent] = useState(false);
   const [phoneVerificationCode, setPhoneVerificationCode] = useState('');
   const [phoneVerificationMessage, setPhoneVerificationMessage] = useState('');
@@ -87,7 +86,7 @@ export default function ProfilePageClient() {
 
   const applyProfileData = (profileData, userData) => {
     const safeProfile = profileData || getDefaultProfile();
-    setUser(userData);
+    setUser(userData || user);
     setProfile(safeProfile);
     setProfileForm({
       first_name: safeProfile.first_name || '',
@@ -179,6 +178,81 @@ export default function ProfilePageClient() {
       setPhoneCodeSent(false);
       setPhoneVerificationCode('');
       setPhoneVerificationMessage('Save your phone number before verifying it.');
+    }
+  };
+
+  const handleAvatarUpload = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+
+    if (!file) return;
+
+    if (!ALLOWED_AVATAR_TYPES.includes(file.type)) {
+      setProfileMessage('Please upload a JPG, PNG, or WEBP image.');
+      return;
+    }
+
+    if (file.size > MAX_AVATAR_SIZE) {
+      setProfileMessage('Profile picture must be 2 MB or smaller.');
+      return;
+    }
+
+    setAvatarUploading(true);
+    setProfileMessage('');
+
+    try {
+      const accessToken = await getVerifiedAccessToken();
+      if (!accessToken) return;
+
+      const formData = new FormData();
+      formData.append('avatar', file);
+
+      const { response, data } = await fetchJsonWithTimeout('/api/profile/avatar', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}` },
+        body: formData,
+      }, 12000);
+
+      if (!response.ok) {
+        setProfileMessage(data.error || 'Could not upload profile picture.');
+        return;
+      }
+
+      applyProfileData(data.profile, user);
+      setProfileMessage('Profile picture updated.');
+    } catch (error) {
+      console.error('Avatar upload failed:', error);
+      setProfileMessage(error?.name === 'AbortError' ? 'Profile picture upload timed out.' : 'Could not upload profile picture.');
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    setAvatarUploading(true);
+    setProfileMessage('');
+
+    try {
+      const accessToken = await getVerifiedAccessToken();
+      if (!accessToken) return;
+
+      const { response, data } = await fetchJsonWithTimeout('/api/profile/avatar', {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+
+      if (!response.ok) {
+        setProfileMessage(data.error || 'Could not remove profile picture.');
+        return;
+      }
+
+      applyProfileData(data.profile, user);
+      setProfileMessage('Profile picture removed.');
+    } catch (error) {
+      console.error('Avatar remove failed:', error);
+      setProfileMessage(error?.name === 'AbortError' ? 'Remove profile picture timed out.' : 'Could not remove profile picture.');
+    } finally {
+      setAvatarUploading(false);
     }
   };
 
@@ -367,9 +441,9 @@ export default function ProfilePageClient() {
         ) : (
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-[380px_1fr]">
             <aside className="h-fit rounded-3xl border border-(--border-beige) bg-white p-6 shadow-sm lg:sticky lg:top-24">
-              <div className="text-center">
-                <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-(--light-green) text-4xl font-extrabold text-(--primary-green)">{fullName.charAt(0).toUpperCase()}</div>
-                <h2 className="mt-5 text-2xl font-extrabold text-(--secondary-green)">{fullName}</h2>
+              <ProfileAvatarControl profile={profile} fullName={fullName} uploading={avatarUploading} onUpload={handleAvatarUpload} onRemove={handleRemoveAvatar} />
+              <div className="mt-5 text-center">
+                <h2 className="text-2xl font-extrabold text-(--secondary-green)">{fullName}</h2>
                 <p className="mt-1 break-all text-sm text-(--muted-green-text)">{user?.email}</p>
               </div>
 
@@ -437,7 +511,7 @@ export default function ProfilePageClient() {
 
                 <ProfileField label="County" name="county" value={profileForm.county} onChange={handleProfileFormChange} placeholder="Westmeath" />
                 <ProfileField label="New Password" name="password" type="password" value={profileForm.password} onChange={handleProfileFormChange} placeholder="Leave empty to keep current password" />
-                {profileMessage && <p className={`text-sm font-bold ${profileMessage === 'Settings saved.' ? 'text-green-700' : 'text-red-600'}`}>{profileMessage}</p>}
+                {profileMessage && <p className={`text-sm font-bold ${profileMessage === 'Settings saved.' || profileMessage.includes('updated') || profileMessage.includes('removed') ? 'text-green-700' : 'text-red-600'}`}>{profileMessage}</p>}
                 <button type="submit" disabled={profileSaving} className="flex h-12 w-full items-center justify-center rounded-xl bg-(--primary-green) text-sm font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-60">{profileSaving ? 'Saving...' : 'Save Settings'}</button>
               </form>
             </aside>
@@ -446,7 +520,7 @@ export default function ProfilePageClient() {
               <div className="flex flex-col justify-between gap-4 border-b border-(--border-beige) pb-6 sm:flex-row sm:items-center">
                 <div>
                   <h2 className="text-2xl font-extrabold text-(--secondary-green)">My Listings</h2>
-                  <p className="mt-1 text-sm text-(--muted-green-text)">{loadingListings ? 'Loading listings...' : 'View, edit, or delete your submitted ads.'}</p>
+                  <p className="mt-1 text-sm text-(--muted-green-text)">{loadingListings ? 'Loading listings...' : 'View, edit, preview, or delete your submitted ads.'}</p>
                 </div>
                 <Link href="/post-ad" className="inline-flex items-center justify-center rounded-xl bg-(--primary-orange) px-5 py-3 text-sm font-bold text-white">Post new ad</Link>
               </div>
@@ -455,14 +529,7 @@ export default function ProfilePageClient() {
                 <div className="mt-6 rounded-2xl border border-dashed border-(--border-beige) bg-(--background) p-8 text-center"><PawIcon className="mx-auto h-10 w-10 text-(--muted-green-text)" /><h3 className="mt-3 text-lg font-extrabold text-(--secondary-green)">No listings yet</h3><p className="mt-1 text-sm text-(--muted-green-text)">Your submitted ads will appear here.</p></div>
               ) : (
                 <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-                  {myListings.map((listing) => (
-                    <article key={listing.id} className="rounded-2xl border border-(--border-beige) bg-(--background) p-4">
-                      <div className="flex items-start justify-between gap-3"><h3 className="line-clamp-2 text-base font-extrabold text-(--secondary-green)">{listing.title}</h3><span className={`rounded-full px-2 py-1 text-xs font-extrabold ${getStatusClass(listing.status)}`}>{listing.status || 'pending'}</span></div>
-                      <p className="mt-3 text-sm font-bold text-(--primary-green)">€{listing.price || 'Contact'}</p>
-                      <p className="mt-1 text-xs font-semibold text-(--muted-green-text)">{listing.breed} · {listing.county}</p>
-                      <button type="button" onClick={() => handleDeleteListing(listing.id)} className="mt-4 w-full rounded-xl border border-red-100 bg-white px-3 py-2 text-xs font-bold text-red-600 transition hover:bg-red-50">Delete listing</button>
-                    </article>
-                  ))}
+                  {myListings.map((listing) => <ProfileListingCard key={listing.id} listing={listing} onDelete={handleDeleteListing} />)}
                 </div>
               )}
             </section>
