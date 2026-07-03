@@ -19,6 +19,11 @@ export async function POST(request) {
   }
 
   const { user } = auth;
+  const emailVerified = Boolean(user.email_confirmed_at || user.confirmed_at);
+
+  if (!emailVerified) {
+    return Response.json({ error: 'Please verify your email address before verifying your phone number.' }, { status: 403 });
+  }
 
   try {
     const { data: profile, error: profileError } = await supabaseAdmin
