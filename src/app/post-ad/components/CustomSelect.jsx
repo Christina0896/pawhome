@@ -13,32 +13,27 @@ export default function CustomSelect({
   onChange,
 }) {
   const open = openDropdown === id;
+  const hasLabelArea = label !== '' || required || error;
 
   return (
     <div className="relative w-full data-dropdown-root">
-      <div className="min-h-[38px]">
-        <label className="block text-sm font-semibold text-(--secondary-green)">
-          {label} {required && <span className="text-(--primary-orange)">*</span>}
-        </label>
-
-        <p className="min-h-[16px] text-xs text-red-500">{error || ''}</p>
-      </div>
+      {hasLabelArea && (
+        <div className="min-h-[38px]">
+          <label className="block text-sm font-semibold text-(--secondary-green)">
+            {label} {required && <span className="text-(--primary-orange)">*</span>}
+          </label>
+          <p className="min-h-[16px] text-xs text-red-500">{error || ''}</p>
+        </div>
+      )}
 
       <button
         type="button"
         onClick={() => setOpenDropdown(open ? null : id)}
-        className={`flex h-[45px] w-full items-center justify-between rounded-xl border bg-white px-4 text-left text-sm outline-none ring-0 transition focus:outline-none focus:ring-0 ${
-          error
-            ? 'border-red-400'
-            : open
-              ? 'border-(--primary-green)'
-              : 'border-(--border-beige) hover:border-(--primary-green)'
-        }`}
+        className={`flex h-[45px] w-full items-center justify-between rounded-xl border bg-white px-4 text-left text-sm outline-none ring-0 transition focus:outline-none focus:ring-0 ${error ? 'border-red-400' : open ? 'border-(--primary-green)' : 'border-(--border-beige) hover:border-(--primary-green)'}`}
       >
         <span className={`block truncate ${value ? 'text-(--secondary-green)' : 'text-(--muted-green-text)'}`}>
           {value || placeholder}
         </span>
-
         <ArrowIcon className={`ml-3 h-3.5 w-3.5 shrink-0 transition-transform ${open ? '-rotate-90' : 'rotate-90'}`} />
       </button>
 
