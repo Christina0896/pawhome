@@ -1,3 +1,5 @@
+import { Buffer } from 'node:buffer';
+
 const TWILIO_VERIFY_BASE_URL = 'https://verify.twilio.com/v2';
 
 function getTwilioConfig() {
