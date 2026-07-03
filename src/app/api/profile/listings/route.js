@@ -41,7 +41,8 @@ export async function GET(request) {
     .from('listings')
     .select(PROFILE_LISTING_SELECT)
     .eq('user_id', user.id)
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .limit(12);
 
   if (error) {
     console.error('Profile listings API fetch error:', {
@@ -77,9 +78,13 @@ export async function GET(request) {
   const photosByListingId = new Map();
 
   for (const photo of photos || []) {
-    const currentPhotos = photosByListingId.get(photo.listing_id) || [];
-    currentPhotos.push(photo);
-    photosByListingId.set(photo.listing_id, currentPhotos);
+    if (!photosByListingId.has(photo.listing_id)) {
+      photosByListingId.set(photo.listing_id, []);
+    }
+
+    if (photosByListingId.get(photo.listing_id).length < 1) {
+      photosByListingId.get(photo.listing_id).push(photo);
+    }
   }
 
   const listingsWithPhotos = listingRows.map((listing) => ({
