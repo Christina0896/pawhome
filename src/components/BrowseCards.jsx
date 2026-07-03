@@ -63,18 +63,22 @@ const BrowseCards = () => {
 
   return (
     <div className="mx-auto max-w-[var(--page-max-width)] px-4 pb-2">
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.35fr_1fr_1fr]">
-        <BrowseCard variant="green" icon={<LocationIcon className="h-9 w-9" />} iconTone="muted">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
+        <div className="flex min-h-[178px] items-center gap-6 rounded-2xl border border-(--border-beige) bg-[#F2F3EC] px-8 py-6 shadow-[0_6px_18px_rgba(18,53,36,0.06)] lg:col-span-2">
+          <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-[#DDE6D0] text-[#6F806F]">
+            <LocationIcon className="h-11 w-11" />
+          </div>
+
           <div className="min-w-0 flex-1">
             <h3 className="text-lg font-extrabold text-(--secondary-green)">Browse by County</h3>
 
-            <div className="mt-3 grid grid-cols-2 gap-x-8 gap-y-2 text-[12px] font-semibold text-(--secondary-green) sm:grid-cols-3">
+            <div className="mt-4 grid grid-cols-3 gap-x-8 gap-y-2 text-[12px] font-semibold text-(--secondary-green)">
               {countyItems.length > 0 ? (
                 countyItems.map((item) => (
                   <BrowseLink key={item.county} href={`/listings?county=${encodeURIComponent(item.county)}`} label={item.county} count={item.count} />
                 ))
               ) : (
-                <p className="col-span-full text-sm text-(--muted-green-text)">No counties yet</p>
+                <p className="col-span-3 text-sm text-(--muted-green-text)">No counties yet</p>
               )}
             </div>
 
@@ -82,19 +86,23 @@ const BrowseCards = () => {
               View all counties
             </BrowseCta>
           </div>
-        </BrowseCard>
+        </div>
 
-        <BrowseCard variant="orange" icon={<PawIcon className="h-7 w-7" />} iconTone="orange">
+        <div className="flex min-h-[178px] items-center gap-6 rounded-2xl border border-(--border-beige) bg-[#FFF4EA] px-7 py-6 shadow-[0_6px_18px_rgba(18,53,36,0.06)]">
+          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-(--primary-orange) text-white">
+            <PawIcon className="h-8 w-8" />
+          </div>
+
           <div className="min-w-0 flex-1">
             <h3 className="text-lg font-extrabold text-(--secondary-green)">Browse by Breed</h3>
 
-            <div className="mt-3 grid grid-cols-1 gap-y-2 text-[12px] font-semibold text-(--secondary-green) sm:grid-cols-2 sm:gap-x-5">
+            <div className="mt-4 grid grid-cols-2 gap-x-5 gap-y-2 text-[12px] font-semibold text-(--secondary-green)">
               {breedItems.length > 0 ? (
-                breedItems.map((item) => (
+                breedItems.slice(0, 4).map((item) => (
                   <BrowseLink key={item.breed} href={`/listings?breed=${encodeURIComponent(item.breed)}`} label={item.breed} count={item.count} />
                 ))
               ) : (
-                <p className="col-span-full text-sm text-(--muted-green-text)">No breeds yet</p>
+                <p className="col-span-2 text-sm text-(--muted-green-text)">No breeds yet</p>
               )}
             </div>
 
@@ -102,46 +110,26 @@ const BrowseCards = () => {
               View all breeds
             </BrowseCta>
           </div>
-        </BrowseCard>
+        </div>
 
-        <div className="relative overflow-hidden rounded-2xl border border-(--border-beige) bg-[#F4F5E8] px-6 py-6 shadow-[0_6px_18px_rgba(18,53,36,0.06)]">
-          <div className="relative z-10 flex min-h-[180px] flex-col justify-between gap-5 sm:flex-row sm:items-center lg:min-h-[210px]">
-            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-[#E2E5C7] text-(--primary-green)">
-              <ShieldCheckIcon className="h-8 w-8" />
-            </div>
-
-            <div className="min-w-0 flex-1 sm:max-w-[210px]">
-              <h3 className="text-lg font-extrabold text-(--secondary-green)">Safety Tips</h3>
-
-              <p className="mt-2 text-sm font-semibold leading-5 text-(--secondary-green)">
-                Tips for meeting, buying and bringing your new pet home safely.
-              </p>
-
-              <BrowseCta href="/buying-safely" tone="green">
-                Read our safety guide
-              </BrowseCta>
-            </div>
+        <div className="flex min-h-[178px] items-center gap-6 rounded-2xl border border-(--border-beige) bg-[#F4F5E8] px-7 py-6 shadow-[0_6px_18px_rgba(18,53,36,0.06)]">
+          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-[#E2E5C7] text-(--primary-green)">
+            <ShieldCheckIcon className="h-8 w-8" />
           </div>
 
-          <img
-            className="pointer-events-none absolute bottom-2 right-4 hidden h-[92px] w-[128px] object-contain opacity-80 xl:block"
-            src="/img/miniLogo.png"
-            alt=""
-          />
+          <div className="min-w-0 flex-1">
+            <h3 className="text-lg font-extrabold text-(--secondary-green)">Safety Tips</h3>
+
+            <p className="mt-3 max-w-[260px] text-sm font-semibold leading-5 text-(--secondary-green)">
+              Tips for meeting, buying and bringing your new pet home safely.
+            </p>
+
+            <BrowseCta href="/buying-safely" tone="green">
+              Read our safety guide
+            </BrowseCta>
+          </div>
         </div>
       </div>
-    </div>
-  );
-};
-
-const BrowseCard = ({ variant, icon, iconTone, children }) => {
-  const bgClass = variant === 'orange' ? 'bg-[#FFF4EA]' : 'bg-[#F2F3EC]';
-  const iconClass = iconTone === 'orange' ? 'bg-(--primary-orange) text-white' : 'bg-[#DDE6D0] text-[#6F806F]';
-
-  return (
-    <div className={`flex min-h-[210px] items-center gap-6 rounded-2xl border border-(--border-beige) ${bgClass} px-6 py-6 shadow-[0_6px_18px_rgba(18,53,36,0.06)]`}>
-      <div className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-full ${iconClass}`}>{icon}</div>
-      {children}
     </div>
   );
 };
