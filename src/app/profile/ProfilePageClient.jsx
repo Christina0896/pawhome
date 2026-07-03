@@ -1,11 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import Header from '../../components/header';
 import Footer from '../../components/footer';
 import { ShieldCheckIcon } from '../../components/Icons';
 import { getVerifiedAccessToken } from '../../lib/authTokens';
+import MyListingsSimple from './MyListingsSimple';
 
 const DEFAULT_PROFILE = {
   first_name: '',
@@ -487,22 +487,7 @@ export default function ProfilePageClient() {
             </form>
           </aside>
 
-          <section className="rounded-3xl border border-(--border-beige) bg-white p-6 shadow-sm">
-            <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-              <div>
-                <h2 className="text-2xl font-extrabold text-(--secondary-green)">My Listings</h2>
-                <p className="mt-1 text-sm text-(--muted-green-text)">
-                  Temporarily simplified while the profile page is stabilized.
-                </p>
-              </div>
-              <Link
-                href="/post-ad"
-                className="rounded-xl bg-(--primary-orange) px-5 py-3 text-center text-sm font-bold text-white"
-              >
-                Post new ad
-              </Link>
-            </div>
-          </section>
+          <MyListingsSimple />
         </div>
       </main>
       <Footer />
