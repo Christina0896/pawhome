@@ -79,6 +79,7 @@ export default function ListingCard({
   const mainImage = getMainImage(listing.listing_photos);
   const priceDisplay = getPriceDisplay(listing);
   const animalPillLabel = getAnimalPillLabel(listing);
+  const href = `/listings/${listing.id}`;
 
   const handleFavoriteClick = (event) => {
     event.preventDefault();
@@ -90,30 +91,29 @@ export default function ListingCard({
   };
 
   return (
-    <Link
-      href={`/listings/${listing.id}`}
-      className="group flex h-full flex-col overflow-hidden rounded-2xl border border-(--border-beige) bg-(--secondary-background) shadow-[0_6px_18px_rgba(18,53,36,0.07)] transition hover:-translate-y-1 hover:shadow-[0_10px_26px_rgba(18,53,36,0.11)]"
-    >
+    <article className="group flex h-full flex-col overflow-hidden rounded-2xl border border-(--border-beige) bg-(--secondary-background) shadow-[0_6px_18px_rgba(18,53,36,0.07)] transition hover:-translate-y-1 hover:shadow-[0_10px_26px_rgba(18,53,36,0.11)]">
       <div className={`relative overflow-hidden bg-(--light-green) ${compact ? 'h-48' : 'h-[230px]'}`}>
-        {mainImage ? (
-          <Image
-            src={mainImage}
-            alt={title}
-            fill
-            sizes={compact ? '(max-width: 768px) 100vw, 25vw' : '(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw'}
-            className="object-cover transition duration-300 group-hover:scale-105"
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center text-(--primary-green)">
-            <PawIcon className="h-12 w-12" />
-          </div>
-        )}
+        <Link href={href} className="block h-full" aria-label={`View ${title}`}>
+          {mainImage ? (
+            <Image
+              src={mainImage}
+              alt={title}
+              fill
+              sizes={compact ? '(max-width: 768px) 100vw, 25vw' : '(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw'}
+              className="object-cover transition duration-300 group-hover:scale-105"
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center text-(--primary-green)">
+              <PawIcon className="h-12 w-12" />
+            </div>
+          )}
+        </Link>
 
         {showFavorite && (
           <button
             type="button"
             onClick={handleFavoriteClick}
-            className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 shadow-sm transition hover:scale-110"
+            className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 shadow-sm transition hover:scale-110"
             aria-label={isFavorite ? 'Remove saved listing' : 'Save listing'}
           >
             <HeartIcon
@@ -124,11 +124,11 @@ export default function ListingCard({
         )}
       </div>
 
-      <div className="flex flex-1 flex-col bg-(--secondary-background) p-3">
-        <div className="flex items-start justify-between gap-3">
-          <h3 className="line-clamp-1 text-lg font-extrabold tracking-tight text-(--primary-green)">{title}</h3>
+      <Link href={href} className="flex flex-1 flex-col bg-(--secondary-background) p-3">
+        <div className="flex min-w-0 items-start justify-between gap-3">
+          <h3 className="min-w-0 flex-1 truncate text-lg font-extrabold tracking-tight text-(--primary-green)">{title}</h3>
 
-          {priceDisplay && <p className="shrink-0 text-lg font-extrabold text-(--primary-orange)">{priceDisplay}</p>}
+          {priceDisplay && <p className="shrink-0 whitespace-nowrap text-lg font-extrabold text-(--primary-orange)">{priceDisplay}</p>}
         </div>
 
         <div className="text-sm text-(--muted-green-text)">
@@ -187,7 +187,7 @@ export default function ListingCard({
             </div>
           )}
         </div>
-      </div>
-    </Link>
+      </Link>
+    </article>
   );
 }
