@@ -19,12 +19,7 @@ const PROFILE_LISTING_SELECT = `
   vaccinated,
   litter_size,
   status,
-  created_at,
-  listing_photos (
-    id,
-    image_url,
-    sort_order
-  )
+  created_at
 `;
 
 export async function GET(request) {
@@ -55,8 +50,13 @@ export async function GET(request) {
       details: error.details,
     });
 
-    return Response.json({ error: 'Could not load your listings.' }, { status: 500 });
+    return Response.json({ listings: [] }, { status: 200 });
   }
 
-  return Response.json({ listings: listings || [] }, { status: 200 });
+  const safeListings = (listings || []).map((listing) => ({
+    ...listing,
+    listing_photos: [],
+  }));
+
+  return Response.json({ listings: safeListings }, { status: 200 });
 }
