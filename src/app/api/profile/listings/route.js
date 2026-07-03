@@ -54,43 +54,5 @@ export async function GET(request) {
     return Response.json({ listings: [] }, { status: 200 });
   }
 
-  const listingRows = listings || [];
-  const listingIds = listingRows.map((listing) => listing.id).filter(Boolean);
-
-  if (listingIds.length === 0) {
-    return Response.json({ listings: [] }, { status: 200 });
-  }
-
-  const { data: photos, error: photosError } = await supabaseAdmin
-    .from('listing_photos')
-    .select('id, listing_id, image_url, sort_order')
-    .in('listing_id', listingIds)
-    .order('sort_order', { ascending: true });
-
-  if (photosError) {
-    console.error('Profile listing photos API fetch error:', {
-      message: photosError.message,
-      code: photosError.code,
-      details: photosError.details,
-    });
-  }
-
-  const photosByListingId = new Map();
-
-  for (const photo of photos || []) {
-    if (!photosByListingId.has(photo.listing_id)) {
-      photosByListingId.set(photo.listing_id, []);
-    }
-
-    if (photosByListingId.get(photo.listing_id).length < 1) {
-      photosByListingId.get(photo.listing_id).push(photo);
-    }
-  }
-
-  const listingsWithPhotos = listingRows.map((listing) => ({
-    ...listing,
-    listing_photos: photosByListingId.get(listing.id) || [],
-  }));
-
-  return Response.json({ listings: listingsWithPhotos }, { status: 200 });
+  return Response.json({ listings: listings || [] }, { status: 200 });
 }
