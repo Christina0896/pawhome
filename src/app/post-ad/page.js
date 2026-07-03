@@ -1,9 +1,9 @@
 'use client';
 
-import PostAdPageClient from './PostAdPageClient';
+import PostAdAccessGate from './PostAdAccessGate';
 
 const PostAdPage = () => {
-  return <PostAdPageClient />;
+  return <PostAdAccessGate />;
 };
 
 export default PostAdPage;
