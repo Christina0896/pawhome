@@ -1,20 +1,16 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Header from '../../components/header';
 import Footer from '../../components/footer';
 import { supabase } from '../../lib/supabaseClient';
 import Link from 'next/link';
 import { getVerifiedAccessToken } from '../../lib/authTokens';
+import { GalleryIcon, PawIcon, ShieldCheckIcon } from '../../components/Icons';
 
 const allowedAvatarTypes = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_AVATAR_SIZE = 2 * 1024 * 1024;
-
-const AVATAR_EXTENSION_BY_TYPE = {
-  'image/jpeg': 'jpg',
-  'image/png': 'png',
-  'image/webp': 'webp',
-};
 
 const sortListingPhotos = (photos) => {
   return [...(photos || [])].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
@@ -27,16 +23,24 @@ const getStatusClass = (status) => {
   return 'bg-orange-100 text-orange-700';
 };
 
+const getDefaultProfile = () => ({
+  first_name: '',
+  last_name: '',
+  account_type: 'Buyer',
+  phone_code: '+353',
+  phone_number: '',
+  county: '',
+  avatar_url: null,
+  phone_verified: false,
+});
+
 export default function ProfilePage() {
-  // Auth/profile state
+  const router = useRouter();
   const [user, setUser] = useState(null);
   const [myListings, setMyListings] = useState([]);
   const [profile, setProfile] = useState(null);
-
-  // UI state
   const [loading, setLoading] = useState(true);
   const [avatarUploading, setAvatarUploading] = useState(false);
-
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileMessage, setProfileMessage] = useState('');
   const [profileForm, setProfileForm] = useState({
@@ -49,86 +53,77 @@ export default function ProfilePage() {
     password: '',
   });
 
-  // Load user profile and listings
+  const applyProfileData = (profileData, userData) => {
+    const safeProfile = profileData || getDefaultProfile();
+
+    setUser(userData);
+    setProfile(safeProfile);
+    setProfileForm({
+      first_name: safeProfile.first_name || '',
+      last_name: safeProfile.last_name || '',
+      account_type: safeProfile.account_type || 'Buyer',
+      phone_code: safeProfile.phone_code || '+353',
+      phone_number: safeProfile.phone_number || '',
+      county: safeProfile.county || '',
+      password: '',
+    });
+  };
+
   useEffect(() => {
     const loadProfile = async () => {
       setLoading(true);
 
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
+      try {
+        const accessToken = await getVerifiedAccessToken();
 
-      if (userError || !user) {
-        window.location.href = '/';
-        return;
+        if (!accessToken) {
+          router.push('/');
+          return;
+        }
+
+        const [profileResponse, listingsResponse] = await Promise.all([
+          fetch('/api/profile/me', {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          }),
+          fetch('/api/profile/listings', {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          }),
+        ]);
+
+        const profileResult = await profileResponse.json();
+        const listingsResult = await listingsResponse.json();
+
+        if (!profileResponse.ok) {
+          console.warn('Profile API fetch failed:', profileResult);
+          router.push('/');
+          return;
+        }
+
+        if (!listingsResponse.ok) {
+          console.warn('Profile listings API fetch failed:', listingsResult);
+          setMyListings([]);
+        } else {
+          setMyListings(listingsResult.listings || []);
+        }
+
+        applyProfileData(profileResult.profile, profileResult.user);
+      } catch (error) {
+        console.error('Profile load error:', error);
+        router.push('/');
+      } finally {
+        setLoading(false);
       }
-
-      setUser(user);
-
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      if (profileError) {
-        console.error('Profile fetch error:', profileError);
-      }
-
-      const safeProfile = profileData || {
-        first_name: '',
-        last_name: '',
-        account_type: 'Buyer',
-        phone_code: '+353',
-        phone_number: '',
-        county: '',
-        avatar_url: null,
-        phone_verified: false,
-      };
-
-      setProfile(safeProfile);
-
-      setProfileForm({
-        first_name: safeProfile.first_name || '',
-        last_name: safeProfile.last_name || '',
-        account_type: safeProfile.account_type || 'Buyer',
-        phone_code: safeProfile.phone_code || '+353',
-        phone_number: safeProfile.phone_number || '',
-        county: safeProfile.county || '',
-        password: '',
-      });
-
-      const { data: listingsData, error: listingsError } = await supabase
-        .from('listings')
-        .select(
-          `
-          *,
-          listing_photos (
-            image_url,
-            sort_order
-          )
-        `,
-        )
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      if (listingsError) {
-        console.error('Listings fetch error:', listingsError);
-      } else {
-        setMyListings(listingsData || []);
-      }
-
-      setLoading(false);
     };
 
     loadProfile();
-  }, []);
+  }, [router]);
 
   const fullName = `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim();
-
   const phone = `${profile?.phone_code || ''} ${profile?.phone_number || ''}`.trim();
-
   const emailVerified = Boolean(user?.email_confirmed_at || user?.confirmed_at);
   const phoneVerified = Boolean(profile?.phone_verified);
 
@@ -139,7 +134,6 @@ export default function ProfilePage() {
       })
     : '-';
 
-  // Upload profile picture to Supabase storage
   const handleAvatarUpload = async (event) => {
     const file = event.target.files?.[0];
 
@@ -200,9 +194,7 @@ export default function ProfilePage() {
     try {
       const accessToken = await getVerifiedAccessToken();
 
-      if (!accessToken) {
-        return;
-      }
+      if (!accessToken) return;
 
       const response = await fetch('/api/profile/avatar', {
         method: 'DELETE',
@@ -267,54 +259,52 @@ export default function ProfilePage() {
       county: profileForm.county.trim(),
     };
 
-    const accessToken = await getVerifiedAccessToken();
+    try {
+      const accessToken = await getVerifiedAccessToken();
 
-    if (!accessToken) {
-      setProfileSaving(false);
-      return;
-    }
-    const response = await fetch('/api/profile', {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify(updatedProfilePayload),
-    });
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      console.warn('Profile save API failed:', result);
-
-      setProfileSaving(false);
-      setProfileMessage(result.error || 'Could not save settings. Please try again.');
-      return;
-    }
-
-    const updatedProfile = result.profile;
-
-    if (password) {
-      const { error: passwordError } = await supabase.auth.updateUser({
-        password,
-      });
-
-      if (passwordError) {
-        console.warn('Password update failed:', passwordError);
+      if (!accessToken) {
         setProfileSaving(false);
-        setProfileMessage(passwordError.message || 'Could not update password.');
         return;
       }
+
+      const response = await fetch('/api/profile', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(updatedProfilePayload),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        console.warn('Profile save API failed:', result);
+        setProfileSaving(false);
+        setProfileMessage(result.error || 'Could not save settings. Please try again.');
+        return;
+      }
+
+      if (password) {
+        const { error: passwordError } = await supabase.auth.updateUser({ password });
+
+        if (passwordError) {
+          console.warn('Password update failed:', passwordError);
+          setProfileSaving(false);
+          setProfileMessage(passwordError.message || 'Could not update password.');
+          return;
+        }
+      }
+
+      setProfile(result.profile);
+      setProfileSaving(false);
+      setProfileForm((current) => ({ ...current, password: '' }));
+      setProfileMessage('Settings saved.');
+    } catch (error) {
+      console.error('Profile save error:', error);
+      setProfileSaving(false);
+      setProfileMessage('Could not save settings. Please try again.');
     }
-    setProfile(updatedProfile);
-    setProfileSaving(false);
-
-    setProfileForm((current) => ({
-      ...current,
-      password: '',
-    }));
-
-    setProfileMessage('Settings saved.');
   };
 
   const handleDeleteListing = async (listingId) => {
@@ -325,9 +315,7 @@ export default function ProfilePage() {
     try {
       const accessToken = await getVerifiedAccessToken();
 
-      if (!accessToken) {
-        return;
-      }
+      if (!accessToken) return;
 
       const response = await fetch(`/api/profile/listings/${listingId}`, {
         method: 'DELETE',
@@ -371,6 +359,7 @@ export default function ProfilePage() {
         setLoading(false);
         return;
       }
+
       const response = await fetch('/api/delete-profile', {
         method: 'DELETE',
         headers: {
@@ -385,8 +374,7 @@ export default function ProfilePage() {
       }
 
       await supabase.auth.signOut();
-
-      window.location.href = '/';
+      router.push('/');
     } catch (error) {
       console.error('Delete profile error:', error);
       alert('Something went wrong. Please try again.');
@@ -411,17 +399,13 @@ export default function ProfilePage() {
       <Header />
 
       <main className="mx-auto max-w-[1440px] px-6 py-10">
-        {/* Page title */}
         <div className="mb-8">
           <p className="text-sm font-semibold text-(--primary-green)">My Account</p>
-
           <h1 className="mt-2 text-4xl font-extrabold text-(--secondary-green)">Profile</h1>
-
           <p className="mt-3 text-sm text-(--muted-green-text)">Manage your PawHome account details and listings.</p>
         </div>
 
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-[340px_1fr]">
-          {/* Left profile panel */}
           <aside className="h-fit rounded-3xl border border-(--border-beige) bg-white p-6 shadow-[0_8px_24px_rgba(18,53,36,0.05)] lg:sticky lg:top-24">
             <ProfileAvatar
               user={user}
@@ -438,25 +422,11 @@ export default function ProfilePage() {
             </div>
 
             <form onSubmit={handleSaveSettings} className="mt-6 space-y-4">
-              <ProfileEditField
-                label="First Name"
-                name="first_name"
-                value={profileForm.first_name}
-                onChange={handleProfileFormChange}
-                required
-              />
-
-              <ProfileEditField
-                label="Last Name"
-                name="last_name"
-                value={profileForm.last_name}
-                onChange={handleProfileFormChange}
-                required
-              />
+              <ProfileEditField label="First Name" name="first_name" value={profileForm.first_name} onChange={handleProfileFormChange} required />
+              <ProfileEditField label="Last Name" name="last_name" value={profileForm.last_name} onChange={handleProfileFormChange} required />
 
               <div>
                 <label className="mb-2 block text-sm font-bold text-(--secondary-green)">Account Type</label>
-
                 <select
                   name="account_type"
                   value={profileForm.account_type}
@@ -470,37 +440,12 @@ export default function ProfilePage() {
                 </select>
               </div>
 
-              <div>
-                <div className="mb-2 flex items-center justify-between gap-3">
-                  <label className="block text-sm font-bold text-(--secondary-green)">Email</label>
-
-                  {emailVerified ? (
-                    <VerifiedBadge />
-                  ) : (
-                    <span className="rounded-full bg-orange-100 px-2.5 py-1 text-[11px] font-bold text-orange-700">
-                      Not verified
-                    </span>
-                  )}
-                </div>
-
-                <input
-                  value={user?.email || ''}
-                  disabled
-                  className="h-12 w-full cursor-not-allowed rounded-xl border border-(--border-beige) bg-(--background) px-4 text-sm font-semibold text-(--muted-green-text) outline-none"
-                />
-              </div>
+              <ProfileInfoItem label="Email" value={user?.email || '-'} verified={emailVerified} showNotVerified />
 
               <div>
                 <div className="mb-2 flex items-center justify-between gap-3">
                   <label className="block text-sm font-bold text-(--secondary-green)">Phone</label>
-
-                  {phoneVerified ? (
-                    <VerifiedBadge />
-                  ) : (
-                    <span className="rounded-full bg-orange-100 px-2.5 py-1 text-[11px] font-bold text-orange-700">
-                      Not verified
-                    </span>
-                  )}
+                  {phoneVerified ? <VerifiedBadge /> : <NotVerifiedBadge />}
                 </div>
 
                 <div className="grid grid-cols-[105px_1fr] gap-3">
@@ -528,14 +473,7 @@ export default function ProfilePage() {
                 </div>
               </div>
 
-              <ProfileEditField
-                label="County"
-                name="county"
-                value={profileForm.county}
-                onChange={handleProfileFormChange}
-                placeholder="Westmeath"
-              />
-
+              <ProfileEditField label="County" name="county" value={profileForm.county} onChange={handleProfileFormChange} placeholder="Westmeath" />
               <ProfileEditField
                 label="New Password"
                 name="password"
@@ -546,11 +484,7 @@ export default function ProfilePage() {
               />
 
               {profileMessage && (
-                <p
-                  className={`text-sm font-bold ${
-                    profileMessage === 'Settings saved.' ? 'text-green-700' : 'text-red-600'
-                  }`}
-                >
+                <p className={`text-sm font-bold ${profileMessage === 'Settings saved.' ? 'text-green-700' : 'text-red-600'}`}>
                   {profileMessage}
                 </p>
               )}
@@ -575,12 +509,10 @@ export default function ProfilePage() {
             </form>
           </aside>
 
-          {/* Right listings panel */}
           <section className="rounded-3xl border border-(--border-beige) bg-white p-6 shadow-[0_8px_24px_rgba(18,53,36,0.05)]">
             <div className="flex flex-col justify-between gap-4 border-b border-(--border-beige) pb-6 sm:flex-row sm:items-center">
               <div>
                 <h2 className="text-2xl font-extrabold text-(--secondary-green)">My Listings</h2>
-
                 <p className="mt-1 text-sm text-(--muted-green-text)">View, edit, or delete your submitted ads.</p>
               </div>
 
@@ -612,55 +544,25 @@ export default function ProfilePage() {
 
 const ProfileAvatar = ({ user, profile, fullName, avatarUploading, handleAvatarUpload, handleRemoveAvatar }) => {
   const initial = (profile?.first_name || user?.email || 'U').charAt(0).toUpperCase();
+
   return (
     <div className="flex flex-col items-center text-center">
       <div className="relative">
         <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-(--light-green) text-4xl font-extrabold text-(--primary-green)">
-          {profile?.avatar_url ? (
-            <img src={profile.avatar_url} alt="Profile picture" className="h-full w-full object-cover" />
-          ) : (
-            initial
-          )}
+          {profile?.avatar_url ? <img src={profile.avatar_url} alt="Profile picture" className="h-full w-full object-cover" /> : initial}
         </div>
 
         <label className="absolute bottom-0 right-0 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-(--primary-green) text-white shadow-md transition hover:scale-105">
-          <input
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            onChange={handleAvatarUpload}
-            className="hidden"
-          />
-
-          {avatarUploading ? (
-            <span className="text-xs">...</span>
-          ) : (
-            <svg
-              className="h-4 w-4"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.3"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M12 20h9" />
-              <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
-            </svg>
-          )}
+          <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handleAvatarUpload} className="hidden" />
+          {avatarUploading ? <span className="text-xs">...</span> : <GalleryIcon className="h-4 w-4" />}
         </label>
       </div>
 
       <h2 className="mt-5 text-2xl font-extrabold text-(--secondary-green)">{fullName || 'PawHome User'}</h2>
-
       <p className="mt-1 break-all text-sm text-(--muted-green-text)">{user?.email}</p>
 
       {profile?.avatar_url && (
-        <button
-          type="button"
-          onClick={handleRemoveAvatar}
-          className="mt-3 text-xs font-semibold text-red-500 hover:underline"
-        >
+        <button type="button" onClick={handleRemoveAvatar} className="mt-3 text-xs font-semibold text-red-500 hover:underline">
           Remove profile picture
         </button>
       )}
@@ -694,16 +596,9 @@ const ProfileInfoItem = ({ label, value, verified, showNotVerified }) => {
     <div className="rounded-2xl bg-(--background) p-4">
       <div className="flex items-center justify-between gap-3">
         <p className="text-xs font-semibold text-(--muted-green-text)">{label}</p>
-
         {verified && <VerifiedBadge />}
-
-        {!verified && showNotVerified && (
-          <span className="rounded-full bg-orange-100 px-2.5 py-1 text-[11px] font-bold text-orange-700">
-            Not verified
-          </span>
-        )}
+        {!verified && showNotVerified && <NotVerifiedBadge />}
       </div>
-
       <p className="mt-1 break-words font-bold text-(--secondary-green)">{value}</p>
     </div>
   );
@@ -712,27 +607,22 @@ const ProfileInfoItem = ({ label, value, verified, showNotVerified }) => {
 const VerifiedBadge = () => {
   return (
     <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-1 text-[11px] font-bold text-green-700">
-      <svg
-        className="h-3.5 w-3.5"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        <path d="M20 6 9 17l-5-5" />
-      </svg>
+      <ShieldCheckIcon className="h-3.5 w-3.5" />
       Verified
     </span>
   );
 };
 
+const NotVerifiedBadge = () => (
+  <span className="rounded-full bg-orange-100 px-2.5 py-1 text-[11px] font-bold text-orange-700">Not verified</span>
+);
+
 const EmptyListings = () => {
   return (
     <div className="mt-6 rounded-2xl border border-dashed border-(--border-beige) bg-(--background) p-10 text-center">
-      <div className="text-4xl">🐾</div>
+      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-(--light-green) text-(--primary-green)">
+        <PawIcon className="h-8 w-8" />
+      </div>
 
       <h3 className="mt-4 text-xl font-extrabold text-(--secondary-green)">No listings yet</h3>
 
@@ -740,10 +630,7 @@ const EmptyListings = () => {
         Once you submit an ad, it will appear here. You can manage it from your profile.
       </p>
 
-      <Link
-        href="/post-ad"
-        className="mt-6 inline-flex rounded-xl bg-(--primary-orange) px-6 py-3 text-sm font-bold text-white transition hover:scale-105"
-      >
+      <Link href="/post-ad" className="mt-6 inline-flex rounded-xl bg-(--primary-orange) px-6 py-3 text-sm font-bold text-white transition hover:scale-105">
         Post your first ad
       </Link>
     </div>
@@ -753,6 +640,7 @@ const EmptyListings = () => {
 const ProfileListingCard = ({ listing, handleDeleteListing }) => {
   const sortedPhotos = sortListingPhotos(listing.listing_photos);
   const mainImage = sortedPhotos[0]?.image_url;
+  const viewHref = listing.status === 'approved' ? `/listings/${listing.id}` : `/listings/${listing.id}?ownerPreview=true`;
 
   const tags = [
     listing.county,
@@ -768,46 +656,32 @@ const ProfileListingCard = ({ listing, handleDeleteListing }) => {
     <div className="flex h-full min-h-[380px] flex-col overflow-hidden rounded-2xl border border-(--border-beige) bg-white shadow-[0_6px_18px_rgba(18,53,36,0.06)]">
       <div className="relative h-44 shrink-0 bg-(--light-green)">
         {mainImage ? (
-          <img
-            src={mainImage}
-            alt={listing.breed || listing.animal_type || 'Pet listing'}
-            className="h-full w-full object-cover"
-          />
+          <img src={mainImage} alt={listing.breed || listing.animal_type || 'Pet listing'} className="h-full w-full object-cover" />
         ) : (
-          <div className="flex h-full items-center justify-center text-4xl">🐾</div>
+          <div className="flex h-full items-center justify-center text-(--primary-green)">
+            <PawIcon className="h-12 w-12" />
+          </div>
         )}
 
-        <span
-          className={`absolute right-3 top-3 rounded-full px-3 py-1 text-xs font-bold ${getStatusClass(
-            listing.status,
-          )}`}
-        >
+        <span className={`absolute right-3 top-3 rounded-full px-3 py-1 text-xs font-bold ${getStatusClass(listing.status)}`}>
           {listing.status || 'pending'}
         </span>
       </div>
 
       <div className="flex flex-1 flex-col p-4">
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-start justify-between gap-3">
           <div className="min-w-0">
-            <h3 className="line-clamp-1 text-base font-extrabold text-(--secondary-green)">
-              {listing.breed || listing.animal_type || 'Listing'}
-            </h3>
-
+            <h3 className="truncate text-base font-extrabold text-(--secondary-green)">{listing.breed || listing.animal_type || 'Listing'}</h3>
             <p className="mt-1 text-sm text-(--muted-green-text)">{listing.animal_type || '-'}</p>
           </div>
 
-          {listing.price && (
-            <p className="shrink-0 text-base font-extrabold text-(--primary-orange)">€{listing.price}</p>
-          )}
+          {listing.price && <p className="shrink-0 whitespace-nowrap text-base font-extrabold text-(--primary-orange)">€{listing.price}</p>}
         </div>
 
         {tags.length > 0 && (
           <div className="mt-4 flex flex-wrap gap-2 text-xs">
             {tags.map((tag) => (
-              <span
-                key={tag}
-                className="rounded-full bg-(--background) px-3 py-1 font-semibold text-(--secondary-green)"
-              >
+              <span key={tag} className="rounded-full bg-(--background) px-3 py-1 font-semibold text-(--secondary-green)">
                 {tag}
               </span>
             ))}
@@ -816,10 +690,10 @@ const ProfileListingCard = ({ listing, handleDeleteListing }) => {
 
         <div className="mt-auto grid grid-cols-3 gap-2 pt-5">
           <Link
-            href={`/listings/${listing.id}`}
+            href={viewHref}
             className="rounded-xl border border-(--border-beige) px-3 py-2 text-center text-sm font-bold text-(--secondary-green) transition hover:border-(--primary-green)"
           >
-            View
+            {listing.status === 'approved' ? 'View' : 'Preview'}
           </Link>
 
           <Link
