@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { getVerifiedAccessToken } from '../../lib/authTokens';
 
@@ -26,32 +26,45 @@ function getStatusClass(status) {
 export default function MyListingsSimple() {
   const [listings, setListings] = useState([]);
   const [loaded, setLoaded] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const loadListings = async () => {
-    setLoading(true);
-    setError('');
+  useEffect(() => {
+    let active = true;
 
-    try {
-      const token = await getVerifiedAccessToken();
-      if (!token) throw new Error('Please log in again.');
+    const loadListings = async () => {
+      setLoading(true);
+      setError('');
 
-      const { response, data } = await fetchJson('/api/profile/listings', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      try {
+        const token = await getVerifiedAccessToken();
+        if (!token) throw new Error('Please log in again.');
 
-      if (!response.ok) throw new Error(data.error || 'Could not load listings.');
+        const { response, data } = await fetchJson('/api/profile/listings', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
 
-      setListings(data.listings || []);
-      setLoaded(true);
-    } catch (loadError) {
-      setError(loadError.message || 'Could not load listings.');
-      setLoaded(true);
-    } finally {
-      setLoading(false);
-    }
-  };
+        if (!response.ok) throw new Error(data.error || 'Could not load listings.');
+
+        if (!active) return;
+        setListings(data.listings || []);
+        setLoaded(true);
+      } catch (loadError) {
+        if (!active) return;
+        setError(loadError.message || 'Could not load listings.');
+        setLoaded(true);
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+
+    const timer = window.setTimeout(loadListings, 150);
+
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, []);
 
   const deleteListing = async (listingId) => {
     if (!window.confirm('Are you sure you want to delete this listing?')) return;
@@ -78,18 +91,15 @@ export default function MyListingsSimple() {
       <div className="flex flex-col justify-between gap-4 border-b border-(--border-beige) pb-6 sm:flex-row sm:items-center">
         <div>
           <h2 className="text-2xl font-extrabold text-(--secondary-green)">My Listings</h2>
-          <p className="mt-1 text-sm text-(--muted-green-text)">View, preview, edit, or delete your submitted ads.</p>
+          <p className="mt-1 text-sm text-(--muted-green-text)">{loading ? 'Loading your listings...' : 'View, preview, edit, or delete your submitted ads.'}</p>
         </div>
         <Link href="/post-ad" className="rounded-xl bg-(--primary-orange) px-5 py-3 text-center text-sm font-bold text-white">Post new ad</Link>
       </div>
 
-      {!loaded && (
+      {loading && (
         <div className="mt-6 rounded-2xl border border-dashed border-(--border-beige) bg-(--background) p-8 text-center">
-          <h3 className="text-lg font-extrabold text-(--secondary-green)">Load your listings</h3>
-          <p className="mt-1 text-sm text-(--muted-green-text)">Listings load with one thumbnail image per ad.</p>
-          <button type="button" onClick={loadListings} disabled={loading} className="mt-5 rounded-xl bg-(--primary-green) px-5 py-3 text-sm font-bold text-white disabled:opacity-60">
-            {loading ? 'Loading...' : 'Load My Listings'}
-          </button>
+          <h3 className="text-lg font-extrabold text-(--secondary-green)">Loading listings...</h3>
+          <p className="mt-1 text-sm text-(--muted-green-text)">Fetching your ads.</p>
         </div>
       )}
 
