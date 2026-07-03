@@ -1,27 +1,8 @@
 import { getSupabaseAdminClient } from '../../../../lib/supabaseAdmin';
 import { requireSameOrigin } from '../../../../lib/requireSameOrigin';
+import { getAuthenticatedUser } from '../../../../lib/apiHelpers';
 
 export const dynamic = 'force-dynamic';
-
-async function getAuthenticatedUser(request, supabaseAdmin) {
-  const authHeader = request.headers.get('authorization') || '';
-  const token = authHeader.replace('Bearer ', '').trim();
-
-  if (!token) {
-    return { error: Response.json({ error: 'Not authenticated.' }, { status: 401 }) };
-  }
-
-  const {
-    data: { user },
-    error,
-  } = await supabaseAdmin.auth.getUser(token);
-
-  if (error || !user) {
-    return { error: Response.json({ error: 'Invalid session.' }, { status: 401 }) };
-  }
-
-  return { user };
-}
 
 export async function POST(request, { params }) {
   const sameOriginError = requireSameOrigin(request);
@@ -41,7 +22,7 @@ export async function POST(request, { params }) {
     return Response.json({ error: 'Missing listing ID.' }, { status: 400 });
   }
 
-  const auth = await getAuthenticatedUser(request, supabaseAdmin);
+  const auth = await getAuthenticatedUser(supabaseAdmin, request);
 
   if (auth.error) {
     return auth.error;
@@ -109,7 +90,7 @@ export async function DELETE(request, { params }) {
     return Response.json({ error: 'Missing listing ID.' }, { status: 400 });
   }
 
-  const auth = await getAuthenticatedUser(request, supabaseAdmin);
+  const auth = await getAuthenticatedUser(supabaseAdmin, request);
 
   if (auth.error) {
     return auth.error;
