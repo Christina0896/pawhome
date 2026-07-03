@@ -65,9 +65,11 @@ export async function POST(request) {
       code: error?.code,
     });
 
+    const status = error?.status && error.status < 500 ? error.status : 500;
+
     return Response.json(
-      { error: error?.status === 500 ? error.message : 'Could not send verification code. Please try again.' },
-      { status: error?.status && error.status < 500 ? error.status : 500 },
+      { error: error?.message || 'Could not send verification code. Please try again.' },
+      { status },
     );
   }
 }
