@@ -22,8 +22,20 @@ export async function getAuthenticatedUser(supabaseAdmin, request, unauthorizedM
   return { user, token };
 }
 
+function getFirstHeaderValue(value) {
+  return String(value || '')
+    .split(',')[0]
+    .trim();
+}
+
 export function getRequestIp(request) {
-  return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || request.headers.get('x-real-ip') || 'unknown';
+  return (
+    getFirstHeaderValue(request.headers.get('x-vercel-forwarded-for')) ||
+    getFirstHeaderValue(request.headers.get('cf-connecting-ip')) ||
+    getFirstHeaderValue(request.headers.get('x-real-ip')) ||
+    getFirstHeaderValue(request.headers.get('x-forwarded-for')) ||
+    'unknown'
+  );
 }
 
 export async function safeDelete(query, label) {
