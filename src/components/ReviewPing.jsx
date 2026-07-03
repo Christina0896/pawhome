@@ -49,48 +49,9 @@ function syncAdminActions() {
   });
 }
 
-function syncProfilePreviewLinks() {
-  if (window.location.pathname !== '/profile') return;
-
-  const viewLinks = [...document.querySelectorAll('a[href^="/listings/"]')].filter((link) => {
-    const text = link.textContent?.trim().toLowerCase();
-    return text === 'view' || text === 'preview';
-  });
-
-  viewLinks.forEach((link) => {
-    const card = link.closest('.flex.h-full') || link.closest('div');
-    const statusText = card?.querySelector('span')?.textContent?.trim().toLowerCase() || '';
-    const match = link.getAttribute('href')?.match(/\/listings\/(\d+)/);
-    const listingId = match?.[1];
-
-    if (!listingId) return;
-
-    if (statusText && statusText !== 'approved') {
-      link.setAttribute('href', `/listings/${listingId}?ownerPreview=true`);
-      link.textContent = 'Preview';
-    } else {
-      link.setAttribute('href', `/listings/${listingId}`);
-      link.textContent = 'View';
-    }
-  });
-}
-
 export default function ReviewPing() {
   const pathname = usePathname() || '';
   const isPostAdPage = pathname.startsWith('/post-ad');
-
-  useEffect(() => {
-    if (pathname !== '/profile') return undefined;
-
-    syncProfilePreviewLinks();
-
-    const observer = new MutationObserver(syncProfilePreviewLinks);
-    observer.observe(document.body, { childList: true, subtree: true });
-
-    return () => {
-      observer.disconnect();
-    };
-  }, [pathname]);
 
   useEffect(() => {
     const shouldRun = pathname.includes('/profile/listings/') || pathname === '/admin';
