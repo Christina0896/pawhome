@@ -85,10 +85,15 @@ export default function ProfilePageClient() {
   const fullName = `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim() || 'PawHome User';
   const emailVerified = Boolean(user?.email_confirmed_at || user?.confirmed_at);
   const phoneVerified = Boolean(profile?.phone_verified);
-  const phoneChanged = profile.phone_code !== form.phone_code || profile.phone_number !== form.phone_number;
+  const phoneChanged = !phoneVerified && (profile.phone_code !== form.phone_code || profile.phone_number !== form.phone_number);
 
   const updateField = (event) => {
     const { name, value } = event.target;
+
+    if (phoneVerified && (name === 'phone_code' || name === 'phone_number')) {
+      return;
+    }
+
     setForm((current) => ({ ...current, [name]: value }));
     setMessage('');
 
@@ -114,8 +119,8 @@ export default function ProfilePageClient() {
           first_name: form.first_name.trim(),
           last_name: form.last_name.trim(),
           account_type: form.account_type,
-          phone_code: form.phone_code.trim(),
-          phone_number: form.phone_number.trim(),
+          phone_code: phoneVerified ? profile.phone_code : form.phone_code.trim(),
+          phone_number: phoneVerified ? profile.phone_number : form.phone_number.trim(),
           county: form.county.trim(),
         }),
       });
@@ -225,9 +230,10 @@ export default function ProfilePageClient() {
             <div>
               <div className="mb-2 flex items-center justify-between"><p className="text-sm font-bold text-(--secondary-green)">Phone</p>{phoneVerified ? <VerifiedBadge /> : <NotVerifiedBadge />}</div>
               <div className="grid grid-cols-[105px_1fr] gap-3">
-                <select name="phone_code" value={form.phone_code || '+353'} onChange={updateField} className="h-12 rounded-xl border border-(--border-beige) px-3"><option value="+353">+353</option><option value="+44">+44</option><option value="+49">+49</option><option value="+351">+351</option><option value="+33">+33</option><option value="+34">+34</option></select>
-                <input name="phone_number" value={form.phone_number || ''} onChange={updateField} className="h-12 rounded-xl border border-(--border-beige) px-4" />
+                <select name="phone_code" value={form.phone_code || '+353'} onChange={updateField} disabled={phoneVerified} className="h-12 rounded-xl border border-(--border-beige) px-3 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500"><option value="+353">+353</option><option value="+44">+44</option><option value="+49">+49</option><option value="+351">+351</option><option value="+33">+33</option><option value="+34">+34</option></select>
+                <input name="phone_number" value={form.phone_number || ''} onChange={updateField} disabled={phoneVerified} className="h-12 rounded-xl border border-(--border-beige) px-4 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500" />
               </div>
+              {phoneVerified && <p className="mt-2 text-xs font-semibold text-(--muted-green-text)">Verified phone numbers cannot be changed. Please contact support if this number is wrong.</p>}
               {!phoneVerified && <div className="mt-3 rounded-2xl bg-(--background) p-4"><p className="text-xs font-semibold text-(--muted-green-text)">Verify this number by SMS before posting ads.</p><button type="button" onClick={sendPhoneCode} disabled={busy || phoneChanged || !form.phone_number} className="mt-3 h-10 w-full rounded-xl bg-(--primary-orange) text-sm font-bold text-white disabled:opacity-60">{phoneCodeSent ? 'Send code again' : 'Send verification code'}</button>{phoneCodeSent && <div className="mt-3 grid gap-2"><input value={phoneCode} onChange={(event) => setPhoneCode(event.target.value)} placeholder="Enter SMS code" className="h-11 rounded-xl border border-(--border-beige) px-4" /><button type="button" onClick={verifyPhoneCode} disabled={busy || !phoneCode.trim()} className="h-10 rounded-xl bg-(--primary-green) text-sm font-bold text-white disabled:opacity-60">Verify phone</button></div>}</div>}
             </div>
 
