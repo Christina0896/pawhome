@@ -63,6 +63,7 @@ export default function ProfilePageClient() {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [myListings, setMyListings] = useState([]);
+  const [listingsLoaded, setListingsLoaded] = useState(false);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [loadingListings, setLoadingListings] = useState(false);
   const [profileError, setProfileError] = useState('');
@@ -102,24 +103,6 @@ export default function ProfilePageClient() {
   useEffect(() => {
     let cancelled = false;
 
-    const loadListings = async (accessToken) => {
-      setLoadingListings(true);
-      try {
-        const { response, data } = await fetchJsonWithTimeout('/api/profile/listings', {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        }, 5000);
-
-        if (!cancelled) {
-          setMyListings(response.ok ? data.listings || [] : []);
-        }
-      } catch (error) {
-        console.error('Profile listings load failed:', error);
-        if (!cancelled) setMyListings([]);
-      } finally {
-        if (!cancelled) setLoadingListings(false);
-      }
-    };
-
     const loadProfile = async () => {
       setLoadingProfile(true);
       setProfileError('');
@@ -146,7 +129,6 @@ export default function ProfilePageClient() {
         if (!cancelled) {
           applyProfileData(data.profile, data.user);
           setLoadingProfile(false);
-          loadListings(accessToken);
         }
       } catch (error) {
         console.error('Profile load failed:', error);
@@ -168,6 +150,28 @@ export default function ProfilePageClient() {
   const emailVerified = Boolean(user?.email_confirmed_at || user?.confirmed_at);
   const phoneVerified = Boolean(profile?.phone_verified);
   const phoneChanged = Boolean(profile && (profile.phone_code !== profileForm.phone_code || profile.phone_number !== profileForm.phone_number));
+
+  const handleLoadListings = async () => {
+    setLoadingListings(true);
+
+    try {
+      const accessToken = await getVerifiedAccessToken();
+      if (!accessToken) return;
+
+      const { response, data } = await fetchJsonWithTimeout('/api/profile/listings', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }, 5000);
+
+      setMyListings(response.ok ? data.listings || [] : []);
+      setListingsLoaded(true);
+    } catch (error) {
+      console.error('Profile listings load failed:', error);
+      setMyListings([]);
+      setListingsLoaded(true);
+    } finally {
+      setLoadingListings(false);
+    }
+  };
 
   const handleProfileFormChange = (event) => {
     const { name, value } = event.target;
@@ -520,14 +524,25 @@ export default function ProfilePageClient() {
               <div className="flex flex-col justify-between gap-4 border-b border-(--border-beige) pb-6 sm:flex-row sm:items-center">
                 <div>
                   <h2 className="text-2xl font-extrabold text-(--secondary-green)">My Listings</h2>
-                  <p className="mt-1 text-sm text-(--muted-green-text)">{loadingListings ? 'Loading listings...' : 'View, edit, preview, or delete your submitted ads.'}</p>
+                  <p className="mt-1 text-sm text-(--muted-green-text)">{loadingListings ? 'Loading listings...' : 'Listings are loaded only when requested so the profile page stays responsive.'}</p>
                 </div>
                 <Link href="/post-ad" className="inline-flex items-center justify-center rounded-xl bg-(--primary-orange) px-5 py-3 text-sm font-bold text-white">Post new ad</Link>
               </div>
 
-              {myListings.length === 0 ? (
+              {!listingsLoaded && (
+                <div className="mt-6 rounded-2xl border border-dashed border-(--border-beige) bg-(--background) p-8 text-center">
+                  <PawIcon className="mx-auto h-10 w-10 text-(--muted-green-text)" />
+                  <h3 className="mt-3 text-lg font-extrabold text-(--secondary-green)">Load your listings</h3>
+                  <p className="mt-1 text-sm text-(--muted-green-text)">Click below to load listing photos, preview, edit, and delete actions.</p>
+                  <button type="button" onClick={handleLoadListings} disabled={loadingListings} className="mt-5 rounded-xl bg-(--primary-green) px-5 py-3 text-sm font-bold text-white disabled:opacity-60">{loadingListings ? 'Loading...' : 'Load My Listings'}</button>
+                </div>
+              )}
+
+              {listingsLoaded && myListings.length === 0 && (
                 <div className="mt-6 rounded-2xl border border-dashed border-(--border-beige) bg-(--background) p-8 text-center"><PawIcon className="mx-auto h-10 w-10 text-(--muted-green-text)" /><h3 className="mt-3 text-lg font-extrabold text-(--secondary-green)">No listings yet</h3><p className="mt-1 text-sm text-(--muted-green-text)">Your submitted ads will appear here.</p></div>
-              ) : (
+              )}
+
+              {listingsLoaded && myListings.length > 0 && (
                 <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
                   {myListings.map((listing) => <ProfileListingCard key={listing.id} listing={listing} onDelete={handleDeleteListing} />)}
                 </div>
