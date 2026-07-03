@@ -4,17 +4,6 @@ import { getSupabaseAdminClient } from '../../../../lib/supabaseAdmin';
 
 export const dynamic = 'force-dynamic';
 
-function getSendCodeErrorMessage(error) {
-  const message = error?.message || '';
-  const lowerMessage = message.toLowerCase();
-
-  if (lowerMessage.includes('trial') && lowerMessage.includes('unverified')) {
-    return 'Twilio trial still sees this phone as unverified for the API credentials PawHome is using. Check that Vercel TWILIO_ACCOUNT_SID matches the Twilio account where this number is verified, then redeploy.';
-  }
-
-  return message || 'Could not send verification code. Please try again.';
-}
-
 export async function POST(request) {
   const supabaseAdmin = getSupabaseAdminClient();
 
@@ -60,12 +49,17 @@ export async function POST(request) {
       return Response.json({ error: 'Please enter a valid phone number in your profile first.' }, { status: 400 });
     }
 
-    await sendPhoneVerificationCode(phoneToVerify);
+    const verificationRequest = await sendPhoneVerificationCode(phoneToVerify);
+
+    if (!verificationRequest?.request_id) {
+      return Response.json({ error: 'Verification provider did not return a request ID.' }, { status: 500 });
+    }
 
     return Response.json(
       {
         success: true,
         phone: maskPhoneForDisplay(phoneToVerify),
+        requestId: verificationRequest.request_id,
       },
       { status: 200 },
     );
@@ -79,7 +73,7 @@ export async function POST(request) {
     const status = error?.status && error.status < 500 ? error.status : 500;
 
     return Response.json(
-      { error: getSendCodeErrorMessage(error) },
+      { error: error?.message || 'Could not send verification code. Please try again.' },
       { status },
     );
   }
