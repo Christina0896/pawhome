@@ -1,5 +1,5 @@
 import { getAuthenticatedUser } from '../../../../lib/apiHelpers';
-import { checkPhoneVerificationCode } from '../../../../lib/phoneVerification';
+import { checkPhoneVerificationCode, formatPhoneForVerification } from '../../../../lib/phoneVerification';
 import { getSupabaseAdminClient } from '../../../../lib/supabaseAdmin';
 
 export const dynamic = 'force-dynamic';
@@ -20,17 +20,8 @@ export async function POST(request) {
   const { user } = auth;
 
   try {
-    const { code, requestId } = await request.json();
+    const { code } = await request.json();
     const cleanCode = String(code || '').replace(/\s+/g, '').trim();
-    const cleanRequestId = String(requestId || '').trim();
-
-    if (!cleanRequestId) {
-      return Response.json({ error: 'Send a new verification code first.' }, { status: 400 });
-    }
-
-    if (!/^[A-Za-z0-9-]{10,80}$/.test(cleanRequestId)) {
-      return Response.json({ error: 'Send a new verification code first.' }, { status: 400 });
-    }
 
     if (!/^\d{4,10}$/.test(cleanCode)) {
       return Response.json({ error: 'Please enter the verification code.' }, { status: 400 });
@@ -38,7 +29,7 @@ export async function POST(request) {
 
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
-      .select('user_id, phone_verified')
+      .select('user_id, phone_code, phone_number, phone_verified')
       .eq('user_id', user.id)
       .maybeSingle();
 
@@ -59,7 +50,13 @@ export async function POST(request) {
       return Response.json({ success: true, profile }, { status: 200 });
     }
 
-    const verificationCheck = await checkPhoneVerificationCode(cleanRequestId, cleanCode);
+    const phoneToVerify = formatPhoneForVerification(profile.phone_code, profile.phone_number);
+
+    if (!phoneToVerify) {
+      return Response.json({ error: 'Please enter a valid phone number in your profile first.' }, { status: 400 });
+    }
+
+    const verificationCheck = await checkPhoneVerificationCode(phoneToVerify, cleanCode);
 
     if (verificationCheck.status !== 'completed') {
       return Response.json({ error: 'The code is incorrect or expired.' }, { status: 400 });
@@ -92,7 +89,7 @@ export async function POST(request) {
     const isClientError = error?.status && error.status >= 400 && error.status < 500;
 
     return Response.json(
-      { error: isClientError ? 'The code is incorrect or expired.' : 'Could not verify code. Please try again.' },
+      { error: isClientError ? error.message || 'The code is incorrect or expired.' : 'Could not verify code. Please try again.' },
       { status: isClientError ? 400 : 500 },
     );
   }
