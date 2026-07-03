@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import PostAdFormEnhancer from '../app/post-ad/PostAdFormEnhancer';
 
 function getEditId(url) {
@@ -75,14 +76,11 @@ function syncProfilePreviewLinks() {
 }
 
 export default function ReviewPing() {
-  const [isPostAdPage, setIsPostAdPage] = useState(false);
+  const pathname = usePathname() || '';
+  const isPostAdPage = pathname.startsWith('/post-ad');
 
   useEffect(() => {
-    setIsPostAdPage(window.location.pathname.startsWith('/post-ad'));
-  }, []);
-
-  useEffect(() => {
-    if (window.location.pathname !== '/profile') return undefined;
+    if (pathname !== '/profile') return undefined;
 
     syncProfilePreviewLinks();
 
@@ -92,11 +90,10 @@ export default function ReviewPing() {
     return () => {
       observer.disconnect();
     };
-  }, []);
+  }, [pathname]);
 
   useEffect(() => {
-    const shouldRun =
-      window.location.pathname.includes('/profile/listings/') || window.location.pathname === '/admin';
+    const shouldRun = pathname.includes('/profile/listings/') || pathname === '/admin';
 
     if (!shouldRun) return undefined;
 
@@ -144,7 +141,7 @@ export default function ReviewPing() {
       document.removeEventListener('click', syncAfterClick, true);
       window.fetch = baseFetch;
     };
-  }, []);
+  }, [pathname]);
 
   return isPostAdPage ? <PostAdFormEnhancer /> : null;
 }
