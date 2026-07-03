@@ -1,3 +1,14 @@
+const SERVER_AUTH_TIMEOUT_MS = 4000;
+
+function withTimeout(promise, label) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      setTimeout(() => reject(new Error(`${label} timed out`)), SERVER_AUTH_TIMEOUT_MS);
+    }),
+  ]);
+}
+
 export function getBearerToken(request) {
   const authHeader = request.headers.get('authorization') || '';
   return authHeader.replace('Bearer ', '').trim();
@@ -10,10 +21,19 @@ export async function getAuthenticatedUser(supabaseAdmin, request, unauthorizedM
     return { error: Response.json({ error: unauthorizedMessage }, { status: 401 }) };
   }
 
+  let authResult;
+
+  try {
+    authResult = await withTimeout(supabaseAdmin.auth.getUser(token), 'Server auth validation');
+  } catch (error) {
+    console.error('Server auth validation failed:', error);
+    return { error: Response.json({ error: 'Session validation timed out. Please reload and log in again.' }, { status: 401 }) };
+  }
+
   const {
     data: { user },
     error: userError,
-  } = await supabaseAdmin.auth.getUser(token);
+  } = authResult;
 
   if (userError || !user) {
     return { error: Response.json({ error: 'Invalid session.' }, { status: 401 }) };
