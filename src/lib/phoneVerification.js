@@ -1,6 +1,7 @@
 import { Buffer } from 'node:buffer';
 
 const VONAGE_VERIFY_BASE_URL = 'https://api.nexmo.com/v2/verify';
+const verificationRequestsByPhone = new Map();
 
 function getVonageConfig() {
   const apiKey = process.env.VONAGE_API_KEY;
@@ -103,24 +104,43 @@ export async function sendPhoneVerificationCode(to) {
     throw error;
   }
 
-  return vonageVerifyRequest('/', {
+  const vonagePhone = formatPhoneForVonage(to);
+  const result = await vonageVerifyRequest('/', {
     brand: config.brandName,
     code_length: 4,
     workflow: [
       {
         channel: 'sms',
-        to: formatPhoneForVonage(to),
+        to: vonagePhone,
       },
       {
         channel: 'voice',
-        to: formatPhoneForVonage(to),
+        to: vonagePhone,
       },
     ],
   });
+
+  if (result?.request_id) {
+    verificationRequestsByPhone.set(vonagePhone, {
+      requestId: result.request_id,
+      expiresAt: Date.now() + 10 * 60 * 1000,
+    });
+  }
+
+  return result;
 }
 
-export async function checkPhoneVerificationCode(requestId, code) {
-  return vonageVerifyRequest(`/${encodeURIComponent(requestId)}`, {
+export async function checkPhoneVerificationCode(phoneNumber, code) {
+  const vonagePhone = formatPhoneForVonage(phoneNumber);
+  const storedRequest = verificationRequestsByPhone.get(vonagePhone);
+
+  if (!storedRequest || storedRequest.expiresAt < Date.now()) {
+    const error = new Error('Send a new verification code first.');
+    error.status = 400;
+    throw error;
+  }
+
+  return vonageVerifyRequest(`/${encodeURIComponent(storedRequest.requestId)}`, {
     code,
   });
 }
