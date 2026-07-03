@@ -1,17 +1,10 @@
 import { getAuthenticatedUser } from '../../../../lib/apiHelpers';
 import { formatPhoneForVerification, maskPhoneForDisplay, sendPhoneVerificationCode } from '../../../../lib/phoneVerification';
-import { requireSameOrigin } from '../../../../lib/requireSameOrigin';
 import { getSupabaseAdminClient } from '../../../../lib/supabaseAdmin';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request) {
-  const sameOriginError = requireSameOrigin(request);
-
-  if (sameOriginError) {
-    return sameOriginError;
-  }
-
   const supabaseAdmin = getSupabaseAdminClient();
 
   if (!supabaseAdmin) {
