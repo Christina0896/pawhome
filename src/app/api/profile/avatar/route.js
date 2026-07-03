@@ -1,41 +1,17 @@
-import { getSupabaseAdminClient } from '../../../../lib/supabaseAdmin';
-import { getStoragePathFromPublicUrl } from '../../../../lib/storagePaths';
+import { getAuthenticatedUser } from '../../../../lib/apiHelpers';
 import { requireSameOrigin } from '../../../../lib/requireSameOrigin';
+import { getStoragePathFromPublicUrl } from '../../../../lib/storagePaths';
+import { getSupabaseAdminClient } from '../../../../lib/supabaseAdmin';
 
 export const dynamic = 'force-dynamic';
 
 const ALLOWED_AVATAR_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_AVATAR_SIZE = 2 * 1024 * 1024;
-
 const AVATAR_EXTENSION_BY_TYPE = {
   'image/jpeg': 'jpg',
   'image/png': 'png',
   'image/webp': 'webp',
 };
-
-async function getAuthenticatedUser(request, supabaseAdmin) {
-  const authHeader = request.headers.get('authorization') || '';
-  const token = authHeader.replace('Bearer ', '').trim();
-
-  if (!token) {
-    return {
-      error: Response.json({ error: 'Not authenticated.' }, { status: 401 }),
-    };
-  }
-
-  const {
-    data: { user },
-    error,
-  } = await supabaseAdmin.auth.getUser(token);
-
-  if (error || !user) {
-    return {
-      error: Response.json({ error: 'Invalid session.' }, { status: 401 }),
-    };
-  }
-
-  return { user };
-}
 
 async function getExistingProfile(supabaseAdmin, userId) {
   const { data: profile, error } = await supabaseAdmin
@@ -44,22 +20,14 @@ async function getExistingProfile(supabaseAdmin, userId) {
     .eq('user_id', userId)
     .maybeSingle();
 
-  if (error) {
-    throw error;
-  }
-
+  if (error) throw error;
   return profile;
 }
 
 async function deleteAvatarFile(supabaseAdmin, avatarUrl, userId) {
   const avatarPath = getStoragePathFromPublicUrl(avatarUrl, 'avatars');
 
-  if (!avatarPath) return;
-
-  if (!avatarPath.startsWith(`${userId}/`)) {
-    console.warn('Skipped avatar delete because path does not belong to user:', avatarPath);
-    return;
-  }
+  if (!avatarPath || !avatarPath.startsWith(`${userId}/`)) return;
 
   const { error } = await supabaseAdmin.storage.from('avatars').remove([avatarPath]);
 
@@ -73,10 +41,7 @@ async function deleteAvatarFile(supabaseAdmin, avatarUrl, userId) {
 
 export async function POST(request) {
   const sameOriginError = requireSameOrigin(request);
-
-  if (sameOriginError) {
-    return sameOriginError;
-  }
+  if (sameOriginError) return sameOriginError;
 
   const supabaseAdmin = getSupabaseAdminClient();
 
@@ -84,11 +49,8 @@ export async function POST(request) {
     return Response.json({ error: 'Avatar service is not configured.' }, { status: 500 });
   }
 
-  const auth = await getAuthenticatedUser(request, supabaseAdmin);
-
-  if (auth.error) {
-    return auth.error;
-  }
+  const auth = await getAuthenticatedUser(supabaseAdmin, request);
+  if (auth.error) return auth.error;
 
   const { user } = auth;
 
@@ -110,7 +72,6 @@ export async function POST(request) {
 
     const existingProfile = await getExistingProfile(supabaseAdmin, user.id);
     const previousAvatarUrl = existingProfile?.avatar_url || null;
-
     const fileExt = AVATAR_EXTENSION_BY_TYPE[file.type];
     const fileName = `${user.id}/avatar-${Date.now()}.${fileExt}`;
 
@@ -133,15 +94,7 @@ export async function POST(request) {
 
     const { data: updatedProfile, error: updateError } = await supabaseAdmin
       .from('profiles')
-      .upsert(
-        {
-          user_id: user.id,
-          avatar_url: avatarUrl,
-        },
-        {
-          onConflict: 'user_id',
-        },
-      )
+      .upsert({ user_id: user.id, avatar_url: avatarUrl }, { onConflict: 'user_id' })
       .select()
       .single();
 
@@ -152,7 +105,6 @@ export async function POST(request) {
       });
 
       await supabaseAdmin.storage.from('avatars').remove([fileName]);
-
       return Response.json({ error: 'Could not update profile picture.' }, { status: 500 });
     }
 
@@ -173,21 +125,16 @@ export async function POST(request) {
 
 export async function DELETE(request) {
   const sameOriginError = requireSameOrigin(request);
+  if (sameOriginError) return sameOriginError;
 
-  if (sameOriginError) {
-    return sameOriginError;
-  }
   const supabaseAdmin = getSupabaseAdminClient();
 
   if (!supabaseAdmin) {
     return Response.json({ error: 'Avatar service is not configured.' }, { status: 500 });
   }
 
-  const auth = await getAuthenticatedUser(request, supabaseAdmin);
-
-  if (auth.error) {
-    return auth.error;
-  }
+  const auth = await getAuthenticatedUser(supabaseAdmin, request);
+  if (auth.error) return auth.error;
 
   const { user } = auth;
 
@@ -197,15 +144,7 @@ export async function DELETE(request) {
 
     const { data: updatedProfile, error: updateError } = await supabaseAdmin
       .from('profiles')
-      .upsert(
-        {
-          user_id: user.id,
-          avatar_url: null,
-        },
-        {
-          onConflict: 'user_id',
-        },
-      )
+      .upsert({ user_id: user.id, avatar_url: null }, { onConflict: 'user_id' })
       .select()
       .single();
 
