@@ -81,12 +81,14 @@ export const metadata = {
 };
 
 export default function RootLayout({ children }) {
+  const structuredDataJson = JSON.stringify(siteStructuredData).replace(/</g, '\\u003c');
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${nunitoSans.variable} ${lora.variable}`}>
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(siteStructuredData).replace(/</g, '\u003c') }}
+          dangerouslySetInnerHTML={{ __html: structuredDataJson }}
         />
         <ToastProvider>
           <AuthProvider>
