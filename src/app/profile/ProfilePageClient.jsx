@@ -44,6 +44,11 @@ export default function ProfilePageClient() {
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileMessage, setProfileMessage] = useState('');
+  const [phoneCodeSent, setPhoneCodeSent] = useState(false);
+  const [phoneVerificationCode, setPhoneVerificationCode] = useState('');
+  const [phoneVerificationMessage, setPhoneVerificationMessage] = useState('');
+  const [phoneVerificationSending, setPhoneVerificationSending] = useState(false);
+  const [phoneVerificationChecking, setPhoneVerificationChecking] = useState(false);
   const [profileForm, setProfileForm] = useState({
     first_name: '',
     last_name: '',
@@ -112,11 +117,20 @@ export default function ProfilePageClient() {
   const emailVerified = Boolean(user?.email_confirmed_at || user?.confirmed_at);
   const phoneVerified = Boolean(profile?.phone_verified);
   const memberSince = user?.created_at ? new Date(user.created_at).toLocaleDateString('en-IE', { month: 'long', year: 'numeric' }) : '-';
+  const phoneChanged = Boolean(
+    profile && (profile.phone_code !== profileForm.phone_code || profile.phone_number !== profileForm.phone_number),
+  );
 
   const handleProfileFormChange = (event) => {
     const { name, value } = event.target;
     setProfileForm((current) => ({ ...current, [name]: value }));
     setProfileMessage('');
+
+    if (name === 'phone_code' || name === 'phone_number') {
+      setPhoneCodeSent(false);
+      setPhoneVerificationCode('');
+      setPhoneVerificationMessage('Save your phone number before verifying it.');
+    }
   };
 
   const handleAvatarUpload = async (event) => {
@@ -185,6 +199,7 @@ export default function ProfilePageClient() {
     event.preventDefault();
     setProfileSaving(true);
     setProfileMessage('');
+    setPhoneVerificationMessage('');
 
     const password = profileForm.password.trim();
 
@@ -231,12 +246,98 @@ export default function ProfilePageClient() {
 
       setProfile(result.profile);
       setProfileForm((current) => ({ ...current, password: '' }));
+      setPhoneCodeSent(false);
+      setPhoneVerificationCode('');
       setProfileMessage('Settings saved.');
     } catch (error) {
       console.error('Profile save error:', error);
       setProfileMessage('Could not save settings. Please try again.');
     } finally {
       setProfileSaving(false);
+    }
+  };
+
+  const handleSendPhoneCode = async () => {
+    setPhoneVerificationMessage('');
+
+    if (phoneChanged) {
+      setPhoneVerificationMessage('Save your phone number before verifying it.');
+      return;
+    }
+
+    if (!profileForm.phone_number.trim()) {
+      setPhoneVerificationMessage('Enter your phone number first.');
+      return;
+    }
+
+    setPhoneVerificationSending(true);
+
+    try {
+      const accessToken = await getVerifiedAccessToken();
+      if (!accessToken) return;
+
+      const response = await fetch('/api/phone/send-code', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        setPhoneVerificationMessage(result.error || 'Could not send verification code.');
+        return;
+      }
+
+      if (result.alreadyVerified) {
+        setPhoneVerificationMessage('This phone number is already verified.');
+        return;
+      }
+
+      setPhoneCodeSent(true);
+      setPhoneVerificationCode('');
+      setPhoneVerificationMessage(`Verification code sent to ${result.phone || 'your phone'}.`);
+    } catch (error) {
+      console.error('Send phone code error:', error);
+      setPhoneVerificationMessage('Could not send verification code. Please try again.');
+    } finally {
+      setPhoneVerificationSending(false);
+    }
+  };
+
+  const handleVerifyPhoneCode = async () => {
+    setPhoneVerificationMessage('');
+
+    if (!phoneVerificationCode.trim()) {
+      setPhoneVerificationMessage('Enter the code from the SMS.');
+      return;
+    }
+
+    setPhoneVerificationChecking(true);
+
+    try {
+      const accessToken = await getVerifiedAccessToken();
+      if (!accessToken) return;
+
+      const response = await fetch('/api/phone/verify-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ code: phoneVerificationCode.trim() }),
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        setPhoneVerificationMessage(result.error || 'Could not verify code.');
+        return;
+      }
+
+      setProfile(result.profile);
+      setPhoneCodeSent(false);
+      setPhoneVerificationCode('');
+      setPhoneVerificationMessage('Phone number verified. You can now post ads.');
+    } catch (error) {
+      console.error('Verify phone code error:', error);
+      setPhoneVerificationMessage('Could not verify code. Please try again.');
+    } finally {
+      setPhoneVerificationChecking(false);
     }
   };
 
@@ -314,20 +415,32 @@ export default function ProfilePageClient() {
             memberSince={memberSince}
             emailVerified={emailVerified}
             phoneVerified={phoneVerified}
+            phoneChanged={phoneChanged}
             profileForm={profileForm}
             profileSaving={profileSaving}
             profileMessage={profileMessage}
+            phoneCodeSent={phoneCodeSent}
+            phoneVerificationCode={phoneVerificationCode}
+            phoneVerificationMessage={phoneVerificationMessage}
+            phoneVerificationSending={phoneVerificationSending}
+            phoneVerificationChecking={phoneVerificationChecking}
             avatarUploading={avatarUploading}
             onAvatarUpload={handleAvatarUpload}
             onRemoveAvatar={handleRemoveAvatar}
             onProfileFormChange={handleProfileFormChange}
+            onPhoneVerificationCodeChange={(event) => setPhoneVerificationCode(event.target.value)}
+            onSendPhoneCode={handleSendPhoneCode}
+            onVerifyPhoneCode={handleVerifyPhoneCode}
             onSaveSettings={handleSaveSettings}
             onDeleteProfile={handleDeleteProfile}
           />
 
           <section className="rounded-3xl border border-(--border-beige) bg-white p-6 shadow-[0_8px_24px_rgba(18,53,36,0.05)]">
             <div className="flex flex-col justify-between gap-4 border-b border-(--border-beige) pb-6 sm:flex-row sm:items-center">
-              <div><h2 className="text-2xl font-extrabold text-(--secondary-green)">My Listings</h2><p className="mt-1 text-sm text-(--muted-green-text)">View, edit, or delete your submitted ads.</p></div>
+              <div>
+                <h2 className="text-2xl font-extrabold text-(--secondary-green)">My Listings</h2>
+                <p className="mt-1 text-sm text-(--muted-green-text)">View, edit, or delete your submitted ads.</p>
+              </div>
               <Link href="/post-ad" className="inline-flex items-center justify-center rounded-xl bg-(--primary-orange) px-5 py-3 text-sm font-bold text-white transition hover:scale-105 hover:bg-(--secondary-orange)">Post new ad</Link>
             </div>
 
@@ -347,8 +460,13 @@ function ProfileSidebar(props) {
     <aside className="h-fit rounded-3xl border border-(--border-beige) bg-white p-6 shadow-[0_8px_24px_rgba(18,53,36,0.05)] lg:sticky lg:top-24">
       <div className="flex flex-col items-center text-center">
         <div className="relative">
-          <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-(--light-green) text-4xl font-extrabold text-(--primary-green)">{props.profile?.avatar_url ? <img src={props.profile.avatar_url} alt="Profile picture" className="h-full w-full object-cover" /> : initial}</div>
-          <label className="absolute bottom-0 right-0 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-(--primary-green) text-white shadow-md transition hover:scale-105"><input type="file" accept="image/jpeg,image/png,image/webp" onChange={props.onAvatarUpload} className="hidden" />{props.avatarUploading ? <span className="text-xs">...</span> : <GalleryIcon className="h-4 w-4" />}</label>
+          <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-(--light-green) text-4xl font-extrabold text-(--primary-green)">
+            {props.profile?.avatar_url ? <img src={props.profile.avatar_url} alt="Profile picture" className="h-full w-full object-cover" /> : initial}
+          </div>
+          <label className="absolute bottom-0 right-0 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-(--primary-green) text-white shadow-md transition hover:scale-105">
+            <input type="file" accept="image/jpeg,image/png,image/webp" onChange={props.onAvatarUpload} className="hidden" />
+            {props.avatarUploading ? <span className="text-xs">...</span> : <GalleryIcon className="h-4 w-4" />}
+          </label>
         </div>
         <h2 className="mt-5 text-2xl font-extrabold text-(--secondary-green)">{props.fullName || 'PawHome User'}</h2>
         <p className="mt-1 break-all text-sm text-(--muted-green-text)">{props.user?.email}</p>
@@ -357,18 +475,89 @@ function ProfileSidebar(props) {
 
       <div className="mt-4 flex items-center justify-center gap-2"><p className="text-sm text-(--muted-green-text)">Member since:</p><p className="font-bold text-(--secondary-green)">{props.memberSince}</p></div>
 
+      {!props.phoneVerified && (
+        <div className="mt-5 rounded-2xl border border-orange-100 bg-orange-50 p-4 text-sm text-(--secondary-green)">
+          <p className="font-extrabold">Phone verification required to post ads.</p>
+          <p className="mt-1 text-xs font-semibold text-(--muted-green-text)">You can browse and save listings now. Verify your phone before submitting an ad.</p>
+        </div>
+      )}
+
       <form onSubmit={props.onSaveSettings} className="mt-6 space-y-4">
         <ProfileEditField label="First Name" name="first_name" value={props.profileForm.first_name} onChange={props.onProfileFormChange} required />
         <ProfileEditField label="Last Name" name="last_name" value={props.profileForm.last_name} onChange={props.onProfileFormChange} required />
-        <div><label className="mb-2 block text-sm font-bold text-(--secondary-green)">Account Type</label><select name="account_type" value={props.profileForm.account_type} onChange={props.onProfileFormChange} className="h-12 w-full rounded-xl border border-(--border-beige) bg-white px-4 text-sm font-semibold text-(--secondary-green) outline-none"><option value="Buyer">Buyer</option><option value="Private Seller">Private Seller</option><option value="Breeder">Breeder</option><option value="Shelter / Rescue">Shelter / Rescue</option></select></div>
+        <div>
+          <label className="mb-2 block text-sm font-bold text-(--secondary-green)">Account Type</label>
+          <select name="account_type" value={props.profileForm.account_type} onChange={props.onProfileFormChange} className="h-12 w-full rounded-xl border border-(--border-beige) bg-white px-4 text-sm font-semibold text-(--secondary-green) outline-none">
+            <option value="Buyer">Buyer</option>
+            <option value="Private Seller">Private Seller</option>
+            <option value="Breeder">Breeder</option>
+            <option value="Shelter / Rescue">Shelter / Rescue</option>
+          </select>
+        </div>
         <ProfileInfoItem label="Email" value={props.user?.email || '-'} verified={props.emailVerified} showNotVerified />
-        <div><div className="mb-2 flex items-center justify-between gap-3"><label className="block text-sm font-bold text-(--secondary-green)">Phone</label>{props.phoneVerified ? <VerifiedBadge /> : <NotVerifiedBadge />}</div><div className="grid grid-cols-[105px_1fr] gap-3"><select name="phone_code" value={props.profileForm.phone_code} onChange={props.onProfileFormChange} className="h-12 rounded-xl border border-(--border-beige) bg-white px-3 text-sm font-semibold text-(--secondary-green) outline-none"><option value="+353">+353</option><option value="+44">+44</option><option value="+49">+49</option><option value="+351">+351</option><option value="+33">+33</option><option value="+34">+34</option></select><input name="phone_number" value={props.profileForm.phone_number} onChange={props.onProfileFormChange} placeholder="871234567" className="h-12 w-full rounded-xl border border-(--border-beige) bg-white px-4 text-sm font-semibold text-(--secondary-green) outline-none" /></div></div>
+        <div>
+          <div className="mb-2 flex items-center justify-between gap-3"><label className="block text-sm font-bold text-(--secondary-green)">Phone</label>{props.phoneVerified ? <VerifiedBadge /> : <NotVerifiedBadge />}</div>
+          <div className="grid grid-cols-[105px_1fr] gap-3">
+            <select name="phone_code" value={props.profileForm.phone_code} onChange={props.onProfileFormChange} className="h-12 rounded-xl border border-(--border-beige) bg-white px-3 text-sm font-semibold text-(--secondary-green) outline-none">
+              <option value="+353">+353</option>
+              <option value="+44">+44</option>
+              <option value="+49">+49</option>
+              <option value="+351">+351</option>
+              <option value="+33">+33</option>
+              <option value="+34">+34</option>
+            </select>
+            <input name="phone_number" value={props.profileForm.phone_number} onChange={props.onProfileFormChange} placeholder="871234567" className="h-12 w-full rounded-xl border border-(--border-beige) bg-white px-4 text-sm font-semibold text-(--secondary-green) outline-none" />
+          </div>
+          <PhoneVerificationBox {...props} />
+        </div>
         <ProfileEditField label="County" name="county" value={props.profileForm.county} onChange={props.onProfileFormChange} placeholder="Westmeath" />
         <ProfileEditField label="New Password" name="password" type="password" value={props.profileForm.password} onChange={props.onProfileFormChange} placeholder="Leave empty to keep current password" />
         {props.profileMessage && <p className={`text-sm font-bold ${props.profileMessage === 'Settings saved.' ? 'text-green-700' : 'text-red-600'}`}>{props.profileMessage}</p>}
         <div className="grid gap-3 pt-2"><button type="submit" disabled={props.profileSaving} className="flex h-12 items-center justify-center rounded-xl bg-(--primary-green) text-sm font-bold text-white transition hover:scale-105 disabled:cursor-not-allowed disabled:opacity-60">{props.profileSaving ? 'Saving...' : 'Save Settings'}</button><button type="button" onClick={props.onDeleteProfile} className="flex h-12 items-center justify-center rounded-xl border border-red-100 bg-red-50 text-sm font-bold text-red-600 transition hover:bg-red-100">Delete Profile</button></div>
       </form>
     </aside>
+  );
+}
+
+function PhoneVerificationBox(props) {
+  if (props.phoneVerified) {
+    return <p className="mt-3 rounded-xl bg-green-50 px-4 py-3 text-xs font-bold text-green-700">This phone number is verified. Changing it will require verification again.</p>;
+  }
+
+  return (
+    <div className="mt-3 space-y-3 rounded-2xl bg-(--background) p-4">
+      <p className="text-xs font-semibold text-(--muted-green-text)">Verify this number by SMS before posting ads.</p>
+      {props.phoneChanged && <p className="text-xs font-bold text-orange-700">Save settings before verifying this phone number.</p>}
+      {props.phoneVerificationMessage && <p className="text-xs font-bold text-(--secondary-green)">{props.phoneVerificationMessage}</p>}
+      <button
+        type="button"
+        onClick={props.onSendPhoneCode}
+        disabled={props.phoneVerificationSending || props.profileSaving || props.phoneChanged || !props.profileForm.phone_number.trim()}
+        className="flex h-10 w-full items-center justify-center rounded-xl bg-(--primary-orange) text-sm font-bold text-white transition hover:bg-(--secondary-orange) disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {props.phoneVerificationSending ? 'Sending code...' : props.phoneCodeSent ? 'Send code again' : 'Send verification code'}
+      </button>
+      {props.phoneCodeSent && (
+        <div className="grid gap-2">
+          <input
+            type="text"
+            inputMode="numeric"
+            value={props.phoneVerificationCode}
+            onChange={props.onPhoneVerificationCodeChange}
+            placeholder="Enter SMS code"
+            className="h-11 w-full rounded-xl border border-(--border-beige) bg-white px-4 text-sm font-semibold text-(--secondary-green) outline-none"
+          />
+          <button
+            type="button"
+            onClick={props.onVerifyPhoneCode}
+            disabled={props.phoneVerificationChecking || !props.phoneVerificationCode.trim()}
+            className="flex h-10 w-full items-center justify-center rounded-xl bg-(--primary-green) text-sm font-bold text-white transition hover:scale-105 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {props.phoneVerificationChecking ? 'Checking code...' : 'Verify phone'}
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 
