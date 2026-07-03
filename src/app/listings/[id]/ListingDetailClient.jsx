@@ -485,8 +485,12 @@ export default function ListingDetailClient({ listing: initialListing, similarLi
             <div className="p-6">
               <h2 className="text-xl font-extrabold text-(--secondary-green)">About the Seller</h2>
               <div className="mt-5 flex items-center gap-4">
-                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-(--background) text-lg font-extrabold text-(--primary-green)">
-                  {(listing.seller_name || 'Seller').charAt(0).toUpperCase()}
+                <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-(--background) text-lg font-extrabold text-(--primary-green)">
+                  {listing.seller_avatar_url ? (
+                    <img src={listing.seller_avatar_url} alt={`${listing.seller_name || 'Seller'} profile`} loading="lazy" decoding="async" className="h-full w-full object-cover" />
+                  ) : (
+                    (listing.seller_name || 'Seller').charAt(0).toUpperCase()
+                  )}
                 </div>
                 <div>
                   <p className="font-extrabold text-(--secondary-green)">{listing.seller_name || 'Seller'}</p>
@@ -518,134 +522,74 @@ export default function ListingDetailClient({ listing: initialListing, similarLi
                 <p className="text-(--muted-green-text)">favourites</p>
               </div>
               <div className="flex flex-col items-center px-3 py-3">
-                <PhoneIcon className="h-4" />
-                <p className="mt-1 font-extrabold text-(--secondary-green)">{listing.phone_clicks || 0}</p>
+                <PhoneIcon />
+                <p className="mt-0.5 font-extrabold text-(--secondary-green)">{listing.phone_clicks || 0}</p>
                 <p className="text-(--muted-green-text)">phone clicks</p>
               </div>
             </div>
-            <div className="border-t border-(--border-beige) p-5">
-              <button
-                type="button"
-                onClick={() => {
-                  setReportModalOpen(true);
-                  setReportSuccess(false);
-                }}
-                className="w-full rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-bold text-red-600 transition hover:bg-red-100"
-              >
-                ⚑ Report this listing
-              </button>
+          </section>
+
+          <section className="overflow-hidden rounded-3xl border border-(--border-beige) bg-white shadow-sm">
+            <div className="h-52 bg-(--light-green)">
+              <iframe title="Listing location" src={mapUrl} className="h-full w-full border-0" loading="lazy" referrerPolicy="no-referrer-when-downgrade" />
+            </div>
+            <div className="p-5">
+              <p className="text-sm font-bold text-(--secondary-green)">{locationText}</p>
+              <p className="mt-1 text-xs text-(--muted-green-text)">Approximate location based on the seller's county and town.</p>
             </div>
           </section>
 
-          <section className="rounded-3xl border border-(--border-beige) bg-white p-6 shadow-sm">
-            <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-(--light-green) text-lg"><ShieldCheckIcon /></div>
-              <div>
-                <h2 className="text-xl font-extrabold text-(--secondary-green)">Buying Safely</h2>
-                <p className="mt-1 text-sm leading-6 text-(--muted-green-text)">Take basic checks before agreeing to buy or reserve a pet.</p>
-              </div>
-            </div>
-            <ul className="mt-5 space-y-4 text-sm leading-6 text-(--secondary-green)">
-              {[
-                'Do not pay a deposit before seeing the pet in person.',
-                'Dogs should not leave their mother before 8 weeks old.',
-                'Ask to see the microchip certificate and seller ID.',
-                'Meet at the seller’s home, not in a car park or public place.',
-                'Bring a friend or family member when possible.',
-              ].map((tip) => (
-                <li key={tip} className="flex gap-3"><span className="font-bold text-(--primary-green)">✓</span><span>{tip}</span></li>
-              ))}
-            </ul>
-            <Link href="/safety" className="mt-6 flex h-11 items-center justify-center rounded-xl border border-(--primary-green) text-sm font-bold text-(--primary-green) transition hover:bg-(--primary-green) hover:text-white">
-              Learn more about safe buying
-            </Link>
-          </section>
-
-          {locationText && (
-            <section className="rounded-3xl border border-(--border-beige) bg-white p-5 shadow-sm">
-              <div className="flex items-start gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-(--background)"><LocationIcon /></div>
-                <div>
-                  <h2 className="text-lg font-extrabold text-(--secondary-green)">Location</h2>
-                  <p className="mt-1 text-sm font-semibold text-(--muted-green-text)">{locationText}</p>
-                </div>
-              </div>
-              <div className="mt-1 h-[220px] overflow-hidden rounded-xl border border-(--border-beige)">
-                <iframe title="Listing location map" src={mapUrl} className="h-full w-full border-0" loading="lazy" referrerPolicy="no-referrer-when-downgrade" />
-              </div>
-              <p className="mt-3 text-xs leading-5 text-(--muted-green-text)">Approximate location only. The seller’s exact address is not shown.</p>
-            </section>
-          )}
-
-          <section className="rounded-3xl border border-(--border-beige) bg-(--light-green) p-5 shadow-sm">
-            <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white text-2xl text-(--primary-green)"><HealthIcon /></div>
-              <div>
-                <h2 className="text-lg font-extrabold text-(--secondary-green)">Don’t miss out</h2>
-                <p className="mt-1 text-sm text-(--muted-green-text)">Save this listing and keep it in your favourites.</p>
-              </div>
-            </div>
-            <button type="button" onClick={handleToggleFavourite} className="mt-5 w-full rounded-xl bg-(--primary-green) px-5 py-3 text-sm font-bold text-white transition hover:scale-[1.02]">
-              {isFavourite ? 'Saved to favourites' : '♡ Save this listing'}
-            </button>
-          </section>
+          <button type="button" onClick={() => setReportModalOpen(true)} className="w-full rounded-xl border border-red-100 bg-white px-5 py-3 text-sm font-bold text-red-600 transition hover:bg-red-50">
+            Report suspicious ad
+          </button>
         </aside>
       </div>
 
       {imageModalOpen && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90 px-4 py-6">
-          <button type="button" onClick={() => setImageModalOpen(false)} className="absolute right-5 top-5 flex h-11 w-11 items-center justify-center rounded-full bg-white text-2xl font-bold text-(--secondary-green)">×</button>
-          {photos.length > 1 && (
-            <>
-              <button type="button" onClick={handlePreviousPhoto} className="absolute left-5 top-1/2 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white text-3xl font-bold text-(--secondary-green)">‹</button>
-              <button type="button" onClick={handleNextPhoto} className="absolute right-5 top-1/2 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white text-3xl font-bold text-(--secondary-green)">›</button>
-            </>
-          )}
-          <div className="relative h-[90vh] w-[95vw]">
-            <Image src={mainImage} alt={title} fill sizes="95vw" className="rounded-2xl object-contain" />
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/90 p-4" onClick={() => setImageModalOpen(false)}>
+          <button type="button" onClick={() => setImageModalOpen(false)} className="absolute right-5 top-5 rounded-full bg-white px-4 py-2 text-sm font-bold text-(--secondary-green)">Close</button>
+          <div className="relative h-[80vh] w-full max-w-6xl" onClick={(e) => e.stopPropagation()}>
+            <Image src={mainImage} alt={title} fill sizes="100vw" className="object-contain" />
           </div>
-          {photos.length > 1 && <div className="absolute bottom-5 rounded-full bg-white/90 px-4 py-2 text-sm font-bold text-(--secondary-green)">{selectedPhotoIndex + 1} / {photos.length}</div>}
         </div>
       )}
 
       {reportModalOpen && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 px-4">
-          <div className="relative w-full max-w-[520px] rounded-3xl border border-(--border-beige) bg-white p-6 shadow-2xl">
-            <button type="button" onClick={() => setReportModalOpen(false)} className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full border border-(--border-beige) text-lg font-bold text-(--secondary-green) hover:bg-(--background)">×</button>
-            {!reportSuccess ? (
-              <>
-                <h2 className="text-2xl font-extrabold text-(--secondary-green)">Report this listing</h2>
-                <p className="mt-2 text-sm leading-6 text-(--muted-green-text)">Tell us what looks wrong. Reports help keep PawHome safer.</p>
-                <form onSubmit={handleSubmitReport} className="mt-6 space-y-4">
-                  <div>
-                    <label className="mb-2 block text-sm font-bold text-(--secondary-green)">Reason</label>
-                    <select value={reportReason} onChange={(e) => setReportReason(e.target.value)} className="h-12 w-full rounded-xl border border-(--border-beige) bg-white px-4 text-sm text-(--secondary-green) outline-none focus:border-(--primary-green)">
-                      <option value="">Select a reason</option>
-                      <option value="Suspicious seller">Suspicious seller</option>
-                      <option value="Fake or misleading listing">Fake or misleading listing</option>
-                      <option value="Animal welfare concern">Animal welfare concern</option>
-                      <option value="Too young to leave mother">Too young to leave mother</option>
-                      <option value="Microchip or paperwork issue">Microchip or paperwork issue</option>
-                      <option value="Scam or payment request">Scam or payment request</option>
-                      <option value="Other">Other</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="mb-2 block text-sm font-bold text-(--secondary-green)">Details</label>
-                    <textarea value={reportDetails} onChange={(e) => setReportDetails(e.target.value)} maxLength={1000} rows={5} placeholder="Add any details that may help us review this listing." className="w-full resize-none rounded-xl border border-(--border-beige) bg-white px-4 py-3 text-sm text-(--secondary-green) outline-none focus:border-(--primary-green)" />
-                  </div>
-                  <button type="submit" disabled={reportSubmitting} className="w-full rounded-xl bg-red-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60">
-                    {reportSubmitting ? 'Submitting...' : 'Submit Report'}
-                  </button>
-                </form>
-              </>
-            ) : (
-              <div className="py-6 text-center">
-                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-100 text-2xl">✓</div>
-                <h2 className="mt-5 text-2xl font-extrabold text-(--secondary-green)">Report submitted</h2>
-                <p className="mt-2 text-sm leading-6 text-(--muted-green-text)">Thank you. We will review this listing.</p>
-                <button type="button" onClick={() => setReportModalOpen(false)} className="mt-6 w-full rounded-xl bg-(--primary-green) px-5 py-3 text-sm font-bold text-white">Close</button>
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-2xl font-extrabold text-(--secondary-green)">Report this ad</h2>
+                <p className="mt-1 text-sm text-(--muted-green-text)">Tell us what looks suspicious. PawHome will review it.</p>
               </div>
+              <button type="button" onClick={() => setReportModalOpen(false)} className="rounded-full border border-(--border-beige) px-3 py-1 text-sm font-bold text-(--secondary-green)">×</button>
+            </div>
+
+            {reportSuccess ? (
+              <div className="mt-6 rounded-2xl bg-green-50 p-4 text-sm font-bold text-green-700">
+                Thank you. Your report has been submitted.
+              </div>
+            ) : (
+              <form onSubmit={handleSubmitReport} className="mt-6 space-y-4">
+                <label className="block text-sm font-bold text-(--secondary-green)">
+                  Reason
+                  <select value={reportReason} onChange={(e) => setReportReason(e.target.value)} className="mt-2 h-12 w-full rounded-xl border border-(--border-beige) bg-white px-4 text-sm outline-none">
+                    <option value="">Select a reason</option>
+                    <option value="Possible scam">Possible scam</option>
+                    <option value="Animal welfare concern">Animal welfare concern</option>
+                    <option value="Misleading information">Misleading information</option>
+                    <option value="Duplicate listing">Duplicate listing</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </label>
+                <label className="block text-sm font-bold text-(--secondary-green)">
+                  Details
+                  <textarea value={reportDetails} onChange={(e) => setReportDetails(e.target.value)} rows={4} className="mt-2 w-full rounded-xl border border-(--border-beige) bg-white px-4 py-3 text-sm outline-none" placeholder="Optional details" />
+                </label>
+                <button type="submit" disabled={reportSubmitting} className="h-12 w-full rounded-xl bg-(--primary-orange) text-sm font-bold text-white disabled:opacity-60">
+                  {reportSubmitting ? 'Submitting...' : 'Submit report'}
+                </button>
+              </form>
             )}
           </div>
         </div>
