@@ -77,8 +77,8 @@ export async function PATCH(request) {
     const firstName = cleanText(body.first_name);
     const lastName = cleanText(body.last_name);
     const accountType = normalizeAccountType(body.account_type);
-    const phoneCode = cleanText(body.phone_code) || '+353';
-    const phoneNumber = cleanText(body.phone_number);
+    let phoneCode = cleanText(body.phone_code) || '+353';
+    let phoneNumber = cleanText(body.phone_number);
     const county = cleanText(body.county);
 
     if (!firstName || !lastName) {
@@ -111,7 +111,7 @@ export async function PATCH(request) {
 
     const { data: existingProfile, error: existingError } = await supabaseAdmin
       .from('profiles')
-      .select('user_id, phone_code, phone_number')
+      .select('user_id, phone_code, phone_number, phone_verified')
       .eq('user_id', user.id)
       .maybeSingle();
 
@@ -127,6 +127,11 @@ export async function PATCH(request) {
     const phoneChanged =
       existingProfile && (existingProfile.phone_code !== phoneCode || existingProfile.phone_number !== phoneNumber);
 
+    if (existingProfile?.phone_verified && phoneChanged) {
+      phoneCode = existingProfile.phone_code || '+353';
+      phoneNumber = existingProfile.phone_number || '';
+    }
+
     const profilePayload = {
       user_id: user.id,
       first_name: firstName,
@@ -137,7 +142,7 @@ export async function PATCH(request) {
       county,
     };
 
-    if (!existingProfile || phoneChanged) {
+    if (!existingProfile || (!existingProfile.phone_verified && phoneChanged)) {
       profilePayload.phone_verified = false;
     }
 
