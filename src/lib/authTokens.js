@@ -8,6 +8,14 @@ function openLoginModal() {
 
 export async function getVerifiedAccessToken({ openLogin = true } = {}) {
   const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (session?.access_token) {
+    return session.access_token;
+  }
+
+  const {
     data: { user },
     error: userError,
   } = await supabase.auth.getUser();
@@ -18,15 +26,15 @@ export async function getVerifiedAccessToken({ openLogin = true } = {}) {
   }
 
   const {
-    data: { session },
+    data: { session: refreshedSession },
   } = await supabase.auth.getSession();
 
-  if (!session?.access_token) {
+  if (!refreshedSession?.access_token) {
     if (openLogin) openLoginModal();
     return null;
   }
 
-  return session.access_token;
+  return refreshedSession.access_token;
 }
 
 export async function getVerifiedAdminAccessToken({ setAccessDenied } = {}) {
