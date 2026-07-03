@@ -4,6 +4,17 @@ import { getSupabaseAdminClient } from '../../../../lib/supabaseAdmin';
 
 export const dynamic = 'force-dynamic';
 
+function getSendCodeErrorMessage(error) {
+  const message = error?.message || '';
+  const lowerMessage = message.toLowerCase();
+
+  if (lowerMessage.includes('trial') && lowerMessage.includes('unverified')) {
+    return 'Twilio trial still sees this phone as unverified for the API credentials PawHome is using. Check that Vercel TWILIO_ACCOUNT_SID matches the Twilio account where this number is verified, then redeploy.';
+  }
+
+  return message || 'Could not send verification code. Please try again.';
+}
+
 export async function POST(request) {
   const supabaseAdmin = getSupabaseAdminClient();
 
@@ -68,7 +79,7 @@ export async function POST(request) {
     const status = error?.status && error.status < 500 ? error.status : 500;
 
     return Response.json(
-      { error: error?.message || 'Could not send verification code. Please try again.' },
+      { error: getSendCodeErrorMessage(error) },
       { status },
     );
   }
