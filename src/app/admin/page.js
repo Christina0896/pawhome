@@ -3,9 +3,9 @@
 import { useEffect, useState } from 'react';
 import Header from '../../components/header';
 import Footer from '../../components/footer';
-import { supabase } from '../../lib/supabaseClient';
 import Link from 'next/link';
 import { getVerifiedAdminAccessToken } from '../../lib/authTokens';
+import { PawIcon } from '../../components/Icons';
 
 const STATUS_OPTIONS = ['pending', 'approved', 'rejected', 'reports'];
 const LISTING_STATUS_FILTERS = ['pending', 'approved', 'rejected'];
@@ -28,170 +28,130 @@ const yesNo = (value) => {
   return value;
 };
 
-const getMainImageData = (photos) => {
-  const sortedPhotos = [...(photos || [])].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
-
-  return {
-    mainImage: sortedPhotos[0]?.image_url,
-    photoCount: sortedPhotos.length,
-  };
-};
-
 export default function AdminPage() {
-  // Auth state
-  const [user, setUser] = useState(null);
   const [checkingAdmin, setCheckingAdmin] = useState(true);
   const [accessDenied, setAccessDenied] = useState(false);
-
-  // Listing state
   const [listings, setListings] = useState([]);
   const [reports, setReports] = useState([]);
   const [selectedStatus, setSelectedStatus] = useState('pending');
   const [loading, setLoading] = useState(true);
 
-  // Check admin access on page load
-  useEffect(() => {
-    const checkAdminAndLoad = async () => {
-      setCheckingAdmin(true);
-
-      const {
-        data: { user },
-        error,
-      } = await supabase.auth.getUser();
-
-      if (error || !user) {
-        setAccessDenied(true);
-        setCheckingAdmin(false);
-        setLoading(false);
-        return;
-      }
-
-      const { data: adminData, error: adminError } = await supabase
-        .from('admin_users')
-        .select('user_id')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      if (adminError || !adminData) {
-        setAccessDenied(true);
-        setCheckingAdmin(false);
-        setLoading(false);
-        return;
-      }
-
-      setUser(user);
-      setCheckingAdmin(false);
-    };
-
-    checkAdminAndLoad();
-  }, []);
-
-  // Reload listings when status tab changes
-  useEffect(() => {
-    if (!user) return;
-
-    if (selectedStatus === 'reports') {
-      loadReports();
-    } else {
-      loadListings(selectedStatus);
+  const handleApiAuthError = (response) => {
+    if (response.status === 401 || response.status === 403) {
+      setAccessDenied(true);
+      return true;
     }
-  }, [selectedStatus, user]);
+
+    return false;
+  };
+
+  const getAdminToken = async () => {
+    const accessToken = await getVerifiedAdminAccessToken({ setAccessDenied });
+
+    if (!accessToken) {
+      setAccessDenied(true);
+      setCheckingAdmin(false);
+      setLoading(false);
+      return null;
+    }
+
+    return accessToken;
+  };
 
   const loadListings = async (status) => {
     if (!LISTING_STATUS_FILTERS.includes(status)) {
       setListings([]);
       setLoading(false);
+      setCheckingAdmin(false);
       return;
     }
 
     setLoading(true);
 
-    const { data, error } = await supabase
-      .from('listings')
-      .select(
-        `
-        *,
-        listing_photos (
-          image_url,
-          sort_order
-        )
-      `,
-      )
-      .eq('status', status)
-      .order('created_at', { ascending: false });
+    try {
+      const accessToken = await getAdminToken();
 
-    if (error) {
+      if (!accessToken) return;
+
+      const response = await fetch(`/api/admin/listings?status=${encodeURIComponent(status)}`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        if (!handleApiAuthError(response)) {
+          console.error('Admin listings fetch failed:', result);
+          alert(result.error || 'Could not load admin listings.');
+        }
+
+        setListings([]);
+        return;
+      }
+
+      setListings(result.listings || []);
+    } catch (error) {
       console.error('Admin listings fetch error:', error);
       setListings([]);
+      alert('Could not load admin listings.');
+    } finally {
       setLoading(false);
-      return;
+      setCheckingAdmin(false);
     }
-
-    const formattedListings = (data || []).map((listing) => {
-      const { mainImage, photoCount } = getMainImageData(listing.listing_photos);
-
-      return {
-        ...listing,
-        mainImage,
-        photoCount,
-      };
-    });
-
-    setListings(formattedListings);
-    setLoading(false);
   };
+
   const loadReports = async () => {
     setLoading(true);
 
-    const { data, error } = await supabase
-      .from('listing_reports')
-      .select(
-        `
-      *,
-      listings (
-        id,
-        title,
-        breed,
-        animal_type,
-        county,
-        status,
-        listing_photos (
-          image_url,
-          sort_order
-        )
-      )
-    `,
-      )
-      .order('created_at', { ascending: false });
+    try {
+      const accessToken = await getAdminToken();
 
-    if (error) {
-      console.error('Reports fetch error:', error);
+      if (!accessToken) return;
+
+      const response = await fetch('/api/admin/reports', {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        if (!handleApiAuthError(response)) {
+          console.error('Admin reports fetch failed:', result);
+          alert(result.error || 'Could not load reports.');
+        }
+
+        setReports([]);
+        return;
+      }
+
+      setReports(result.reports || []);
+    } catch (error) {
+      console.error('Admin reports fetch error:', error);
       setReports([]);
+      alert('Could not load reports.');
+    } finally {
       setLoading(false);
-      return;
+      setCheckingAdmin(false);
     }
-
-    const formattedReports = (data || []).map((report) => {
-      const { mainImage, photoCount } = getMainImageData(report.listings?.listing_photos);
-
-      return {
-        ...report,
-        mainImage,
-        photoCount,
-      };
-    });
-
-    setReports(formattedReports);
-    setLoading(false);
   };
+
+  useEffect(() => {
+    if (selectedStatus === 'reports') {
+      loadReports();
+    } else {
+      loadListings(selectedStatus);
+    }
+  }, [selectedStatus]);
 
   const updateListingStatus = async (listingId, status) => {
     try {
-      const accessToken = await getVerifiedAdminAccessToken({ setAccessDenied });
+      const accessToken = await getAdminToken();
 
-      if (!accessToken) {
-        return;
-      }
+      if (!accessToken) return;
 
       const response = await fetch(`/api/admin/listings/${listingId}`, {
         method: 'PATCH',
@@ -205,8 +165,11 @@ export default function AdminPage() {
       const result = await response.json();
 
       if (!response.ok) {
-        console.warn('Update listing API failed:', result);
-        alert(result.error || 'Could not update listing.');
+        if (!handleApiAuthError(response)) {
+          console.warn('Update listing API failed:', result);
+          alert(result.error || 'Could not update listing.');
+        }
+
         return;
       }
 
@@ -220,16 +183,12 @@ export default function AdminPage() {
   const deleteListing = async (listingId) => {
     const confirmDelete = window.confirm('Are you sure you want to delete this listing?');
 
-    if (!confirmDelete) {
-      return;
-    }
+    if (!confirmDelete) return;
 
     try {
-      const accessToken = await getVerifiedAdminAccessToken({ setAccessDenied });
+      const accessToken = await getAdminToken();
 
-      if (!accessToken) {
-        return;
-      }
+      if (!accessToken) return;
 
       const response = await fetch(`/api/admin/listings/${listingId}`, {
         method: 'DELETE',
@@ -241,12 +200,16 @@ export default function AdminPage() {
       const result = await response.json();
 
       if (!response.ok) {
-        console.error('Delete listing API failed:', result);
-        alert(result.error || 'Could not delete listing.');
+        if (!handleApiAuthError(response)) {
+          console.error('Delete listing API failed:', result);
+          alert(result.error || 'Could not delete listing.');
+        }
+
         return;
       }
 
       setListings((current) => current.filter((listing) => listing.id !== listingId));
+      setReports((current) => current.filter((report) => report.listing_id !== listingId));
     } catch (error) {
       console.error('Delete listing error:', error);
       alert('Could not delete listing.');
@@ -255,7 +218,7 @@ export default function AdminPage() {
 
   const markReportReviewed = async (reportId) => {
     try {
-      const accessToken = await getVerifiedAdminAccessToken({ setAccessDenied });
+      const accessToken = await getAdminToken();
 
       if (!accessToken) {
         alert('You must be logged in as admin.');
@@ -274,8 +237,11 @@ export default function AdminPage() {
       const result = await response.json();
 
       if (!response.ok) {
-        console.warn('Report review API failed:', result);
-        alert(result.error || 'Could not mark report as reviewed.');
+        if (!handleApiAuthError(response)) {
+          console.warn('Report review API failed:', result);
+          alert(result.error || 'Could not mark report as reviewed.');
+        }
+
         return;
       }
 
@@ -294,7 +260,7 @@ export default function AdminPage() {
     if (!confirmed) return;
 
     try {
-      const accessToken = await getVerifiedAdminAccessToken({ setAccessDenied });
+      const accessToken = await getAdminToken();
 
       if (!accessToken) {
         alert('You must be logged in as admin.');
@@ -311,8 +277,11 @@ export default function AdminPage() {
       const result = await response.json();
 
       if (!response.ok) {
-        console.warn('Delete report API failed:', result);
-        alert(result.error || 'Could not delete report.');
+        if (!handleApiAuthError(response)) {
+          console.warn('Delete report API failed:', result);
+          alert(result.error || 'Could not delete report.');
+        }
+
         return;
       }
 
@@ -336,6 +305,7 @@ export default function AdminPage() {
       </div>
     );
   }
+
   if (accessDenied) {
     return (
       <div className="min-h-screen bg-(--background)">
@@ -345,9 +315,7 @@ export default function AdminPage() {
           <div className="w-full rounded-3xl border border-red-200 bg-white p-8 text-center shadow-sm">
             <p className="text-sm font-bold uppercase tracking-wide text-red-500">403 Forbidden</p>
 
-            <h1 className="mt-3 text-3xl font-extrabold text-(--secondary-green)">
-              You do not have access to this page
-            </h1>
+            <h1 className="mt-3 text-3xl font-extrabold text-(--secondary-green)">You do not have access to this page</h1>
 
             <p className="mx-auto mt-4 max-w-[560px] text-sm leading-6 text-(--muted-green-text)">
               This area is restricted to PawHome administrators only.
@@ -372,7 +340,6 @@ export default function AdminPage() {
       <Header />
 
       <main className="mx-auto max-w-[1440px] px-6 py-10">
-        {/* Page header */}
         <div className="mb-8 flex flex-col justify-between gap-4 md:flex-row md:items-end">
           <div>
             <p className="text-sm font-bold text-(--primary-green)">PawHome Admin</p>
@@ -402,7 +369,6 @@ export default function AdminPage() {
           </div>
         </div>
 
-        {/* Page content */}
         {selectedStatus === 'reports' ? (
           loading ? (
             <AdminMessageCard text="Loading reports..." />
@@ -457,7 +423,9 @@ const AdminMessageCard = ({ text }) => {
 const EmptyState = ({ selectedStatus }) => {
   return (
     <div className="rounded-3xl border border-(--border-beige) bg-white p-10 text-center">
-      <div className="text-4xl">🐾</div>
+      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-(--light-green) text-(--primary-green)">
+        <PawIcon className="h-8 w-8" />
+      </div>
 
       <h2 className="mt-4 text-2xl font-extrabold text-(--secondary-green)">No {selectedStatus} listings</h2>
 
@@ -477,7 +445,6 @@ const ListingReviewCard = ({ listing, selectedStatus, updateListingStatus, delet
   return (
     <article className="overflow-hidden rounded-3xl border border-(--border-beige) bg-white shadow-sm">
       <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr]">
-        {/* Listing image */}
         <div className="relative h-64 bg-(--light-green) lg:h-full">
           {listing.mainImage ? (
             <img
@@ -486,7 +453,9 @@ const ListingReviewCard = ({ listing, selectedStatus, updateListingStatus, delet
               className="h-full w-full object-cover"
             />
           ) : (
-            <div className="flex h-full items-center justify-center text-5xl">🐾</div>
+            <div className="flex h-full items-center justify-center text-(--primary-green)">
+              <PawIcon className="h-14 w-14" />
+            </div>
           )}
 
           <span className="absolute left-4 top-4 rounded-full bg-white/90 px-3 py-1 text-xs font-bold text-(--secondary-green)">
@@ -496,7 +465,6 @@ const ListingReviewCard = ({ listing, selectedStatus, updateListingStatus, delet
           <StatusBadge status={listing.status} />
         </div>
 
-        {/* Listing details */}
         <div className="p-6">
           <div className="flex flex-col justify-between gap-4 md:flex-row md:items-start">
             <div>
@@ -572,13 +540,11 @@ const ReportReviewCard = ({ report, markReportReviewed, deleteReport, updateList
       <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr]">
         <div className="relative h-64 bg-(--light-green) lg:h-full">
           {report.mainImage ? (
-            <img
-              src={report.mainImage}
-              alt={listing?.title || listing?.breed || 'Reported listing'}
-              className="h-full w-full object-cover"
-            />
+            <img src={report.mainImage} alt={listing?.title || listing?.breed || 'Reported listing'} className="h-full w-full object-cover" />
           ) : (
-            <div className="flex h-full items-center justify-center text-5xl">🐾</div>
+            <div className="flex h-full items-center justify-center text-(--primary-green)">
+              <PawIcon className="h-14 w-14" />
+            </div>
           )}
 
           <span
@@ -609,10 +575,7 @@ const ReportReviewCard = ({ report, markReportReviewed, deleteReport, updateList
                 ]
                   .filter(Boolean)
                   .map((item) => (
-                    <span
-                      key={item}
-                      className="rounded-full bg-(--background) px-3 py-1 text-xs font-bold text-(--secondary-green)"
-                    >
+                    <span key={item} className="rounded-full bg-(--background) px-3 py-1 text-xs font-bold text-(--secondary-green)">
                       {item}
                     </span>
                   ))}
@@ -699,28 +662,16 @@ const StatusBadge = ({ status }) => {
         ? 'bg-red-100 text-red-700'
         : 'bg-orange-100 text-orange-700';
 
-  return (
-    <span className={`absolute right-4 top-4 rounded-full px-3 py-1 text-xs font-bold ${statusClass}`}>{status}</span>
-  );
+  return <span className={`absolute right-4 top-4 rounded-full px-3 py-1 text-xs font-bold ${statusClass}`}>{status}</span>;
 };
 
 const ListingTags = ({ listing }) => {
-  const tags = [
-    listing.animal_type,
-    listing.breed,
-    listing.age,
-    listing.sex,
-    listing.county,
-    listing.seller_type,
-  ].filter(Boolean);
+  const tags = [listing.animal_type, listing.breed, listing.age, listing.sex, listing.county, listing.seller_type].filter(Boolean);
 
   return (
     <div className="mt-3 flex flex-wrap gap-2">
       {tags.map((item) => (
-        <span
-          key={item}
-          className="rounded-full bg-(--background) px-3 py-1 text-xs font-bold text-(--secondary-green)"
-        >
+        <span key={item} className="rounded-full bg-(--background) px-3 py-1 text-xs font-bold text-(--secondary-green)">
           {item}
         </span>
       ))}
@@ -732,7 +683,6 @@ const DetailCard = ({ title, children }) => {
   return (
     <div className="rounded-2xl border border-(--border-beige) bg-(--background) p-4">
       <h3 className="font-bold text-(--secondary-green)">{title}</h3>
-
       <div className="mt-3 space-y-2 text-sm">{children}</div>
     </div>
   );
