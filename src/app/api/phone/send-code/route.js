@@ -1,5 +1,6 @@
 import { getAuthenticatedUser } from '../../../../lib/apiHelpers';
 import { formatPhoneForVerification, maskPhoneForDisplay, sendPhoneVerificationCode } from '../../../../lib/phoneVerification';
+import { findVerifiedPhoneOwner } from '../../../../lib/phoneUniqueness';
 import { getSupabaseAdminClient } from '../../../../lib/supabaseAdmin';
 
 export const dynamic = 'force-dynamic';
@@ -47,6 +48,24 @@ export async function POST(request) {
 
     if (!phoneToVerify) {
       return Response.json({ error: 'Please enter a valid phone number in your profile first.' }, { status: 400 });
+    }
+
+    const phoneOwnerResult = await findVerifiedPhoneOwner(supabaseAdmin, phoneToVerify, user.id);
+
+    if (phoneOwnerResult.error) {
+      console.error('Verified phone uniqueness check failed:', {
+        message: phoneOwnerResult.error.message,
+        code: phoneOwnerResult.error.code,
+      });
+
+      return Response.json({ error: 'Could not check this phone number.' }, { status: 500 });
+    }
+
+    if (phoneOwnerResult.owner) {
+      return Response.json(
+        { error: 'This phone number is already linked to another PawHome account.' },
+        { status: 409 },
+      );
     }
 
     const verificationRequest = await sendPhoneVerificationCode(phoneToVerify);
