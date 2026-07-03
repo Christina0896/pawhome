@@ -1,12 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '../lib/supabaseClient';
 import { ShieldCheckIcon, ArrowIcon, PawIcon, LocationIcon } from './Icons';
-
-const FALLBACK_COUNTIES = ['Dublin', 'Galway', 'Cork', 'Limerick', 'Kerry', 'Mayo', 'Waterford', 'Meath', 'Wexford'];
-const FALLBACK_BREEDS = ['Golden Retriever', 'Maine Coon', 'British Shorthair', 'Rabbits', 'Labrador', 'Cockapoo', 'German Shepherd', 'Ragdoll', 'Pomeranian'];
 
 const BrowseCards = () => {
   const [countyItems, setCountyItems] = useState([]);
@@ -64,24 +61,14 @@ const BrowseCards = () => {
     };
   }, [fetchBrowseData]);
 
-  const countiesToShow = useMemo(() => {
-    if (countyItems.length > 0) return countyItems;
-    return FALLBACK_COUNTIES.map((label) => ({ label, count: null }));
-  }, [countyItems]);
-
-  const breedsToShow = useMemo(() => {
-    if (breedItems.length > 0) return breedItems;
-    return FALLBACK_BREEDS.map((label) => ({ label, count: null }));
-  }, [breedItems]);
-
   return (
     <div className="mx-auto max-w-[var(--page-max-width)] px-4 pb-2">
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <BrowsePanel tone="green" icon={<LocationIcon className="h-8 w-8" />}>
           <h3 className="text-lg font-extrabold text-(--secondary-green)">Browse by County</h3>
 
-          <div className="mt-3 grid grid-cols-3 gap-x-4 gap-y-2 text-[12px] font-semibold text-(--secondary-green)">
-            {countiesToShow.map((item) => (
+          <BrowseGrid emptyText="No counties yet">
+            {countyItems.map((item) => (
               <BrowseItem
                 key={item.label}
                 href={`/listings?county=${encodeURIComponent(item.label)}`}
@@ -89,7 +76,7 @@ const BrowseCards = () => {
                 count={item.count}
               />
             ))}
-          </div>
+          </BrowseGrid>
 
           <BrowseCta href="/listings" tone="green">
             View all counties
@@ -99,8 +86,8 @@ const BrowseCards = () => {
         <BrowsePanel tone="orange" icon={<PawIcon className="h-8 w-8" />}>
           <h3 className="text-lg font-extrabold text-(--secondary-green)">Browse by Breed</h3>
 
-          <div className="mt-3 grid grid-cols-3 gap-x-4 gap-y-2 text-[12px] font-semibold text-(--secondary-green)">
-            {breedsToShow.map((item) => (
+          <BrowseGrid emptyText="No breeds yet">
+            {breedItems.map((item) => (
               <BrowseItem
                 key={item.label}
                 href={`/listings?breed=${encodeURIComponent(item.label)}`}
@@ -108,7 +95,7 @@ const BrowseCards = () => {
                 count={item.count}
               />
             ))}
-          </div>
+          </BrowseGrid>
 
           <BrowseCta href="/listings" tone="orange">
             View all breeds
@@ -152,11 +139,21 @@ const BrowsePanel = ({ tone, icon, children }) => {
   );
 };
 
+const BrowseGrid = ({ children, emptyText }) => {
+  const hasItems = Array.isArray(children) ? children.length > 0 : Boolean(children);
+
+  return (
+    <div className="mt-3 grid grid-cols-3 gap-x-4 gap-y-2 text-[12px] font-semibold text-(--secondary-green)">
+      {hasItems ? children : <p className="col-span-3 text-sm text-(--muted-green-text)">{emptyText}</p>}
+    </div>
+  );
+};
+
 const BrowseItem = ({ href, label, count }) => {
   return (
     <Link href={href} title={label} className="flex min-w-0 items-center gap-1 transition hover:text-(--primary-orange)">
       <span className="min-w-0 truncate whitespace-nowrap">{label}</span>
-      {count !== null && <span className="shrink-0 text-[11px] font-bold text-(--muted-green-text)">({count})</span>}
+      <span className="shrink-0 text-[11px] font-bold text-(--muted-green-text)">({count})</span>
     </Link>
   );
 };
