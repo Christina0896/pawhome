@@ -49,6 +49,22 @@ function syncAdminActions() {
   });
 }
 
+function findEditLitterSection() {
+  const heading = [...document.querySelectorAll('h2')].find((item) => item.textContent?.includes('Litter Information'));
+  return heading?.closest('section') || null;
+}
+
+function syncEditLitterSection() {
+  if (!window.location.pathname.match(/^\/profile\/listings\/[^/]+\/edit$/)) return;
+
+  const sexSelect = document.querySelector('select[name="sex"]');
+  const litterSection = findEditLitterSection();
+
+  if (!sexSelect || !litterSection) return;
+
+  litterSection.style.display = sexSelect.value === 'Mixed Litter' ? '' : 'none';
+}
+
 export default function ReviewPing() {
   const pathname = usePathname() || '';
   const isPostAdPage = pathname.startsWith('/post-ad');
@@ -58,13 +74,19 @@ export default function ReviewPing() {
 
     if (!shouldRun) return undefined;
 
-    syncAdminActions();
+    const syncPage = () => {
+      syncAdminActions();
+      syncEditLitterSection();
+    };
 
-    const observer = new MutationObserver(syncAdminActions);
+    syncPage();
+
+    const observer = new MutationObserver(syncPage);
     observer.observe(document.body, { childList: true, subtree: true });
 
-    const syncAfterClick = () => window.setTimeout(syncAdminActions, 0);
-    document.addEventListener('click', syncAfterClick, true);
+    const syncAfterInteraction = () => window.setTimeout(syncPage, 0);
+    document.addEventListener('click', syncAfterInteraction, true);
+    document.addEventListener('change', syncAfterInteraction, true);
 
     const baseFetch = window.fetch;
 
@@ -99,7 +121,8 @@ export default function ReviewPing() {
 
     return () => {
       observer.disconnect();
-      document.removeEventListener('click', syncAfterClick, true);
+      document.removeEventListener('click', syncAfterInteraction, true);
+      document.removeEventListener('change', syncAfterInteraction, true);
       window.fetch = baseFetch;
     };
   }, [pathname]);
