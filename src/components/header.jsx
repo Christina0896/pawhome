@@ -1,20 +1,21 @@
 'use client';
 
 import Image from 'next/image';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import ContactModal from './ContactModal';
 import LoginModal from './LoginModal';
-import { HeartIcon } from './Icons';
-import Link from 'next/link';
+import { CloseIcon, HeartIcon, ListingTypeIcon } from './Icons';
 
 const Header = () => {
+  const router = useRouter();
   const { user, authLoading, signOut } = useAuth();
   const [showContactModal, setShowContactModal] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Allow other components to open the login modal
   useEffect(() => {
     const openLoginModal = () => {
       setShowLoginModal(true);
@@ -29,7 +30,7 @@ const Header = () => {
 
   const handleLogout = async () => {
     await signOut();
-    window.location.href = '/';
+    router.push('/');
   };
 
   const handleFavoritesClick = () => {
@@ -40,7 +41,7 @@ const Header = () => {
       return;
     }
 
-    window.location.href = '/favorites';
+    router.push('/favorites');
   };
 
   const handleLoginClick = () => {
@@ -56,19 +57,17 @@ const Header = () => {
       return;
     }
 
-    window.location.href = '/post-ad';
+    router.push('/post-ad');
   };
 
   return (
     <>
       <header className=" top-0 z-999 border-b border-(--border-beige) bg-(--background)">
         <nav className="mx-auto flex h-16 max-w-(--page-max-width) items-center justify-between px-4 md:px-6">
-          {/* Logo */}
           <Link href="/" className="relative flex h-16 w-[142px] items-center md:h-15">
             <Image src="/img/logo.png" alt="PawHome Logo" fill priority sizes="142px" className="object-contain" />
           </Link>
 
-          {/* Desktop navigation */}
           <div className="hidden items-center gap-15 font-bold text-(--primary-green) lg:flex">
             <Link href="/shelters" className="inline-block transition duration-200 hover:scale-110">
               Shelters
@@ -81,7 +80,7 @@ const Header = () => {
             <button
               type="button"
               onClick={() => setShowContactModal(true)}
-              className="inline-block transition duration-200 hover:scale-110 cursor-pointer"
+              className="inline-block cursor-pointer transition duration-200 hover:scale-110"
             >
               Contact Us
             </button>
@@ -90,12 +89,12 @@ const Header = () => {
             </Link>
           </div>
 
-          {/* Desktop right side */}
           <div className="hidden items-center gap-5 font-semibold text-(--primary-green) lg:flex">
             <button
               type="button"
               onClick={handleFavoritesClick}
               className="flex h-10 w-10 items-center justify-center rounded-full border border-(--border-beige) text-xl hover:bg-(--light-green) "
+              aria-label="Saved listings"
             >
               <HeartIcon className="h-4 w-4 text-(--primary-green)" />
             </button>
@@ -106,7 +105,7 @@ const Header = () => {
               <>
                 <Link
                   href="/profile"
-                  className="inline-block font-bold text-(--primary-green) transition duration-200 hover:scale-110 cursor-pointer"
+                  className="inline-block cursor-pointer font-bold text-(--primary-green) transition duration-200 hover:scale-110"
                 >
                   Profile
                 </Link>
@@ -114,7 +113,7 @@ const Header = () => {
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="inline-block font-bold text-(--primary-green) transition duration-200 hover:scale-110 cursor-pointer"
+                  className="inline-block cursor-pointer font-bold text-(--primary-green) transition duration-200 hover:scale-110"
                 >
                   Logout
                 </button>
@@ -124,7 +123,7 @@ const Header = () => {
                 <button
                   type="button"
                   onClick={handleLoginClick}
-                  className="inline-block font-bold text-(--primary-green) transition duration-200 hover:scale-110 cursor-pointer"
+                  className="inline-block cursor-pointer font-bold text-(--primary-green) transition duration-200 hover:scale-110"
                 >
                   Login
                 </button>
@@ -132,7 +131,7 @@ const Header = () => {
                 <Link
                   href="/register"
                   type="button"
-                  className="inline-block font-bold text-(--primary-green) transition duration-200 hover:scale-110 cursor-pointer "
+                  className="inline-block cursor-pointer font-bold text-(--primary-green) transition duration-200 hover:scale-110 "
                 >
                   Register
                 </Link>
@@ -148,12 +147,12 @@ const Header = () => {
             </button>
           </div>
 
-          {/* Mobile right side */}
           <div className="flex items-center gap-3 lg:hidden">
             <button
               type="button"
               onClick={handleFavoritesClick}
               className="flex h-10 w-10 items-center justify-center rounded-full border border-(--border-beige) text-xl "
+              aria-label="Saved listings"
             >
               <HeartIcon className="h-4 w-4 text-(--primary-green)" />
             </button>
@@ -162,13 +161,13 @@ const Header = () => {
               type="button"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="flex h-10 w-10 items-center justify-center rounded-xl border border-(--border-beige) text-xl text-(--primary-green)"
+              aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
             >
-              {mobileMenuOpen ? '×' : '☰'}
+              {mobileMenuOpen ? <CloseIcon className="h-5 w-5" /> : <ListingTypeIcon className="h-5 w-5" />}
             </button>
           </div>
         </nav>
 
-        {/* Mobile menu */}
         {mobileMenuOpen && (
           <div className="border-t border-(--border-beige) bg-white px-4 py-5 lg:hidden">
             <div className="mx-auto flex max-w-[1500px] flex-col gap-4 font-semibold text-(--primary-green)">
@@ -190,7 +189,7 @@ const Header = () => {
                   setShowContactModal(true);
                   setMobileMenuOpen(false);
                 }}
-                className="text-left cursor-pointer"
+                className="cursor-pointer text-left"
               >
                 Contact Us
               </button>
@@ -221,7 +220,7 @@ const Header = () => {
                   <button
                     type="button"
                     onClick={handleLoginClick}
-                    className="inline-block transition duration-200 hover:scale-110 cursor-pointer"
+                    className="inline-block cursor-pointer transition duration-200 hover:scale-110"
                   >
                     Login
                   </button>
@@ -229,7 +228,7 @@ const Header = () => {
                   <Link
                     href="/register"
                     onClick={() => setMobileMenuOpen(false)}
-                    className="rounded-xl  bg-white px-4 py-3 text-center text-sm font-bold text-[var(--primary-green)] transition hover:border-[var(--primary-green)]"
+                    className="rounded-xl bg-white px-4 py-3 text-center text-sm font-bold text-[var(--primary-green)] transition hover:border-[var(--primary-green)]"
                   >
                     Register
                   </Link>
