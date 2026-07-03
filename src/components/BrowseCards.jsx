@@ -76,11 +76,11 @@ const BrowseCards = () => {
 
   return (
     <div className="mx-auto max-w-[var(--page-max-width)] px-4 pb-2">
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.45fr_1fr_1fr]">
-        <BrowsePanel tone="green" icon={<LocationIcon className="h-10 w-10" />} large>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <BrowsePanel tone="green" icon={<LocationIcon className="h-8 w-8" />}>
           <h3 className="text-lg font-extrabold text-(--secondary-green)">Browse by County</h3>
 
-          <div className="mt-3 grid grid-cols-3 gap-x-6 gap-y-2 text-[12px] font-semibold text-(--secondary-green)">
+          <div className="mt-3 grid grid-cols-3 gap-x-4 gap-y-2 text-[12px] font-semibold text-(--secondary-green)">
             {countiesToShow.map((item) => (
               <BrowseItem
                 key={item.label}
@@ -137,13 +137,13 @@ const BrowseCards = () => {
   );
 };
 
-const BrowsePanel = ({ tone, icon, large = false, children }) => {
+const BrowsePanel = ({ tone, icon, children }) => {
   const panelClass = tone === 'orange' ? 'bg-[#FFF4EA]' : 'bg-[#F2F3EC]';
   const iconClass = tone === 'orange' ? 'bg-(--primary-orange) text-white' : 'bg-[#DDE6D0] text-[#6F806F]';
 
   return (
     <div className={`flex min-h-[190px] items-center gap-5 rounded-2xl border border-(--border-beige) ${panelClass} px-6 py-5 shadow-[0_6px_18px_rgba(18,53,36,0.06)]`}>
-      <div className={`flex shrink-0 items-center justify-center rounded-full ${large ? 'h-20 w-20' : 'h-16 w-16'} ${iconClass}`}>
+      <div className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-full ${iconClass}`}>
         {icon}
       </div>
 
