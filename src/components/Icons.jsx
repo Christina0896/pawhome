@@ -130,7 +130,16 @@ export const CalendarIcon = ({ className = 'h-4 w-4' }) => (
 );
 
 export const HeartIcon = ({ className = 'h-5 w-5', filled = false }) => (
-  <svg viewBox="0 0 24 24" className={className} fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+  <svg
+    viewBox="0 0 24 24"
+    className={className}
+    fill={filled ? 'currentColor' : 'none'}
+    stroke="currentColor"
+    strokeWidth="2.2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
     <path d="M20.8 4.6c-1.9-1.8-4.9-1.8-6.8.1L12 6.7l-2-2c-1.9-1.9-4.9-1.9-6.8-.1-2 1.9-2.1 5.1-.2 7.1l9 8.8 9-8.8c1.9-2 1.8-5.2-.2-7.1Z" />
   </svg>
 );
@@ -165,7 +174,10 @@ export const PawIcon = ({ className = 'h-8 w-8' }) => (
     <ellipse cx="39" cy="17" rx="7" ry="9.5" fill="currentColor" />
     <ellipse cx="12" cy="32" rx="7" ry="8.5" fill="currentColor" />
     <ellipse cx="52" cy="31" rx="7" ry="8.5" fill="currentColor" />
-    <path d="M32 29C24 29 16 37.2 16 47.5C16 54.2 20.4 58 25.3 58C28.4 58 30 55.8 32 55.8C34 55.8 35.6 58 38.7 58C43.6 58 48 54.2 48 47.5C48 37.2 40 29 32 29Z" fill="currentColor" />
+    <path
+      d="M32 29C24 29 16 37.2 16 47.5C16 54.2 20.4 58 25.3 58C28.4 58 30 55.8 32 55.8C34 55.8 35.6 58 38.7 58C43.6 58 48 54.2 48 47.5C48 37.2 40 29 32 29Z"
+      fill="currentColor"
+    />
   </svg>
 );
 
@@ -278,12 +290,34 @@ export const TemperamentIcon = ({ className = 'h-5 w-5' }) => (
 );
 
 export const ExerciseIcon = ({ className = 'h-5 w-5' }) => (
-  <LineIcon className={className}>
-    <path d="M4 17c3.2-1.4 5.4-4.2 7-8" />
-    <path d="m9 9 3-3 3 3" />
-    <path d="M13 13h7" />
-    <path d="m17 10 3 3-3 3" />
-  </LineIcon>
+  <svg
+    viewBox="0 0 24 24"
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.9"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    {/* person */}
+    <circle cx="6.5" cy="5" r="1.8" />
+    <path d="M6.5 6.8v4.3" />
+    <path d="M6.5 8.5 4.5 10.5" />
+    <path d="M6.5 8.5 9 10" />
+    <path d="M6.4 11.1 4.9 15.5" />
+    <path d="M6.7 11.1 8.8 15" />
+
+    {/* leash */}
+    <path d="M9 10 11.6 10.8" />
+
+    {/* dog */}
+    <path d="M12.1 12.1h3.6l1.2-1.1 1.7.5.9 1.2-.5 1.1h-1.5" />
+    <path d="M12.1 12.1 10.9 11.2" />
+    <path d="M13 12.1 12.4 15.2" />
+    <path d="M15.2 12.1v3.1" />
+    <path d="M17.2 12.8 18 15.1" />
+  </svg>
 );
 
 export const GroomingIcon = ({ className = 'h-5 w-5' }) => (
@@ -422,7 +456,8 @@ export function AnimalTypeIcon({ animalType, category, className = 'h-4 w-4' }) 
   if (animal === 'dogs' || animal === 'dog') return <DogIcon className={className} />;
   if (animal === 'cats' || animal === 'cat') return <CatIcon className={className} />;
   if (type.includes('rabbit')) return <RabbitIcon className={className} />;
-  if (type.includes('poultry') || type.includes('chicken') || type.includes('hen') || type.includes('rooster')) return <PoultryIcon className={className} />;
+  if (type.includes('poultry') || type.includes('chicken') || type.includes('hen') || type.includes('rooster'))
+    return <PoultryIcon className={className} />;
   if (type.includes('bird')) return <BirdIcon className={className} />;
   if (type.includes('fish')) return <FishIcon className={className} />;
   if (type.includes('horse')) return <HorseIcon className={className} />;
