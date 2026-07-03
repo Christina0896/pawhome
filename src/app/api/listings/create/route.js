@@ -16,7 +16,7 @@ import {
   getImageExtension,
   getMinimumLegalAgeWeeks,
   isValidAgeLabel,
-  validateImageFile,
+  validateImageFileContent,
 } from '../../../../lib/listingValidation';
 
 export const dynamic = 'force-dynamic';
@@ -156,7 +156,7 @@ export async function POST(request) {
     }
 
     for (const photo of photos) {
-      const imageError = validateImageFile(photo);
+      const imageError = await validateImageFileContent(photo);
 
       if (imageError) {
         return Response.json({ error: imageError }, { status: 400 });
@@ -217,6 +217,10 @@ export async function POST(request) {
         { error: 'Your profile could not be loaded. Please go to your profile and save your details.' },
         { status: 400 },
       );
+    }
+
+    if (REQUIRE_VERIFICATION_TO_POST && !profileData.phone_verified) {
+      return Response.json({ error: 'Please verify your phone number before posting an ad.' }, { status: 403 });
     }
 
     const sellerName = cleanText(`${profileData?.first_name || ''} ${profileData?.last_name || ''}`, 120) || 'Seller';
