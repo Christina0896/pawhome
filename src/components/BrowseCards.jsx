@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '../lib/supabaseClient';
-import { ShieldCheckIcon, ArrowIcon, PawIcon } from './Icons';
+import { ShieldCheckIcon, ArrowIcon, PawIcon, LocationIcon } from './Icons';
 
 const BrowseCards = () => {
   const [countyItems, setCountyItems] = useState([]);
@@ -63,26 +63,16 @@ const BrowseCards = () => {
 
   return (
     <div className="mx-auto max-w-[var(--page-max-width)] px-4 pb-2">
-      <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-3">
-        <div className="flex h-full min-h-[128px] items-center gap-6 rounded-2xl border border-(--border-beige) bg-[#F2F3EC] px-6 py-5 shadow-[0_6px_18px_rgba(18,53,36,0.06)]">
-          <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-[#DDE6D0] ">
-            <span
-              aria-hidden="true"
-              style={{
-                display: 'block',
-                width: '48px',
-                height: '48px',
-                backgroundColor: '#8A9A7A',
-                WebkitMask: "url('/svg/ireland.svg') center / contain no-repeat",
-                mask: "url('/svg/ireland.svg') center / contain no-repeat",
-              }}
-            />
+      <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-4">
+        <div className="flex h-full min-h-[128px] items-center gap-5 rounded-2xl border border-(--border-beige) bg-[#F2F3EC] px-6 py-5 shadow-[0_6px_18px_rgba(18,53,36,0.06)] lg:col-span-2">
+          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-[#DDE6D0] text-[#8A9A7A] md:h-20 md:w-20">
+            <LocationIcon className="h-9 w-9 md:h-11 md:w-11" />
           </div>
 
-          <div className="min-w-0 flex-1 ">
+          <div className="min-w-0 flex-1">
             <h3 className="text-lg font-extrabold text-(--secondary-green)">Browse by County</h3>
 
-            <div className="mt-3 grid grid-cols-3 gap-x-6 gap-y-2 text-[12px] font-semibold text-(--secondary-green)">
+            <div className="mt-3 grid grid-cols-3 gap-x-4 gap-y-2 text-[12px] font-semibold text-(--secondary-green) md:gap-x-6">
               {countyItems.length > 0 ? (
                 countyItems.slice(0, 9).map((item) => (
                   <Link
@@ -90,7 +80,7 @@ const BrowseCards = () => {
                     href={`/listings?county=${encodeURIComponent(item.county)}`}
                     className="flex min-w-0 items-center transition hover:text-(--primary-orange)"
                   >
-                    <span className="min-w-0  whitespace-nowrap">{item.county}</span>
+                    <span className="min-w-0 truncate whitespace-nowrap">{item.county}</span>
 
                     <span className="ml-1 shrink-0 text-[11px] font-bold text-(--muted-green-text)">
                       ({item.count})
