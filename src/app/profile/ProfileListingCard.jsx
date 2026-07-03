@@ -6,7 +6,7 @@ export default function ProfileListingCard({ listing, onDelete }) {
   return (
     <article className="overflow-hidden rounded-2xl border border-(--border-beige) bg-(--background) shadow-sm">
       <div className="h-40 bg-(--light-green)">
-        {photo ? <img src={photo} alt={listing.title || 'Listing photo'} className="h-full w-full object-cover" /> : null}
+        {photo ? <img src={photo} alt={listing.title || 'Listing photo'} loading="lazy" decoding="async" className="h-full w-full object-cover" /> : null}
       </div>
       <div className="space-y-3 p-4">
         <div className="flex items-start justify-between gap-3">
