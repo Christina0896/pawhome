@@ -14,12 +14,16 @@ const DEFAULT_PROFILE = {
   phone_code: '+353',
   phone_number: '',
   county: '',
+  avatar_url: null,
   phone_verified: false,
 };
 
-async function fetchJson(url, options = {}) {
+const ALLOWED_AVATAR_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const MAX_AVATAR_SIZE = 2 * 1024 * 1024;
+
+async function fetchJson(url, options = {}, timeoutMs = 7000) {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 7000);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const response = await fetch(url, { ...options, signal: controller.signal });
@@ -47,6 +51,7 @@ export default function ProfilePageClient() {
   const [phoneCodeSent, setPhoneCodeSent] = useState(false);
   const [phoneCode, setPhoneCode] = useState('');
   const [busy, setBusy] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -103,6 +108,79 @@ export default function ProfilePageClient() {
     }
   };
 
+  const updateProfileState = (nextProfile) => {
+    const safeProfile = { ...DEFAULT_PROFILE, ...(nextProfile || {}) };
+    setProfile(safeProfile);
+    setForm(safeProfile);
+  };
+
+  const handleAvatarUpload = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+
+    if (!file) return;
+
+    if (!ALLOWED_AVATAR_TYPES.includes(file.type)) {
+      setMessage('Please upload a JPG, PNG, or WEBP image.');
+      return;
+    }
+
+    if (file.size > MAX_AVATAR_SIZE) {
+      setMessage('Profile picture must be 2 MB or smaller.');
+      return;
+    }
+
+    setAvatarUploading(true);
+    setMessage('');
+
+    try {
+      const token = await getVerifiedAccessToken();
+      if (!token) throw new Error('Please log in again.');
+
+      const formData = new FormData();
+      formData.append('avatar', file);
+
+      const { response, data } = await fetchJson('/api/profile/avatar', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      }, 12000);
+
+      if (!response.ok) throw new Error(data.error || 'Could not upload profile picture.');
+
+      updateProfileState(data.profile);
+      setMessage('Profile picture updated.');
+    } catch (error) {
+      setMessage(error.message || 'Could not upload profile picture.');
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    setAvatarUploading(true);
+    setMessage('');
+
+    try {
+      const token = await getVerifiedAccessToken();
+      if (!token) throw new Error('Please log in again.');
+
+      const { response, data } = await fetchJson('/api/profile/avatar', {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      }, 12000);
+
+      if (!response.ok) throw new Error(data.error || 'Could not remove profile picture.');
+
+      updateProfileState(data.profile);
+      setMessage('Profile picture removed.');
+    } catch (error) {
+      setMessage(error.message || 'Could not remove profile picture.');
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
+
   const saveProfile = async (event) => {
     event.preventDefault();
     setBusy(true);
@@ -127,8 +205,7 @@ export default function ProfilePageClient() {
 
       if (!response.ok) throw new Error(data.error || 'Could not save settings.');
 
-      setProfile(data.profile || DEFAULT_PROFILE);
-      setForm({ ...DEFAULT_PROFILE, ...(data.profile || {}) });
+      updateProfileState(data.profile);
       setPhoneCodeSent(false);
       setPhoneCode('');
       setMessage('Settings saved.');
@@ -184,8 +261,7 @@ export default function ProfilePageClient() {
 
       if (!response.ok) throw new Error(data.error || 'Could not verify code.');
 
-      setProfile(data.profile || DEFAULT_PROFILE);
-      setForm({ ...DEFAULT_PROFILE, ...(data.profile || {}) });
+      updateProfileState(data.profile);
       setPhoneCodeSent(false);
       setPhoneCode('');
       setMessage('Phone number verified. You can now post ads.');
@@ -210,7 +286,16 @@ export default function ProfilePageClient() {
         <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-[380px_1fr]">
           <aside className="h-fit rounded-3xl border border-(--border-beige) bg-white p-6 shadow-sm lg:sticky lg:top-24">
             <div className="text-center">
-              <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-(--light-green) text-4xl font-extrabold text-(--primary-green)">{fullName.charAt(0).toUpperCase()}</div>
+              <div className="relative mx-auto h-24 w-24">
+                <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-(--light-green) text-4xl font-extrabold text-(--primary-green)">
+                  {profile.avatar_url ? <img src={profile.avatar_url} alt="Profile" loading="lazy" decoding="async" className="h-full w-full object-cover" /> : fullName.charAt(0).toUpperCase()}
+                </div>
+                <label className="absolute bottom-0 right-0 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-(--primary-green) text-xs font-extrabold text-white shadow-md">
+                  <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handleAvatarUpload} className="hidden" />
+                  {avatarUploading ? '...' : '+'}
+                </label>
+              </div>
+              {profile.avatar_url && <button type="button" onClick={handleRemoveAvatar} disabled={avatarUploading} className="mt-3 text-xs font-semibold text-red-500 hover:underline disabled:opacity-60">Remove profile picture</button>}
               <h2 className="mt-5 text-2xl font-extrabold text-(--secondary-green)">{fullName}</h2>
               <p className="mt-1 break-all text-sm text-(--muted-green-text)">{user?.email}</p>
             </div>
@@ -238,8 +323,8 @@ export default function ProfilePageClient() {
 
               <label className="block text-sm font-bold text-(--secondary-green)">County<input name="county" value={form.county || ''} onChange={updateField} className="mt-2 h-12 w-full rounded-xl border border-(--border-beige) px-4" /></label>
 
-              {message && <p className={`text-sm font-bold ${message.includes('saved') || message.includes('verified') || message.includes('sent') ? 'text-green-700' : 'text-red-600'}`}>{message}</p>}
-              <button type="submit" disabled={busy} className="h-12 w-full rounded-xl bg-(--primary-green) text-sm font-bold text-white disabled:opacity-60">{busy ? 'Saving...' : 'Save Settings'}</button>
+              {message && <p className={`text-sm font-bold ${message.includes('saved') || message.includes('verified') || message.includes('sent') || message.includes('updated') || message.includes('removed') ? 'text-green-700' : 'text-red-600'}`}>{message}</p>}
+              <button type="submit" disabled={busy || avatarUploading} className="h-12 w-full rounded-xl bg-(--primary-green) text-sm font-bold text-white disabled:opacity-60">{busy ? 'Saving...' : 'Save Settings'}</button>
             </form>
           </aside>
 
