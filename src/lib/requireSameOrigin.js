@@ -10,24 +10,26 @@ function addOrigin(allowedOrigins, value) {
   }
 }
 
+function addRequestHostOrigins(allowedOrigins, request) {
+  const host = request.headers.get('host');
+
+  if (!host) return;
+
+  addOrigin(allowedOrigins, `https://${host}`);
+  addOrigin(allowedOrigins, `http://${host}`);
+}
+
 function getAllowedOrigins(request) {
   const allowedOrigins = new Set();
 
   addOrigin(allowedOrigins, process.env.NEXT_PUBLIC_SITE_URL);
+  addOrigin(allowedOrigins, request.url);
+  addRequestHostOrigins(allowedOrigins, request);
 
   const vercelUrl = process.env.VERCEL_URL;
 
   if (vercelUrl) {
     addOrigin(allowedOrigins, `https://${vercelUrl}`);
-  }
-
-  if (process.env.NODE_ENV !== 'production') {
-    const host = request.headers.get('host');
-
-    if (host) {
-      addOrigin(allowedOrigins, `http://${host}`);
-      addOrigin(allowedOrigins, `https://${host}`);
-    }
   }
 
   return allowedOrigins;
