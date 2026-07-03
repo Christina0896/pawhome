@@ -1,5 +1,6 @@
 import { getAuthenticatedUser } from '../../../../lib/apiHelpers';
 import { checkPhoneVerificationCode, formatPhoneForVerification } from '../../../../lib/phoneVerification';
+import { findVerifiedPhoneOwner, updateProfilePhoneVerified } from '../../../../lib/phoneUniqueness';
 import { getSupabaseAdminClient } from '../../../../lib/supabaseAdmin';
 
 export const dynamic = 'force-dynamic';
@@ -62,12 +63,29 @@ export async function POST(request) {
       return Response.json({ error: 'The code is incorrect or expired.' }, { status: 400 });
     }
 
-    const { data: updatedProfile, error: updateError } = await supabaseAdmin
-      .from('profiles')
-      .update({ phone_verified: true })
-      .eq('user_id', user.id)
-      .select()
-      .single();
+    const phoneOwnerResult = await findVerifiedPhoneOwner(supabaseAdmin, phoneToVerify, user.id);
+
+    if (phoneOwnerResult.error) {
+      console.error('Verified phone uniqueness check failed:', {
+        message: phoneOwnerResult.error.message,
+        code: phoneOwnerResult.error.code,
+      });
+
+      return Response.json({ error: 'Could not check this phone number.' }, { status: 500 });
+    }
+
+    if (phoneOwnerResult.owner) {
+      return Response.json(
+        { error: 'This phone number is already linked to another PawHome account.' },
+        { status: 409 },
+      );
+    }
+
+    const { profile: updatedProfile, error: updateError } = await updateProfilePhoneVerified(
+      supabaseAdmin,
+      user.id,
+      phoneToVerify,
+    );
 
     if (updateError) {
       console.error('Phone verification profile update failed:', {
