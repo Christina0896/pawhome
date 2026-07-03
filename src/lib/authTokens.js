@@ -30,35 +30,11 @@ export async function getVerifiedAccessToken({ openLogin = true } = {}) {
 }
 
 export async function getVerifiedAdminAccessToken({ setAccessDenied } = {}) {
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
+  const token = await getVerifiedAccessToken();
 
-  if (userError || !user) {
-    openLoginModal();
-    return null;
+  if (!token && setAccessDenied) {
+    setAccessDenied(true);
   }
 
-  const { data: adminData, error: adminError } = await supabase
-    .from('admin_users')
-    .select('user_id')
-    .eq('user_id', user.id)
-    .maybeSingle();
-
-  if (adminError || !adminData) {
-    if (setAccessDenied) setAccessDenied(true);
-    return null;
-  }
-
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  if (!session?.access_token) {
-    openLoginModal();
-    return null;
-  }
-
-  return session.access_token;
+  return token;
 }
