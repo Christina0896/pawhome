@@ -3,12 +3,14 @@ import Header from '../../../components/header';
 import Footer from '../../../components/footer';
 import { PUBLIC_LISTING_SELECT } from '../../../lib/publicListingSelect';
 import { getSupabaseServerClient } from '../../../lib/supabaseServer';
+import { getSupabaseAdminClient } from '../../../lib/supabaseAdmin';
 import AdminListingPreviewClient from './AdminListingPreviewClient';
 import ListingDetailClient from './ListingDetailClient';
 
 export const dynamic = 'force-dynamic';
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://pawhome.ie';
+const LISTING_DETAIL_SELECT = `${PUBLIC_LISTING_SELECT}, user_id`;
 
 function absoluteUrl(value) {
   const url = String(value || '').trim();
@@ -142,6 +144,32 @@ function buildListingStructuredData(listing) {
   };
 }
 
+async function getSellerAvatarUrl(userId) {
+  if (!userId) return null;
+
+  const supabaseAdmin = getSupabaseAdminClient();
+  const supabase = supabaseAdmin || getSupabaseServerClient();
+
+  if (!supabase) return null;
+
+  const { data: profile, error } = await supabase
+    .from('profiles')
+    .select('avatar_url')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (error) {
+    console.warn('Seller profile avatar fetch failed:', {
+      message: error.message,
+      code: error.code,
+    });
+
+    return null;
+  }
+
+  return profile?.avatar_url || null;
+}
+
 async function getListing(listingId) {
   const supabase = getSupabaseServerClient();
 
@@ -151,7 +179,7 @@ async function getListing(listingId) {
 
   const { data: listing, error } = await supabase
     .from('listings')
-    .select(PUBLIC_LISTING_SELECT)
+    .select(LISTING_DETAIL_SELECT)
     .eq('id', listingId)
     .eq('status', 'approved')
     .maybeSingle();
@@ -170,6 +198,14 @@ async function getListing(listingId) {
     return { listing: null, similarListings: [] };
   }
 
+  const sellerAvatarUrl = await getSellerAvatarUrl(listing.user_id);
+  const publicListing = {
+    ...listing,
+    seller_avatar_url: sellerAvatarUrl,
+  };
+
+  delete publicListing.user_id;
+
   const { data: similarListings, error: similarError } = await supabase
     .from('listings')
     .select(PUBLIC_LISTING_SELECT)
@@ -187,7 +223,7 @@ async function getListing(listingId) {
   }
 
   return {
-    listing,
+    listing: publicListing,
     similarListings: similarListings || [],
   };
 }
