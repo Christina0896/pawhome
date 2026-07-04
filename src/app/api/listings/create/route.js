@@ -1,6 +1,7 @@
 import { getSupabaseAdminClient } from '../../../../lib/supabaseAdmin';
 import { requireSameOrigin } from '../../../../lib/requireSameOrigin';
 import { getAuthenticatedUser, removeStorageFiles } from '../../../../lib/apiHelpers';
+import { findProfileWithPhone } from '../../../../lib/profilePhoneChecks';
 import {
   ALLOWED_ANIMAL_TYPES,
   ALLOWED_LISTING_TYPES,
@@ -22,7 +23,7 @@ import {
 export const dynamic = 'force-dynamic';
 
 const REQUIRE_EMAIL_VERIFICATION_TO_POST = true;
-const REQUIRE_PHONE_VERIFICATION_TO_POST = false;
+const REQUIRE_UNIQUE_PHONE_TO_POST = true;
 const LISTING_PHOTOS_BUCKET = 'listing-photos';
 
 async function deleteListingRows(supabaseAdmin, listingId) {
@@ -220,8 +221,21 @@ export async function POST(request) {
       );
     }
 
-    if (REQUIRE_PHONE_VERIFICATION_TO_POST && !profileData.phone_verified) {
-      return Response.json({ error: 'Please verify your phone number before posting an ad.' }, { status: 403 });
+    if (REQUIRE_UNIQUE_PHONE_TO_POST) {
+      if (!profileData.phone_number) {
+        return Response.json({ error: 'Please add a phone number to your profile before posting an ad.' }, { status: 403 });
+      }
+
+      const duplicatePhone = await findProfileWithPhone(supabaseAdmin, profileData.phone_code, profileData.phone_number, user.id);
+
+      if (duplicatePhone.error) {
+        console.error('Post ad duplicate phone check failed:', duplicatePhone.error);
+        return Response.json({ error: 'Could not check phone number. Please try again.' }, { status: 500 });
+      }
+
+      if (duplicatePhone.owner) {
+        return Response.json({ error: 'This phone number is already linked to another PawHome account.' }, { status: 409 });
+      }
     }
 
     const sellerName = cleanText(`${profileData?.first_name || ''} ${profileData?.last_name || ''}`, 120) || 'Seller';
