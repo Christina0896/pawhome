@@ -1,6 +1,7 @@
 import { Nunito_Sans, Lora } from 'next/font/google';
 import './globals.css';
 import ReviewPing from '../components/ReviewPing';
+import RecoverySessionGuard from '../components/RecoverySessionGuard';
 import { AuthProvider } from '../context/AuthContext';
 import { ToastProvider } from '../context/ToastContext';
 
@@ -92,6 +93,7 @@ export default function RootLayout({ children }) {
         />
         <ToastProvider>
           <AuthProvider>
+            <RecoverySessionGuard />
             <ReviewPing />
             {children}
           </AuthProvider>
