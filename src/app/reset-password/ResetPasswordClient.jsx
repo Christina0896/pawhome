@@ -13,7 +13,6 @@ export default function ResetPasswordClient() {
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [checkingLink, setCheckingLink] = useState(true);
-  const [sessionReady, setSessionReady] = useState(false);
   const [passwordUpdated, setPasswordUpdated] = useState(false);
 
   useEffect(() => {
@@ -22,12 +21,10 @@ export default function ResetPasswordClient() {
     const prepareResetSession = async () => {
       setMessage('');
       setCheckingLink(true);
-      setSessionReady(false);
       setPasswordUpdated(false);
 
       try {
         const code = searchParams.get('code');
-        const recoveryRedirect = searchParams.get('recovery') === '1';
 
         if (code) {
           const { error } = await supabase.auth.exchangeCodeForSession(code);
@@ -39,7 +36,7 @@ export default function ResetPasswordClient() {
             return;
           }
 
-          setSessionReady(true);
+          window.history.replaceState({}, document.title, '/reset-password');
           return;
         }
 
@@ -62,25 +59,8 @@ export default function ResetPasswordClient() {
           }
 
           window.history.replaceState({}, document.title, '/reset-password');
-          setSessionReady(true);
           return;
         }
-
-        if (recoveryRedirect) {
-          const {
-            data: { session },
-          } = await supabase.auth.getSession();
-
-          if (!active) return;
-
-          if (session) {
-            window.history.replaceState({}, document.title, '/reset-password');
-            setSessionReady(true);
-            return;
-          }
-        }
-
-        setMessage('Open the password reset link from your email to choose a new password.');
       } catch (error) {
         if (active) setMessage('Password reset link could not be verified. Please request a new link.');
       } finally {
@@ -97,7 +77,6 @@ export default function ResetPasswordClient() {
         window.history.replaceState({}, document.title, '/reset-password');
         setMessage('');
         setCheckingLink(false);
-        setSessionReady(true);
         setPasswordUpdated(false);
       }
     });
@@ -126,6 +105,16 @@ export default function ResetPasswordClient() {
 
     setLoading(true);
 
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session) {
+      setLoading(false);
+      setMessage('This reset page is missing the secure reset session. Please request a new password reset email and open the newest link.');
+      return;
+    }
+
     const { error } = await supabase.auth.updateUser({ password });
 
     if (error) {
@@ -137,7 +126,6 @@ export default function ResetPasswordClient() {
     await supabase.auth.signOut();
 
     setLoading(false);
-    setSessionReady(false);
     setPasswordUpdated(true);
     setPassword('');
     setConfirmPassword('');
@@ -148,7 +136,7 @@ export default function ResetPasswordClient() {
     <main className="flex min-h-screen items-center justify-center bg-[#FAF6EC] px-4">
       <div className="w-full max-w-[520px] rounded-2xl bg-white p-7 shadow-[0_20px_60px_rgba(0,0,0,0.18)]">
         <h1 className="text-[26px] font-bold text-(--secondary-green)">Reset password</h1>
-        <p className="mt-2 text-sm text-(--muted-green-text)">Use the secure link from your email to choose a new password.</p>
+        <p className="mt-2 text-sm text-(--muted-green-text)">Choose a new password for your PawHome account.</p>
 
         {checkingLink && (
           <p className="mt-5 rounded-xl bg-[#FFF4EA] px-4 py-3 text-sm font-semibold text-(--secondary-green)">
@@ -162,7 +150,7 @@ export default function ResetPasswordClient() {
           </p>
         )}
 
-        {sessionReady && !passwordUpdated && (
+        {!passwordUpdated && (
           <form onSubmit={handleUpdatePassword} className="mt-6 space-y-5">
             <div>
               <label className="mb-2 block text-sm font-semibold text-(--secondary-green)">New password</label>
