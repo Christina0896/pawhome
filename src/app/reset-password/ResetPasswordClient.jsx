@@ -7,6 +7,7 @@ import { supabase } from '../../lib/supabaseClient';
 
 const RECOVERY_AUTH_KEY = 'pawhome_password_recovery_session';
 const RESET_CHANNEL_NAME = 'pawhome_password_reset';
+const ACTIVE_RESET_TAB_KEY = 'pawhome_active_password_reset_tab';
 
 function markRecoverySession() {
   window.sessionStorage.setItem(RECOVERY_AUTH_KEY, '1');
@@ -19,6 +20,28 @@ function clearRecoverySession() {
 function createTabId() {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
   return `${Date.now()}-${Math.random()}`;
+}
+
+function getActiveResetTabId() {
+  try {
+    const stored = window.localStorage.getItem(ACTIVE_RESET_TAB_KEY);
+    if (!stored) return null;
+
+    const parsed = JSON.parse(stored);
+    return parsed?.tabId || null;
+  } catch {
+    return null;
+  }
+}
+
+function setActiveResetTabId(tabId) {
+  window.localStorage.setItem(
+    ACTIVE_RESET_TAB_KEY,
+    JSON.stringify({
+      tabId,
+      updatedAt: Date.now(),
+    }),
+  );
 }
 
 export default function ResetPasswordClient() {
@@ -34,8 +57,31 @@ export default function ResetPasswordClient() {
   const [passwordUpdated, setPasswordUpdated] = useState(false);
   const [inactiveDuplicateTab, setInactiveDuplicateTab] = useState(false);
 
-  const broadcastActiveResetTab = () => {
+  const deactivateThisTab = () => {
+    markRecoverySession();
+    setInactiveDuplicateTab(true);
+    setPassword('');
+    setConfirmPassword('');
+    setCheckingLink(false);
+    setMessage('A newer password reset link was opened in another tab. Continue there.');
+  };
+
+  const activateThisResetTab = () => {
+    markRecoverySession();
+    setActiveResetTabId(tabIdRef.current);
+    setInactiveDuplicateTab(false);
     resetChannelRef.current?.postMessage({ type: 'active-reset-tab', tabId: tabIdRef.current });
+  };
+
+  const checkIfThisTabIsInactive = () => {
+    const activeTabId = getActiveResetTabId();
+
+    if (activeTabId && activeTabId !== tabIdRef.current) {
+      deactivateThisTab();
+      return true;
+    }
+
+    return false;
   };
 
   useEffect(() => {
@@ -48,17 +94,34 @@ export default function ResetPasswordClient() {
       if (event.data?.type !== 'active-reset-tab') return;
       if (event.data?.tabId === tabIdRef.current) return;
 
-      markRecoverySession();
-      setInactiveDuplicateTab(true);
-      setPassword('');
-      setConfirmPassword('');
-      setCheckingLink(false);
-      setMessage('A newer password reset link was opened in another tab. Continue there.');
+      deactivateThisTab();
     };
 
     return () => {
       channel.close();
       resetChannelRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleStorage = (event) => {
+      if (event.key !== ACTIVE_RESET_TAB_KEY) return;
+      checkIfThisTabIsInactive();
+    };
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') checkIfThisTabIsInactive();
+    };
+
+    window.addEventListener('storage', handleStorage);
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    const interval = window.setInterval(checkIfThisTabIsInactive, 1500);
+
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.clearInterval(interval);
     };
   }, []);
 
@@ -69,7 +132,6 @@ export default function ResetPasswordClient() {
       setMessage('');
       setCheckingLink(true);
       setPasswordUpdated(false);
-      setInactiveDuplicateTab(false);
 
       try {
         const code = searchParams.get('code');
@@ -85,8 +147,7 @@ export default function ResetPasswordClient() {
             return;
           }
 
-          markRecoverySession();
-          broadcastActiveResetTab();
+          activateThisResetTab();
           window.history.replaceState({}, document.title, '/reset-password');
           return;
         }
@@ -110,8 +171,7 @@ export default function ResetPasswordClient() {
             return;
           }
 
-          markRecoverySession();
-          broadcastActiveResetTab();
+          activateThisResetTab();
           window.history.replaceState({}, document.title, '/reset-password');
           return;
         }
@@ -120,7 +180,10 @@ export default function ResetPasswordClient() {
           data: { session },
         } = await supabase.auth.getSession();
 
-        if (session) markRecoverySession();
+        if (session) {
+          markRecoverySession();
+          checkIfThisTabIsInactive();
+        }
       } catch (error) {
         if (active) setMessage('Password reset link could not be verified. Please request a new link.');
       } finally {
@@ -134,13 +197,11 @@ export default function ResetPasswordClient() {
       if (!active) return;
 
       if (event === 'PASSWORD_RECOVERY') {
-        markRecoverySession();
-        broadcastActiveResetTab();
+        activateThisResetTab();
         window.history.replaceState({}, document.title, '/reset-password');
         setMessage('');
         setCheckingLink(false);
         setPasswordUpdated(false);
-        setInactiveDuplicateTab(false);
       }
     });
 
@@ -163,7 +224,7 @@ export default function ResetPasswordClient() {
     e.preventDefault();
     setMessage('');
 
-    if (inactiveDuplicateTab) {
+    if (inactiveDuplicateTab || checkIfThisTabIsInactive()) {
       setMessage('A newer password reset link was opened in another tab. Continue there.');
       return;
     }
