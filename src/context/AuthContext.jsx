@@ -5,6 +5,16 @@ import { supabase } from '../lib/supabaseClient';
 
 const AuthContext = createContext(null);
 
+function redirectRecoveryToResetPassword(event) {
+  if (event !== 'PASSWORD_RECOVERY') return;
+  if (typeof window === 'undefined') return;
+
+  const currentPath = window.location.pathname;
+  if (currentPath === '/reset-password') return;
+
+  window.location.replace('/reset-password?recovery=1');
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [session, setSession] = useState(null);
@@ -49,7 +59,8 @@ export function AuthProvider({ children }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      redirectRecoveryToResetPassword(event);
       setSession(session || null);
       setUser(session?.user || null);
       setAuthLoading(false);
