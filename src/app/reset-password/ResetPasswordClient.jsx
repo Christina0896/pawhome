@@ -12,11 +12,18 @@ export default function ResetPasswordClient() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [checkingLink, setCheckingLink] = useState(true);
   const [sessionReady, setSessionReady] = useState(false);
+  const [passwordUpdated, setPasswordUpdated] = useState(false);
 
   useEffect(() => {
+    let active = true;
+
     const prepareResetSession = async () => {
       setMessage('');
+      setCheckingLink(true);
+      setSessionReady(false);
+      setPasswordUpdated(false);
 
       try {
         const code = searchParams.get('code');
@@ -24,8 +31,10 @@ export default function ResetPasswordClient() {
         if (code) {
           const { error } = await supabase.auth.exchangeCodeForSession(code);
 
+          if (!active) return;
+
           if (error) {
-            setMessage('Something went wrong. Please try again.');
+            setMessage('This password reset link is invalid or has expired. Please request a new link.');
             return;
           }
 
@@ -34,7 +43,6 @@ export default function ResetPasswordClient() {
         }
 
         const hashParams = new URLSearchParams(window.location.hash.replace('#', ''));
-
         const accessToken = hashParams.get('access_token');
         const refreshToken = hashParams.get('refresh_token');
         const type = hashParams.get('type');
@@ -45,8 +53,10 @@ export default function ResetPasswordClient() {
             refresh_token: refreshToken,
           });
 
+          if (!active) return;
+
           if (error) {
-            setMessage('Something went wrong. Please try again.');
+            setMessage('This password reset link is invalid or has expired. Please request a new link.');
             return;
           }
 
@@ -55,18 +65,23 @@ export default function ResetPasswordClient() {
           return;
         }
 
-        setMessage('Password reset link is invalid or has expired.');
+        setMessage('Open the password reset link from your email to choose a new password.');
       } catch (error) {
-        setMessage('Password reset link could not be verified.');
+        if (active) setMessage('Password reset link could not be verified. Please request a new link.');
+      } finally {
+        if (active) setCheckingLink(false);
       }
     };
 
     prepareResetSession();
+
+    return () => {
+      active = false;
+    };
   }, [searchParams]);
 
   const handleUpdatePassword = async (e) => {
     e.preventDefault();
-
     setMessage('');
 
     if (!password || password.length < 8) {
@@ -81,26 +96,35 @@ export default function ResetPasswordClient() {
 
     setLoading(true);
 
-    const { error } = await supabase.auth.updateUser({
-      password,
-    });
-
-    setLoading(false);
+    const { error } = await supabase.auth.updateUser({ password });
 
     if (error) {
-      setMessage('Something went wrong. Please try again.');
+      setLoading(false);
+      setMessage('Password could not be updated. Please request a new reset link.');
       return;
     }
 
-    setMessage('Password updated successfully. You can now log in.');
+    await supabase.auth.signOut();
+
+    setLoading(false);
+    setSessionReady(false);
+    setPasswordUpdated(true);
+    setPassword('');
+    setConfirmPassword('');
+    setMessage('Password updated successfully. You can now log in with your new password.');
   };
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#FAF6EC] px-4">
       <div className="w-full max-w-[520px] rounded-2xl bg-white p-7 shadow-[0_20px_60px_rgba(0,0,0,0.18)]">
         <h1 className="text-[26px] font-bold text-(--secondary-green)">Reset password</h1>
+        <p className="mt-2 text-sm text-(--muted-green-text)">Use the secure link from your email to choose a new password.</p>
 
-        <p className="mt-2 text-sm text-(--muted-green-text)">Enter your new password below.</p>
+        {checkingLink && (
+          <p className="mt-5 rounded-xl bg-[#FFF4EA] px-4 py-3 text-sm font-semibold text-(--secondary-green)">
+            Checking reset link...
+          </p>
+        )}
 
         {message && (
           <p className="mt-5 rounded-xl bg-[#FFF4EA] px-4 py-3 text-sm font-semibold text-(--secondary-green)">
@@ -108,30 +132,30 @@ export default function ResetPasswordClient() {
           </p>
         )}
 
-        {sessionReady && (
+        {sessionReady && !passwordUpdated && (
           <form onSubmit={handleUpdatePassword} className="mt-6 space-y-5">
             <div>
               <label className="mb-2 block text-sm font-semibold text-(--secondary-green)">New password</label>
-
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 minLength={8}
+                autoComplete="new-password"
                 className="w-full rounded-xl border border-(--border-beige) bg-white px-4 py-3 text-sm outline-none focus:border-(--primary-green)"
               />
             </div>
 
             <div>
               <label className="mb-2 block text-sm font-semibold text-(--secondary-green)">Confirm new password</label>
-
               <input
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
                 minLength={8}
+                autoComplete="new-password"
                 className="w-full rounded-xl border border-(--border-beige) bg-white px-4 py-3 text-sm outline-none focus:border-(--primary-green)"
               />
             </div>
@@ -146,9 +170,19 @@ export default function ResetPasswordClient() {
           </form>
         )}
 
-        <Link href="/" className="mt-6 block text-center text-sm font-bold text-(--primary-orange)">
-          Back to PawHome
-        </Link>
+        {passwordUpdated && (
+          <div className="mt-6 space-y-3">
+            <Link href="/" className="block w-full rounded-xl bg-(--primary-green) px-5 py-3 text-center font-bold text-white transition hover:bg-(--secondary-green)">
+              Go to PawHome and log in
+            </Link>
+          </div>
+        )}
+
+        {!passwordUpdated && (
+          <Link href="/" className="mt-6 block text-center text-sm font-bold text-(--primary-orange)">
+            Back to PawHome
+          </Link>
+        )}
       </div>
     </main>
   );
