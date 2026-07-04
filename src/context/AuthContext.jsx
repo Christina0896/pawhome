@@ -4,10 +4,26 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { supabase } from '../lib/supabaseClient';
 
 const AuthContext = createContext(null);
+const RECOVERY_AUTH_KEY = 'pawhome_password_recovery_session';
 
-function redirectRecoveryToResetPassword(event) {
-  if (event !== 'PASSWORD_RECOVERY') return;
+function isPasswordRecoveryActive() {
+  if (typeof window === 'undefined') return false;
+  return window.sessionStorage.getItem(RECOVERY_AUTH_KEY) === '1';
+}
+
+function markPasswordRecoveryActive() {
   if (typeof window === 'undefined') return;
+  window.sessionStorage.setItem(RECOVERY_AUTH_KEY, '1');
+}
+
+function clearPasswordRecoveryActive() {
+  if (typeof window === 'undefined') return;
+  window.sessionStorage.removeItem(RECOVERY_AUTH_KEY);
+}
+
+function keepRecoveryOnResetPage() {
+  if (typeof window === 'undefined') return;
+  if (!isPasswordRecoveryActive()) return;
 
   const currentPath = window.location.pathname;
   if (currentPath === '/reset-password') return;
@@ -27,6 +43,14 @@ export function AuthProvider({ children }) {
       data: { session },
     } = await supabase.auth.getSession();
 
+    if (isPasswordRecoveryActive()) {
+      keepRecoveryOnResetPage();
+      setSession(null);
+      setUser(null);
+      setAuthLoading(false);
+      return null;
+    }
+
     setSession(session || null);
     setUser(session?.user || null);
     setAuthLoading(false);
@@ -35,6 +59,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const signOut = useCallback(async () => {
+    clearPasswordRecoveryActive();
     await supabase.auth.signOut();
     setSession(null);
     setUser(null);
@@ -50,6 +75,14 @@ export function AuthProvider({ children }) {
 
       if (!isMounted) return;
 
+      if (isPasswordRecoveryActive()) {
+        keepRecoveryOnResetPage();
+        setSession(null);
+        setUser(null);
+        setAuthLoading(false);
+        return;
+      }
+
       setSession(session || null);
       setUser(session?.user || null);
       setAuthLoading(false);
@@ -60,7 +93,27 @@ export function AuthProvider({ children }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
-      redirectRecoveryToResetPassword(event);
+      if (event === 'SIGNED_OUT') {
+        clearPasswordRecoveryActive();
+      }
+
+      if (event === 'PASSWORD_RECOVERY') {
+        markPasswordRecoveryActive();
+        keepRecoveryOnResetPage();
+        setSession(null);
+        setUser(null);
+        setAuthLoading(false);
+        return;
+      }
+
+      if (isPasswordRecoveryActive()) {
+        keepRecoveryOnResetPage();
+        setSession(null);
+        setUser(null);
+        setAuthLoading(false);
+        return;
+      }
+
       setSession(session || null);
       setUser(session?.user || null);
       setAuthLoading(false);
