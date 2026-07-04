@@ -27,6 +27,7 @@ export default function ResetPasswordClient() {
 
       try {
         const code = searchParams.get('code');
+        const recoveryRedirect = searchParams.get('recovery') === '1';
 
         if (code) {
           const { error } = await supabase.auth.exchangeCodeForSession(code);
@@ -65,6 +66,20 @@ export default function ResetPasswordClient() {
           return;
         }
 
+        if (recoveryRedirect) {
+          const {
+            data: { session },
+          } = await supabase.auth.getSession();
+
+          if (!active) return;
+
+          if (session) {
+            window.history.replaceState({}, document.title, '/reset-password');
+            setSessionReady(true);
+            return;
+          }
+        }
+
         setMessage('Open the password reset link from your email to choose a new password.');
       } catch (error) {
         if (active) setMessage('Password reset link could not be verified. Please request a new link.');
@@ -73,10 +88,25 @@ export default function ResetPasswordClient() {
       }
     };
 
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event) => {
+      if (!active) return;
+
+      if (event === 'PASSWORD_RECOVERY') {
+        window.history.replaceState({}, document.title, '/reset-password');
+        setMessage('');
+        setCheckingLink(false);
+        setSessionReady(true);
+        setPasswordUpdated(false);
+      }
+    });
+
     prepareResetSession();
 
     return () => {
       active = false;
+      subscription.unsubscribe();
     };
   }, [searchParams]);
 
