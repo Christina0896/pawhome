@@ -1,6 +1,7 @@
 import { getAuthenticatedUser } from '../../../lib/apiHelpers';
 import { getSupabaseAdminClient } from '../../../lib/supabaseAdmin';
 import { requireSameOrigin } from '../../../lib/requireSameOrigin';
+import { findProfileWithPhone } from '../../../lib/profilePhoneChecks';
 
 export const dynamic = 'force-dynamic';
 
@@ -130,6 +131,19 @@ export async function PATCH(request) {
     if (existingProfile?.phone_verified && phoneChanged) {
       phoneCode = existingProfile.phone_code || '+353';
       phoneNumber = existingProfile.phone_number || '';
+    }
+
+    if (phoneNumber) {
+      const duplicatePhone = await findProfileWithPhone(supabaseAdmin, phoneCode, phoneNumber, user.id);
+
+      if (duplicatePhone.error) {
+        console.error('Phone duplicate check failed:', duplicatePhone.error);
+        return Response.json({ error: 'Could not check phone number.' }, { status: 500 });
+      }
+
+      if (duplicatePhone.owner) {
+        return Response.json({ error: 'This phone number is already linked to another PawHome account.' }, { status: 409 });
+      }
     }
 
     const profilePayload = {
