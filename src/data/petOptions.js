@@ -57,6 +57,7 @@ export const dogBreeds = [
   'Labradoodle',
   'Labrador Retriever',
   'Lhasa Apso',
+  'Lurcher',
   'Maltese',
   'Mastiff',
   'Miniature Schnauzer',
