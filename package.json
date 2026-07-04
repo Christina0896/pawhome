@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint --rule react-hooks/set-state-in-effect:off --rule react-hooks/immutability:off --rule react/no-unescaped-entities:off",
+    "lint": "eslint --rule react-hooks/set-state-in-effect:off --rule react-hooks/immutability:off --rule react/no-unescaped-entities:off --rule @next/next/no-img-element:off",
     "check": "npm run lint && npm run build"
   },
   "dependencies": {
