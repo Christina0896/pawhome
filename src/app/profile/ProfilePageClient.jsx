@@ -20,6 +20,7 @@ const DEFAULT_PROFILE = {
 
 const ALLOWED_AVATAR_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_AVATAR_SIZE = 2 * 1024 * 1024;
+const SMS_PHONE_VERIFICATION_ENABLED = false;
 
 async function fetchJson(url, options = {}, timeoutMs = 7000) {
   const controller = new AbortController();
@@ -42,10 +43,26 @@ function VerifiedBadge() {
   );
 }
 
+function SavedBadge() {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-3 py-1 text-xs font-extrabold text-green-700">
+      <ShieldCheckIcon className="h-3.5 w-3.5" /> Saved
+    </span>
+  );
+}
+
 function NotVerifiedBadge() {
   return (
     <span className="inline-flex items-center rounded-full bg-orange-100 px-3 py-1 text-xs font-extrabold text-orange-700">
       Not verified
+    </span>
+  );
+}
+
+function PhoneRequiredBadge() {
+  return (
+    <span className="inline-flex items-center rounded-full bg-orange-100 px-3 py-1 text-xs font-extrabold text-orange-700">
+      Required to post
     </span>
   );
 }
@@ -97,9 +114,12 @@ export default function ProfilePageClient() {
 
   const fullName = `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim() || 'PawHome User';
   const emailVerified = Boolean(user?.email_confirmed_at || user?.confirmed_at);
-  const phoneVerified = Boolean(profile?.phone_verified);
+  const phoneVerified = SMS_PHONE_VERIFICATION_ENABLED && Boolean(profile?.phone_verified);
+  const phoneSaved = Boolean(profile?.phone_number);
   const phoneChanged =
-    !phoneVerified && (profile.phone_code !== form.phone_code || profile.phone_number !== form.phone_number);
+    SMS_PHONE_VERIFICATION_ENABLED &&
+    !phoneVerified &&
+    (profile.phone_code !== form.phone_code || profile.phone_number !== form.phone_number);
 
   const updateField = (event) => {
     const { name, value } = event.target;
@@ -234,6 +254,11 @@ export default function ProfilePageClient() {
   };
 
   const sendPhoneCode = async () => {
+    if (!SMS_PHONE_VERIFICATION_ENABLED) {
+      setMessage('SMS verification is temporarily unavailable. Your saved phone number will be checked for uniqueness before posting.');
+      return;
+    }
+
     if (phoneChanged) {
       setMessage('Save your phone number before verifying it.');
       return;
@@ -263,6 +288,11 @@ export default function ProfilePageClient() {
   };
 
   const verifyPhoneCode = async () => {
+    if (!SMS_PHONE_VERIFICATION_ENABLED) {
+      setMessage('SMS verification is temporarily unavailable.');
+      return;
+    }
+
     setBusy(true);
     setMessage('');
 
@@ -394,7 +424,7 @@ export default function ProfilePageClient() {
               <div>
                 <div className="mb-2 flex items-center justify-between">
                   <p className="text-sm font-bold text-(--secondary-green)">Phone</p>
-                  {phoneVerified ? <VerifiedBadge /> : <NotVerifiedBadge />}
+                  {SMS_PHONE_VERIFICATION_ENABLED ? (phoneVerified ? <VerifiedBadge /> : <NotVerifiedBadge />) : phoneSaved ? <SavedBadge /> : <PhoneRequiredBadge />}
                 </div>
                 <div className="grid grid-cols-[105px_1fr] gap-3">
                   <select
@@ -419,13 +449,18 @@ export default function ProfilePageClient() {
                     className="h-12 rounded-xl border border-(--border-beige) px-4 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500"
                   />
                 </div>
-                {phoneVerified && (
+                {!SMS_PHONE_VERIFICATION_ENABLED && (
+                  <p className="mt-2 text-xs font-semibold text-(--muted-green-text)">
+                    Phone verification by SMS is temporarily unavailable. A saved phone number is required and must be unique before posting ads.
+                  </p>
+                )}
+                {SMS_PHONE_VERIFICATION_ENABLED && phoneVerified && (
                   <p className="mt-2 text-xs font-semibold text-(--muted-green-text)">
                     Verified phone numbers cannot be changed. If you would like to change your phone number, please
                     contact our support team.
                   </p>
                 )}
-                {!phoneVerified && (
+                {SMS_PHONE_VERIFICATION_ENABLED && !phoneVerified && (
                   <div className="mt-3 rounded-2xl bg-(--background) p-4">
                     <p className="text-xs font-semibold text-(--muted-green-text)">
                       Verify this number by SMS before posting ads.
