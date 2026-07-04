@@ -44,6 +44,17 @@ function setActiveResetTabId(tabId) {
   );
 }
 
+function clearActiveResetTabId() {
+  window.localStorage.removeItem(ACTIVE_RESET_TAB_KEY);
+}
+
+function isCurrentPageAResetLink(searchParams) {
+  if (searchParams.get('code')) return true;
+
+  const hashParams = new URLSearchParams(window.location.hash.replace('#', ''));
+  return hashParams.get('type') === 'recovery' && hashParams.get('access_token') && hashParams.get('refresh_token');
+}
+
 function getPasswordUpdateMessage(error) {
   const rawMessage = error?.message || '';
   const message = rawMessage.toLowerCase();
@@ -93,6 +104,10 @@ export default function ResetPasswordClient() {
   };
 
   const checkIfThisTabIsInactive = () => {
+    if (isCurrentPageAResetLink(searchParams)) {
+      return false;
+    }
+
     const activeTabId = getActiveResetTabId();
 
     if (activeTabId && activeTabId !== tabIdRef.current) {
@@ -112,6 +127,7 @@ export default function ResetPasswordClient() {
     channel.onmessage = (event) => {
       if (event.data?.type !== 'active-reset-tab') return;
       if (event.data?.tabId === tabIdRef.current) return;
+      if (isCurrentPageAResetLink(searchParams)) return;
 
       deactivateThisTab();
     };
@@ -120,7 +136,7 @@ export default function ResetPasswordClient() {
       channel.close();
       resetChannelRef.current = null;
     };
-  }, []);
+  }, [searchParams]);
 
   useEffect(() => {
     const handleStorage = (event) => {
@@ -142,7 +158,7 @@ export default function ResetPasswordClient() {
       document.removeEventListener('visibilitychange', handleVisibility);
       window.clearInterval(interval);
     };
-  }, []);
+  }, [searchParams]);
 
   useEffect(() => {
     let active = true;
@@ -151,6 +167,11 @@ export default function ResetPasswordClient() {
       setMessage('');
       setCheckingLink(true);
       setPasswordUpdated(false);
+
+      if (isCurrentPageAResetLink(searchParams)) {
+        setInactiveDuplicateTab(false);
+        setActiveResetTabId(tabIdRef.current);
+      }
 
       try {
         const code = searchParams.get('code');
@@ -238,6 +259,7 @@ export default function ResetPasswordClient() {
   const handleLeaveReset = async () => {
     setLoading(true);
     clearRecoverySession();
+    clearActiveResetTabId();
     await supabase.auth.signOut();
     window.location.href = '/';
   };
@@ -283,6 +305,7 @@ export default function ResetPasswordClient() {
     }
 
     clearRecoverySession();
+    clearActiveResetTabId();
     await supabase.auth.signOut();
 
     setLoading(false);
