@@ -6,6 +6,10 @@ import Link from 'next/link';
 
 const PASSWORD_RESET_SENT_MESSAGE = 'If your email is in our database, you will receive a password reset email.';
 
+function getPasswordResetRedirectUrl() {
+  return `${window.location.origin}/reset-password`;
+}
+
 const LoginModal = ({ onClose }) => {
   // Modal mode: login form or password reset form
   const [mode, setMode] = useState('login');
@@ -71,10 +75,8 @@ const LoginModal = ({ onClose }) => {
     setLoading(true);
     setMessage('');
 
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
-
     const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-      redirectTo: `${siteUrl}/reset-password`,
+      redirectTo: getPasswordResetRedirectUrl(),
     });
 
     if (error) {
