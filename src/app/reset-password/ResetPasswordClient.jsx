@@ -5,6 +5,16 @@ import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '../../lib/supabaseClient';
 
+const RECOVERY_AUTH_KEY = 'pawhome_password_recovery_session';
+
+function markRecoverySession() {
+  window.sessionStorage.setItem(RECOVERY_AUTH_KEY, '1');
+}
+
+function clearRecoverySession() {
+  window.sessionStorage.removeItem(RECOVERY_AUTH_KEY);
+}
+
 export default function ResetPasswordClient() {
   const searchParams = useSearchParams();
 
@@ -32,10 +42,12 @@ export default function ResetPasswordClient() {
           if (!active) return;
 
           if (error) {
+            clearRecoverySession();
             setMessage('This password reset link is invalid or has expired. Please request a new link.');
             return;
           }
 
+          markRecoverySession();
           window.history.replaceState({}, document.title, '/reset-password');
           return;
         }
@@ -54,13 +66,21 @@ export default function ResetPasswordClient() {
           if (!active) return;
 
           if (error) {
+            clearRecoverySession();
             setMessage('This password reset link is invalid or has expired. Please request a new link.');
             return;
           }
 
+          markRecoverySession();
           window.history.replaceState({}, document.title, '/reset-password');
           return;
         }
+
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        if (session) markRecoverySession();
       } catch (error) {
         if (active) setMessage('Password reset link could not be verified. Please request a new link.');
       } finally {
@@ -74,6 +94,7 @@ export default function ResetPasswordClient() {
       if (!active) return;
 
       if (event === 'PASSWORD_RECOVERY') {
+        markRecoverySession();
         window.history.replaceState({}, document.title, '/reset-password');
         setMessage('');
         setCheckingLink(false);
@@ -88,6 +109,13 @@ export default function ResetPasswordClient() {
       subscription.unsubscribe();
     };
   }, [searchParams]);
+
+  const handleLeaveReset = async () => {
+    setLoading(true);
+    clearRecoverySession();
+    await supabase.auth.signOut();
+    window.location.href = '/';
+  };
 
   const handleUpdatePassword = async (e) => {
     e.preventDefault();
@@ -123,6 +151,7 @@ export default function ResetPasswordClient() {
       return;
     }
 
+    clearRecoverySession();
     await supabase.auth.signOut();
 
     setLoading(false);
@@ -197,9 +226,14 @@ export default function ResetPasswordClient() {
         )}
 
         {!passwordUpdated && (
-          <Link href="/" className="mt-6 block text-center text-sm font-bold text-(--primary-orange)">
-            Back to PawHome
-          </Link>
+          <button
+            type="button"
+            onClick={handleLeaveReset}
+            disabled={loading}
+            className="mt-6 block w-full text-center text-sm font-bold text-(--primary-orange) disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Leave reset page and sign out
+          </button>
         )}
       </div>
     </main>
