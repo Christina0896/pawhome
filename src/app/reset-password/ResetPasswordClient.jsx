@@ -44,6 +44,25 @@ function setActiveResetTabId(tabId) {
   );
 }
 
+function getPasswordUpdateMessage(error) {
+  const rawMessage = error?.message || '';
+  const message = rawMessage.toLowerCase();
+
+  if (message.includes('same') || message.includes('different')) {
+    return 'New password must be different from your current password.';
+  }
+
+  if (message.includes('weak') || message.includes('password')) {
+    return rawMessage || 'Password does not meet the security requirements.';
+  }
+
+  if (message.includes('session') || message.includes('jwt') || message.includes('expired') || message.includes('invalid')) {
+    return 'This reset link is no longer valid. Please request a new password reset email and open the newest link.';
+  }
+
+  return rawMessage || 'Password could not be updated. Please request a new reset link.';
+}
+
 export default function ResetPasswordClient() {
   const searchParams = useSearchParams();
   const tabIdRef = useRef(createTabId());
@@ -143,6 +162,7 @@ export default function ResetPasswordClient() {
 
           if (error) {
             clearRecoverySession();
+            console.error('Password reset code exchange failed:', error);
             setMessage('This password reset link is invalid or has expired. Please request a new link.');
             return;
           }
@@ -167,6 +187,7 @@ export default function ResetPasswordClient() {
 
           if (error) {
             clearRecoverySession();
+            console.error('Password reset session setup failed:', error);
             setMessage('This password reset link is invalid or has expired. Please request a new link.');
             return;
           }
@@ -185,6 +206,7 @@ export default function ResetPasswordClient() {
           checkIfThisTabIsInactive();
         }
       } catch (error) {
+        console.error('Password reset link verification failed:', error);
         if (active) setMessage('Password reset link could not be verified. Please request a new link.');
       } finally {
         if (active) setCheckingLink(false);
@@ -254,8 +276,9 @@ export default function ResetPasswordClient() {
     const { error } = await supabase.auth.updateUser({ password });
 
     if (error) {
+      console.error('Password update failed:', error);
       setLoading(false);
-      setMessage('Password could not be updated. Please request a new reset link.');
+      setMessage(getPasswordUpdateMessage(error));
       return;
     }
 
