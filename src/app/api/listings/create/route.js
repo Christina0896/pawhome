@@ -21,7 +21,8 @@ import {
 
 export const dynamic = 'force-dynamic';
 
-const REQUIRE_VERIFICATION_TO_POST = true;
+const REQUIRE_EMAIL_VERIFICATION_TO_POST = true;
+const REQUIRE_PHONE_VERIFICATION_TO_POST = false;
 const LISTING_PHOTOS_BUCKET = 'listing-photos';
 
 async function deleteListingRows(supabaseAdmin, listingId) {
@@ -54,7 +55,7 @@ export async function POST(request) {
 
   const isEmailVerified = Boolean(user.email_confirmed_at || user.confirmed_at);
 
-  if (REQUIRE_VERIFICATION_TO_POST && !isEmailVerified) {
+  if (REQUIRE_EMAIL_VERIFICATION_TO_POST && !isEmailVerified) {
     return Response.json({ error: 'Please verify your email before posting an ad.' }, { status: 403 });
   }
 
@@ -219,7 +220,7 @@ export async function POST(request) {
       );
     }
 
-    if (REQUIRE_VERIFICATION_TO_POST && !profileData.phone_verified) {
+    if (REQUIRE_PHONE_VERIFICATION_TO_POST && !profileData.phone_verified) {
       return Response.json({ error: 'Please verify your phone number before posting an ad.' }, { status: 403 });
     }
 

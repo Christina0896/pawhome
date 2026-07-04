@@ -1,12 +1,72 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '../../lib/supabaseClient';
 
+const RECOVERY_AUTH_KEY = 'pawhome_password_recovery_session';
+const RESET_CHANNEL_NAME = 'pawhome_password_reset';
+const ACTIVE_RESET_TAB_KEY = 'pawhome_active_password_reset_tab';
+
+function markRecoverySession() {
+  window.sessionStorage.setItem(RECOVERY_AUTH_KEY, '1');
+}
+
+function clearRecoverySession() {
+  window.sessionStorage.removeItem(RECOVERY_AUTH_KEY);
+}
+
+function createTabId() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+  return `${Date.now()}-${Math.random()}`;
+}
+
+function getActiveResetTabId() {
+  try {
+    const stored = window.localStorage.getItem(ACTIVE_RESET_TAB_KEY);
+    if (!stored) return null;
+
+    const parsed = JSON.parse(stored);
+    return parsed?.tabId || null;
+  } catch {
+    return null;
+  }
+}
+
+function setActiveResetTabId(tabId) {
+  window.localStorage.setItem(
+    ACTIVE_RESET_TAB_KEY,
+    JSON.stringify({
+      tabId,
+      updatedAt: Date.now(),
+    }),
+  );
+}
+
+function getPasswordUpdateMessage(error) {
+  const rawMessage = error?.message || '';
+  const message = rawMessage.toLowerCase();
+
+  if (message.includes('same') || message.includes('different')) {
+    return 'New password must be different from your current password.';
+  }
+
+  if (message.includes('weak') || message.includes('password')) {
+    return rawMessage || 'Password does not meet the security requirements.';
+  }
+
+  if (message.includes('session') || message.includes('jwt') || message.includes('expired') || message.includes('invalid')) {
+    return 'This reset link is no longer valid. Please request a new password reset email and open the newest link.';
+  }
+
+  return rawMessage || 'Password could not be updated. Please request a new reset link.';
+}
+
 export default function ResetPasswordClient() {
   const searchParams = useSearchParams();
+  const tabIdRef = useRef(createTabId());
+  const resetChannelRef = useRef(null);
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -14,6 +74,75 @@ export default function ResetPasswordClient() {
   const [loading, setLoading] = useState(false);
   const [checkingLink, setCheckingLink] = useState(true);
   const [passwordUpdated, setPasswordUpdated] = useState(false);
+  const [inactiveDuplicateTab, setInactiveDuplicateTab] = useState(false);
+
+  const deactivateThisTab = () => {
+    markRecoverySession();
+    setInactiveDuplicateTab(true);
+    setPassword('');
+    setConfirmPassword('');
+    setCheckingLink(false);
+    setMessage('A newer password reset link was opened in another tab. Continue there.');
+  };
+
+  const activateThisResetTab = () => {
+    markRecoverySession();
+    setActiveResetTabId(tabIdRef.current);
+    setInactiveDuplicateTab(false);
+    resetChannelRef.current?.postMessage({ type: 'active-reset-tab', tabId: tabIdRef.current });
+  };
+
+  const checkIfThisTabIsInactive = () => {
+    const activeTabId = getActiveResetTabId();
+
+    if (activeTabId && activeTabId !== tabIdRef.current) {
+      deactivateThisTab();
+      return true;
+    }
+
+    return false;
+  };
+
+  useEffect(() => {
+    if (typeof BroadcastChannel === 'undefined') return undefined;
+
+    const channel = new BroadcastChannel(RESET_CHANNEL_NAME);
+    resetChannelRef.current = channel;
+
+    channel.onmessage = (event) => {
+      if (event.data?.type !== 'active-reset-tab') return;
+      if (event.data?.tabId === tabIdRef.current) return;
+
+      deactivateThisTab();
+    };
+
+    return () => {
+      channel.close();
+      resetChannelRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleStorage = (event) => {
+      if (event.key !== ACTIVE_RESET_TAB_KEY) return;
+      checkIfThisTabIsInactive();
+    };
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') checkIfThisTabIsInactive();
+    };
+
+    window.addEventListener('storage', handleStorage);
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    const interval = window.setInterval(checkIfThisTabIsInactive, 1500);
+
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.clearInterval(interval);
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -32,10 +161,13 @@ export default function ResetPasswordClient() {
           if (!active) return;
 
           if (error) {
+            clearRecoverySession();
+            console.error('Password reset code exchange failed:', error);
             setMessage('This password reset link is invalid or has expired. Please request a new link.');
             return;
           }
 
+          activateThisResetTab();
           window.history.replaceState({}, document.title, '/reset-password');
           return;
         }
@@ -54,14 +186,27 @@ export default function ResetPasswordClient() {
           if (!active) return;
 
           if (error) {
+            clearRecoverySession();
+            console.error('Password reset session setup failed:', error);
             setMessage('This password reset link is invalid or has expired. Please request a new link.');
             return;
           }
 
+          activateThisResetTab();
           window.history.replaceState({}, document.title, '/reset-password');
           return;
         }
+
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        if (session) {
+          markRecoverySession();
+          checkIfThisTabIsInactive();
+        }
       } catch (error) {
+        console.error('Password reset link verification failed:', error);
         if (active) setMessage('Password reset link could not be verified. Please request a new link.');
       } finally {
         if (active) setCheckingLink(false);
@@ -74,6 +219,7 @@ export default function ResetPasswordClient() {
       if (!active) return;
 
       if (event === 'PASSWORD_RECOVERY') {
+        activateThisResetTab();
         window.history.replaceState({}, document.title, '/reset-password');
         setMessage('');
         setCheckingLink(false);
@@ -89,9 +235,21 @@ export default function ResetPasswordClient() {
     };
   }, [searchParams]);
 
+  const handleLeaveReset = async () => {
+    setLoading(true);
+    clearRecoverySession();
+    await supabase.auth.signOut();
+    window.location.href = '/';
+  };
+
   const handleUpdatePassword = async (e) => {
     e.preventDefault();
     setMessage('');
+
+    if (inactiveDuplicateTab || checkIfThisTabIsInactive()) {
+      setMessage('A newer password reset link was opened in another tab. Continue there.');
+      return;
+    }
 
     if (!password || password.length < 8) {
       setMessage('Password must be at least 8 characters.');
@@ -118,11 +276,13 @@ export default function ResetPasswordClient() {
     const { error } = await supabase.auth.updateUser({ password });
 
     if (error) {
+      console.error('Password update failed:', error);
       setLoading(false);
-      setMessage('Password could not be updated. Please request a new reset link.');
+      setMessage(getPasswordUpdateMessage(error));
       return;
     }
 
+    clearRecoverySession();
     await supabase.auth.signOut();
 
     setLoading(false);
@@ -150,7 +310,7 @@ export default function ResetPasswordClient() {
           </p>
         )}
 
-        {!passwordUpdated && (
+        {!passwordUpdated && !inactiveDuplicateTab && (
           <form onSubmit={handleUpdatePassword} className="mt-6 space-y-5">
             <div>
               <label className="mb-2 block text-sm font-semibold text-(--secondary-green)">New password</label>
@@ -197,9 +357,14 @@ export default function ResetPasswordClient() {
         )}
 
         {!passwordUpdated && (
-          <Link href="/" className="mt-6 block text-center text-sm font-bold text-(--primary-orange)">
-            Back to PawHome
-          </Link>
+          <button
+            type="button"
+            onClick={handleLeaveReset}
+            disabled={loading}
+            className="mt-6 block w-full text-center text-sm font-bold text-(--primary-orange) disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Leave reset page and sign out
+          </button>
         )}
       </div>
     </main>

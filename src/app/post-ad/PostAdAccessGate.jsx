@@ -68,11 +68,6 @@ export default function PostAdAccessGate() {
           return;
         }
 
-        if (!result.profile?.phone_verified) {
-          setStatus({ loading: false, allowed: false, reason: 'phone_unverified' });
-          return;
-        }
-
         setStatus({ loading: false, allowed: true, reason: '' });
       } catch (error) {
         console.error('Post ad access gate failed:', error);
@@ -103,7 +98,7 @@ export default function PostAdAccessGate() {
       return (
         <GateMessage
           title="Log in to post an ad"
-          message="Only logged-in PawHome users can create listings. Please log in or register, then verify your email and phone number."
+          message="Only logged-in PawHome users can create listings. Please log in or register, then verify your email."
           primaryLabel="Log In"
           primaryAction={openLoginModal}
           secondaryHref="/register"
@@ -119,17 +114,6 @@ export default function PostAdAccessGate() {
           message="You need to verify your email address before posting an ad. Check your inbox for the PawHome verification email."
           primaryHref="/profile"
           primaryLabel="Go to Profile"
-        />
-      );
-    }
-
-    if (status.reason === 'phone_unverified') {
-      return (
-        <GateMessage
-          title="Verify your phone first"
-          message="You need a verified phone number before posting an ad. This helps prevent fake listings and duplicate accounts."
-          primaryHref="/profile"
-          primaryLabel="Verify Phone"
         />
       );
     }
