@@ -10,10 +10,12 @@ const RESET_CHANNEL_NAME = 'pawhome_password_reset';
 const ACTIVE_RESET_TAB_KEY = 'pawhome_active_password_reset_tab';
 
 function markRecoverySession() {
+  window.localStorage.setItem(RECOVERY_AUTH_KEY, '1');
   window.sessionStorage.setItem(RECOVERY_AUTH_KEY, '1');
 }
 
 function clearRecoverySession() {
+  window.localStorage.removeItem(RECOVERY_AUTH_KEY);
   window.sessionStorage.removeItem(RECOVERY_AUTH_KEY);
 }
 
