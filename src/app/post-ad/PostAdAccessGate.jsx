@@ -6,7 +6,7 @@ import Header from '../../components/header';
 import { getVerifiedAccessToken } from '../../lib/authTokens';
 import PostAdPageClient from './PostAdPageClient';
 
-function GateMessage({ title, message, primaryHref = '/profile', primaryLabel = 'Go to Profile', secondaryHref = '/', secondaryLabel = 'Back to Home' }) {
+function GateMessage({ title, message, primaryHref = '/profile', primaryLabel = 'Go to Profile', secondaryHref = '/', secondaryLabel = 'Back to Home', primaryAction }) {
   return (
     <div className="min-h-screen bg-(--background)">
       <Header />
@@ -15,7 +15,11 @@ function GateMessage({ title, message, primaryHref = '/profile', primaryLabel = 
           <h1 className="text-3xl font-extrabold text-(--secondary-green)">{title}</h1>
           <p className="mt-3 text-sm leading-6 text-(--muted-green-text)">{message}</p>
           <div className="mt-7 flex flex-col justify-center gap-3 sm:flex-row">
-            <Link href={primaryHref} className="rounded-xl bg-(--primary-orange) px-6 py-3 text-sm font-bold text-white transition hover:bg-(--secondary-orange)">{primaryLabel}</Link>
+            {primaryAction ? (
+              <button type="button" onClick={primaryAction} className="rounded-xl bg-(--primary-orange) px-6 py-3 text-sm font-bold text-white transition hover:bg-(--secondary-orange)">{primaryLabel}</button>
+            ) : (
+              <Link href={primaryHref} className="rounded-xl bg-(--primary-orange) px-6 py-3 text-sm font-bold text-white transition hover:bg-(--secondary-orange)">{primaryLabel}</Link>
+            )}
             <Link href={secondaryHref} className="rounded-xl border border-(--border-beige) bg-white px-6 py-3 text-sm font-bold text-(--secondary-green) transition hover:border-(--primary-green)">{secondaryLabel}</Link>
           </div>
         </section>
@@ -26,6 +30,10 @@ function GateMessage({ title, message, primaryHref = '/profile', primaryLabel = 
 
 export default function PostAdAccessGate() {
   const [status, setStatus] = useState({ loading: true, allowed: false, reason: '' });
+
+  const openLoginModal = () => {
+    window.dispatchEvent(new Event('open-login-modal'));
+  };
 
   useEffect(() => {
     let active = true;
@@ -96,8 +104,8 @@ export default function PostAdAccessGate() {
         <GateMessage
           title="Log in to post an ad"
           message="Only logged-in PawHome users can create listings. Please log in or register, then verify your email and phone number."
-          primaryHref="/login"
           primaryLabel="Log In"
+          primaryAction={openLoginModal}
           secondaryHref="/register"
           secondaryLabel="Register"
         />
