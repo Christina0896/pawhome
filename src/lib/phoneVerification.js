@@ -1,7 +1,8 @@
 import { Buffer } from 'node:buffer';
 
 const VONAGE_VERIFY_BASE_URL = 'https://api.nexmo.com/v2/verify';
-const verificationRequestsByPhone = new Map();
+
+export const PHONE_VERIFICATION_CHALLENGE_TTL_MS = 10 * 60 * 1000;
 
 function getVonageConfig() {
   const apiKey = process.env.VONAGE_API_KEY;
@@ -95,7 +96,7 @@ async function vonageVerifyRequest(path, bodyParams) {
   return result;
 }
 
-export async function sendPhoneVerificationCode(to) {
+export async function startPhoneVerificationCall(to, clientRef = '') {
   const config = getVonageConfig();
 
   if (!config) {
@@ -105,42 +106,34 @@ export async function sendPhoneVerificationCode(to) {
   }
 
   const vonagePhone = formatPhoneForVonage(to);
-  const result = await vonageVerifyRequest('/', {
+  const requestBody = {
     brand: config.brandName,
+    locale: 'en-gb',
     code_length: 4,
     workflow: [
-      {
-        channel: 'sms',
-        to: vonagePhone,
-      },
       {
         channel: 'voice',
         to: vonagePhone,
       },
     ],
-  });
+  };
 
-  if (result?.request_id) {
-    verificationRequestsByPhone.set(vonagePhone, {
-      requestId: result.request_id,
-      expiresAt: Date.now() + 10 * 60 * 1000,
-    });
-  }
+  const safeClientRef = String(clientRef || '').trim().slice(0, 40);
+  if (safeClientRef) requestBody.client_ref = safeClientRef;
 
-  return result;
+  return vonageVerifyRequest('/', requestBody);
 }
 
-export async function checkPhoneVerificationCode(phoneNumber, code) {
-  const vonagePhone = formatPhoneForVonage(phoneNumber);
-  const storedRequest = verificationRequestsByPhone.get(vonagePhone);
+export async function checkPhoneVerificationCode(requestId, code) {
+  const safeRequestId = String(requestId || '').trim();
 
-  if (!storedRequest || storedRequest.expiresAt < Date.now()) {
-    const error = new Error('Send a new verification code first.');
+  if (!safeRequestId) {
+    const error = new Error('Start a new verification call first.');
     error.status = 400;
     throw error;
   }
 
-  return vonageVerifyRequest(`/${encodeURIComponent(storedRequest.requestId)}`, {
+  return vonageVerifyRequest(`/${encodeURIComponent(safeRequestId)}`, {
     code,
   });
 }
