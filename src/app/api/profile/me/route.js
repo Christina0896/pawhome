@@ -1,4 +1,5 @@
 import { getAuthenticatedUser } from '../../../../lib/apiHelpers';
+import { normalizePhoneVerified } from '../../../../lib/booleanFlags';
 import { getSupabaseAdminClient } from '../../../../lib/supabaseAdmin';
 
 export const dynamic = 'force-dynamic';
@@ -56,7 +57,7 @@ export async function GET(request) {
         email_confirmed_at: user.email_confirmed_at,
         confirmed_at: user.confirmed_at,
       },
-      profile,
+      profile: normalizePhoneVerified(profile),
     },
     { status: 200 },
   );

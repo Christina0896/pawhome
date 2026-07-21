@@ -1,4 +1,5 @@
 import { getAuthenticatedUser } from '../../../../lib/apiHelpers';
+import { isTrueFlag, normalizePhoneVerified } from '../../../../lib/booleanFlags';
 import { checkPhoneVerificationCode, formatPhoneForVerification } from '../../../../lib/phoneVerification';
 import { findVerifiedPhoneOwner, updateProfilePhoneVerified } from '../../../../lib/phoneUniqueness';
 import { requireSameOrigin } from '../../../../lib/requireSameOrigin';
@@ -53,8 +54,8 @@ export async function POST(request) {
       return Response.json({ error: 'Please save your profile before verifying your phone number.' }, { status: 400 });
     }
 
-    if (profile.phone_verified) {
-      return Response.json({ success: true, profile }, { status: 200 });
+    if (isTrueFlag(profile.phone_verified)) {
+      return Response.json({ success: true, profile: normalizePhoneVerified(profile) }, { status: 200 });
     }
 
     const phoneToVerify = formatPhoneForVerification(profile.phone_code, profile.phone_number);
@@ -224,7 +225,7 @@ export async function POST(request) {
       });
     }
 
-    return Response.json({ success: true, profile: updatedProfile }, { status: 200 });
+    return Response.json({ success: true, profile: normalizePhoneVerified(updatedProfile) }, { status: 200 });
   } catch (error) {
     console.error('Verify phone code failed:', {
       message: error?.message,

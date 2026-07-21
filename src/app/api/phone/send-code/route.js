@@ -1,4 +1,5 @@
 import { getAuthenticatedUser } from '../../../../lib/apiHelpers';
+import { isTrueFlag } from '../../../../lib/booleanFlags';
 import {
   PHONE_VERIFICATION_CHALLENGE_TTL_MS,
   formatPhoneForVerification,
@@ -58,7 +59,7 @@ export async function POST(request) {
       return Response.json({ error: 'Please save your profile before verifying your phone number.' }, { status: 400 });
     }
 
-    if (profile.phone_verified) {
+    if (isTrueFlag(profile.phone_verified)) {
       return Response.json({ success: true, alreadyVerified: true }, { status: 200 });
     }
 
