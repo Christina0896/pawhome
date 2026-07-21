@@ -8,55 +8,49 @@ export function getIpHash(ip, secretName) {
   return createHash('sha256').update(`${secret}:${ip}`).digest('hex');
 }
 
-export async function isCounterRateLimited({ supabaseAdmin, counterType, listingId, ipHash, maxHits, windowMs }) {
-  const windowCutoff = new Date(Date.now() - windowMs).toISOString();
-
-  const { count, error: countError } = await supabaseAdmin
-    .from('counter_rate_limits')
-    .select('id', { count: 'exact', head: true })
-    .eq('counter_type', counterType)
-    .eq('listing_id', listingId)
-    .eq('ip_hash', ipHash)
-    .gte('created_at', windowCutoff);
-
-  if (countError) throw countError;
-
-  if ((count || 0) >= maxHits) {
-    return true;
-  }
-
-  const { error: insertError } = await supabaseAdmin.from('counter_rate_limits').insert({
-    counter_type: counterType,
-    listing_id: listingId,
-    ip_hash: ipHash,
+async function consumeRateLimit({ supabaseAdmin, bucket, scopeKey, maxHits, windowMs, cleanupMs }) {
+  const { data, error } = await supabaseAdmin.rpc('consume_api_rate_limit', {
+    p_bucket: bucket,
+    p_scope_key: scopeKey,
+    p_max_hits: maxHits,
+    p_window_seconds: Math.max(Math.ceil(windowMs / 1000), 1),
+    p_cleanup_seconds: Math.max(Math.ceil((cleanupMs || windowMs) / 1000), 1),
   });
 
-  if (insertError) throw insertError;
+  if (error) throw error;
 
-  return false;
+  return Boolean(data);
+}
+
+export async function isCounterRateLimited({ supabaseAdmin, counterType, listingId, ipHash, maxHits, windowMs }) {
+  return consumeRateLimit({
+    supabaseAdmin,
+    bucket: `counter:${counterType}`,
+    scopeKey: `${listingId}:${ipHash}`,
+    maxHits,
+    windowMs,
+    cleanupMs: Math.max(windowMs * 24, 24 * 60 * 60 * 1000),
+  });
 }
 
 export async function isIpRateLimited({ supabaseAdmin, tableName, ipHash, maxHits, windowMs, cleanupMs }) {
-  if (cleanupMs) {
-    const cleanupCutoff = new Date(Date.now() - cleanupMs).toISOString();
-    await supabaseAdmin.from(tableName).delete().lt('created_at', cleanupCutoff);
-  }
-
-  const { error: insertError } = await supabaseAdmin.from(tableName).insert({
-    ip_hash: ipHash,
+  return consumeRateLimit({
+    supabaseAdmin,
+    bucket: `ip:${tableName}`,
+    scopeKey: ipHash,
+    maxHits,
+    windowMs,
+    cleanupMs,
   });
+}
 
-  if (insertError) throw insertError;
-
-  const windowCutoff = new Date(Date.now() - windowMs).toISOString();
-
-  const { count, error: countError } = await supabaseAdmin
-    .from(tableName)
-    .select('id', { count: 'exact', head: true })
-    .eq('ip_hash', ipHash)
-    .gte('created_at', windowCutoff);
-
-  if (countError) throw countError;
-
-  return (count || 0) > maxHits;
+export async function isScopedRateLimited({ supabaseAdmin, bucket, scopeKey, maxHits, windowMs, cleanupMs }) {
+  return consumeRateLimit({
+    supabaseAdmin,
+    bucket,
+    scopeKey,
+    maxHits,
+    windowMs,
+    cleanupMs,
+  });
 }
