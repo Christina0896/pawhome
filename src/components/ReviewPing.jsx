@@ -2,7 +2,6 @@
 
 import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
-import PostAdFormEnhancer from '../app/post-ad/PostAdFormEnhancer';
 
 function getEditId(url) {
   const match = String(url || '').match(/\/api\/profile\/listings\/(\d+)/);
@@ -26,15 +25,14 @@ function removeAdminCard(listingId) {
 
   const previewLink = document.querySelector(`a[href="/listings/${listingId}?adminPreview=true"]`);
   const card = previewLink?.closest('article');
-
-  if (card) {
-    card.remove();
-  }
+  if (card) card.remove();
 }
 
 function getActiveAdminTab() {
   const buttons = [...document.querySelectorAll('button')];
-  const activeButton = buttons.find((button) => button.className.includes('bg-(--primary-green)') && button.textContent?.trim());
+  const activeButton = buttons.find(
+    (button) => button.className.includes('bg-(--primary-green)') && button.textContent?.trim(),
+  );
   return activeButton?.textContent?.trim().toLowerCase() || '';
 }
 
@@ -42,7 +40,9 @@ function syncAdminActions() {
   if (window.location.pathname !== '/admin') return;
 
   const activeTab = getActiveAdminTab();
-  const rejectButtons = [...document.querySelectorAll('button')].filter((button) => button.textContent?.trim() === 'Reject');
+  const rejectButtons = [...document.querySelectorAll('button')].filter(
+    (button) => button.textContent?.trim() === 'Reject',
+  );
 
   rejectButtons.forEach((button) => {
     button.style.display = activeTab === 'approved' ? 'none' : '';
@@ -67,11 +67,9 @@ function syncEditLitterSection() {
 
 export default function ReviewPing() {
   const pathname = usePathname() || '';
-  const isPostAdPage = pathname.startsWith('/post-ad');
 
   useEffect(() => {
     const shouldRun = pathname.includes('/profile/listings/') || pathname === '/admin';
-
     if (!shouldRun) return undefined;
 
     const syncPage = () => {
@@ -127,5 +125,5 @@ export default function ReviewPing() {
     };
   }, [pathname]);
 
-  return isPostAdPage ? <PostAdFormEnhancer /> : null;
+  return null;
 }
