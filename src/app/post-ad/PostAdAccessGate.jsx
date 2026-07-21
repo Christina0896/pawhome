@@ -6,7 +6,15 @@ import Header from '../../components/header';
 import { getVerifiedAccessToken } from '../../lib/authTokens';
 import PostAdPageClient from './PostAdPageClient';
 
-function GateMessage({ title, message, primaryHref = '/profile', primaryLabel = 'Go to Profile', secondaryHref = '/', secondaryLabel = 'Back to Home', primaryAction }) {
+function GateMessage({
+  title,
+  message,
+  primaryHref = '/profile',
+  primaryLabel = 'Go to Profile',
+  secondaryHref = '/',
+  secondaryLabel = 'Back to Home',
+  primaryAction,
+}) {
   return (
     <div className="min-h-screen bg-(--background)">
       <Header />
@@ -16,11 +24,27 @@ function GateMessage({ title, message, primaryHref = '/profile', primaryLabel = 
           <p className="mt-3 text-sm leading-6 text-(--muted-green-text)">{message}</p>
           <div className="mt-7 flex flex-col justify-center gap-3 sm:flex-row">
             {primaryAction ? (
-              <button type="button" onClick={primaryAction} className="rounded-xl bg-(--primary-orange) px-6 py-3 text-sm font-bold text-white transition hover:bg-(--secondary-orange)">{primaryLabel}</button>
+              <button
+                type="button"
+                onClick={primaryAction}
+                className="rounded-xl bg-(--primary-orange) px-6 py-3 text-sm font-bold text-white transition hover:bg-(--secondary-orange)"
+              >
+                {primaryLabel}
+              </button>
             ) : (
-              <Link href={primaryHref} className="rounded-xl bg-(--primary-orange) px-6 py-3 text-sm font-bold text-white transition hover:bg-(--secondary-orange)">{primaryLabel}</Link>
+              <Link
+                href={primaryHref}
+                className="rounded-xl bg-(--primary-orange) px-6 py-3 text-sm font-bold text-white transition hover:bg-(--secondary-orange)"
+              >
+                {primaryLabel}
+              </Link>
             )}
-            <Link href={secondaryHref} className="rounded-xl border border-(--border-beige) bg-white px-6 py-3 text-sm font-bold text-(--secondary-green) transition hover:border-(--primary-green)">{secondaryLabel}</Link>
+            <Link
+              href={secondaryHref}
+              className="rounded-xl border border-(--border-beige) bg-white px-6 py-3 text-sm font-bold text-(--secondary-green) transition hover:border-(--primary-green)"
+            >
+              {secondaryLabel}
+            </Link>
           </div>
         </section>
       </main>
@@ -68,6 +92,16 @@ export default function PostAdAccessGate() {
           return;
         }
 
+        if (!result.profile?.phone_number) {
+          setStatus({ loading: false, allowed: false, reason: 'phone_missing' });
+          return;
+        }
+
+        if (!result.profile?.phone_verified) {
+          setStatus({ loading: false, allowed: false, reason: 'phone_unverified' });
+          return;
+        }
+
         setStatus({ loading: false, allowed: true, reason: '' });
       } catch (error) {
         console.error('Post ad access gate failed:', error);
@@ -98,7 +132,7 @@ export default function PostAdAccessGate() {
       return (
         <GateMessage
           title="Log in to post an ad"
-          message="Only logged-in PawHome users can create listings. Please log in or register, then verify your email."
+          message="Create an account, confirm your email, log in, and verify your phone before posting a listing."
           primaryLabel="Log In"
           primaryAction={openLoginModal}
           secondaryHref="/register"
@@ -111,9 +145,33 @@ export default function PostAdAccessGate() {
       return (
         <GateMessage
           title="Verify your email first"
-          message="You need to verify your email address before posting an ad. Check your inbox for the PawHome verification email."
+          message="Open the confirmation email from PawHome. After confirming the address, return and log in before continuing."
+          primaryHref="/"
+          primaryLabel="Back to PawHome"
+          secondaryHref="/register"
+          secondaryLabel="Register another account"
+        />
+      );
+    }
+
+    if (status.reason === 'phone_missing') {
+      return (
+        <GateMessage
+          title="Add your phone number"
+          message="A saved and verified phone number is required before you can post an ad. Add the number in your profile first."
           primaryHref="/profile"
-          primaryLabel="Go to Profile"
+          primaryLabel="Add phone in profile"
+        />
+      );
+    }
+
+    if (status.reason === 'phone_unverified') {
+      return (
+        <GateMessage
+          title="Verify your phone first"
+          message="Open your profile and request an automated verification call. Enter the four-digit code read during the call, then return to post your ad."
+          primaryHref="/profile"
+          primaryLabel="Verify phone by call"
         />
       );
     }
@@ -121,7 +179,7 @@ export default function PostAdAccessGate() {
     return (
       <GateMessage
         title="Cannot open post form"
-        message="Your account could not be checked. Please open your profile and confirm your details before posting an ad."
+        message="Your account could not be checked. Open your profile and confirm your details before posting an ad."
         primaryHref="/profile"
         primaryLabel="Go to Profile"
       />
