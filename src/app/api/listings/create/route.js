@@ -23,6 +23,7 @@ import {
 export const dynamic = 'force-dynamic';
 
 const REQUIRE_EMAIL_VERIFICATION_TO_POST = true;
+const REQUIRE_PHONE_VERIFICATION_TO_POST = true;
 const REQUIRE_UNIQUE_PHONE_TO_POST = true;
 const LISTING_PHOTOS_BUCKET = 'listing-photos';
 
@@ -67,7 +68,8 @@ export async function POST(request) {
     const listingType = cleanText(body.get('listing_type'), 40);
     const animalType = cleanText(body.get('animal_type'), 40);
     const breed = cleanText(body.get('breed'), 80);
-    const age = buildAgeLabel(body.get('age_value') || body.get('age'), body.get('age_unit')) || cleanText(body.get('age'), 40);
+    const age =
+      buildAgeLabel(body.get('age_value') || body.get('age'), body.get('age_unit')) || cleanText(body.get('age'), 40);
     const sex = cleanText(body.get('sex'), 40);
     const county = cleanText(body.get('county'), 80);
     const city = cleanText(body.get('city'), 80);
@@ -84,7 +86,8 @@ export async function POST(request) {
     const vetChecked = cleanNullableText(body.get('vet_checked'), 20);
     const spayedNeutered = cleanNullableText(body.get('spayed_neutered'), 20);
     const healthTested = cleanNullableText(body.get('health_tested'), 20);
-    const kennelClubRegistered = animalType === 'Dogs' ? cleanNullableText(body.get('kc_registered'), 20) : null;
+    const kennelClubRegistered =
+      animalType === 'Dogs' ? cleanNullableText(body.get('kc_registered'), 20) : null;
 
     const litterSize = cleanNullableText(body.get('litter_size'), 10);
     const availableLitterCount = cleanNullableText(body.get('available_litter_count'), 10);
@@ -118,7 +121,10 @@ export async function POST(request) {
     }
 
     if (!age || !isValidAgeLabel(age)) {
-      return Response.json({ error: "Please enter the pet's age as a number and select days, weeks, months, or years." }, { status: 400 });
+      return Response.json(
+        { error: "Please enter the pet's age as a number and select days, weeks, months, or years." },
+        { status: 400 },
+      );
     }
 
     if (!ALLOWED_SEXES.includes(sex)) {
@@ -170,7 +176,10 @@ export async function POST(request) {
 
     if (isDogOrCat && isMixedLitter) {
       if (!litterSize || !availableLitterCount || !dateOfBirth || !readyToLeave) {
-        return Response.json({ error: 'Please enter complete litter information, including date of birth and ready-to-leave date.' }, { status: 400 });
+        return Response.json(
+          { error: 'Please enter complete litter information, including date of birth and ready-to-leave date.' },
+          { status: 400 },
+        );
       }
 
       const litterSizeNumber = Number(litterSize);
@@ -221,12 +230,24 @@ export async function POST(request) {
       );
     }
 
-    if (REQUIRE_UNIQUE_PHONE_TO_POST) {
-      if (!profileData.phone_number) {
-        return Response.json({ error: 'Please add a phone number to your profile before posting an ad.' }, { status: 403 });
-      }
+    if (!profileData.phone_number) {
+      return Response.json({ error: 'Please add a phone number to your profile before posting an ad.' }, { status: 403 });
+    }
 
-      const duplicatePhone = await findProfileWithPhone(supabaseAdmin, profileData.phone_code, profileData.phone_number, user.id);
+    if (REQUIRE_PHONE_VERIFICATION_TO_POST && !profileData.phone_verified) {
+      return Response.json(
+        { error: 'Please verify your phone number by automated call before posting an ad.' },
+        { status: 403 },
+      );
+    }
+
+    if (REQUIRE_UNIQUE_PHONE_TO_POST) {
+      const duplicatePhone = await findProfileWithPhone(
+        supabaseAdmin,
+        profileData.phone_code,
+        profileData.phone_number,
+        user.id,
+      );
 
       if (duplicatePhone.error) {
         console.error('Post ad duplicate phone check failed:', duplicatePhone.error);
@@ -234,11 +255,15 @@ export async function POST(request) {
       }
 
       if (duplicatePhone.owner) {
-        return Response.json({ error: 'This phone number is already linked to another PawHome account.' }, { status: 409 });
+        return Response.json(
+          { error: 'This phone number is already linked to another PawHome account.' },
+          { status: 409 },
+        );
       }
     }
 
-    const sellerName = cleanText(`${profileData?.first_name || ''} ${profileData?.last_name || ''}`, 120) || 'Seller';
+    const sellerName =
+      cleanText(`${profileData?.first_name || ''} ${profileData?.last_name || ''}`, 120) || 'Seller';
     const contactPhone = cleanPhone(`${profileData?.phone_code || ''} ${profileData?.phone_number || ''}`);
     const sellerMemberSince = profileData.created_at || user.created_at;
 
