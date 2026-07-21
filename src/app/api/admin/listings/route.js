@@ -1,4 +1,5 @@
 import { requireAdmin } from '../../../../lib/requireAdmin';
+import { retryPendingListingNotifications } from '../../../../lib/listingNotifications';
 
 export const dynamic = 'force-dynamic';
 
@@ -89,6 +90,17 @@ export async function GET(request) {
 
   if (!ALLOWED_STATUS_FILTERS.includes(status)) {
     return Response.json({ error: 'Invalid listing status.' }, { status: 400 });
+  }
+
+  // Retry a small number of queued messages whenever an administrator opens the
+  // moderation queue. Failures never block the listing response.
+  const retryResult = await retryPendingListingNotifications(supabaseAdmin, 3);
+
+  if (retryResult.error) {
+    console.warn('Queued listing notification retry failed:', {
+      message: retryResult.error?.message,
+      code: retryResult.error?.code,
+    });
   }
 
   const from = (page - 1) * pageSize;
