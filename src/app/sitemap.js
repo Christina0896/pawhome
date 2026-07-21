@@ -4,6 +4,7 @@ import { dogBreeds, catBreeds, otherPetTypes } from '../data/petOptions';
 import { getSupabaseServerClient } from '../lib/supabaseServer';
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://pawhome.ie';
+const LISTING_BATCH_SIZE = 1000;
 
 const coreSeoSlugs = [
   'pets-for-sale',
@@ -126,6 +127,34 @@ function buildBreedGuideRoutes() {
   }));
 }
 
+async function getAllApprovedListings(supabase) {
+  const listings = [];
+
+  for (let from = 0; ; from += LISTING_BATCH_SIZE) {
+    const { data, error } = await supabase
+      .from('listings')
+      .select('id, updated_at, created_at')
+      .eq('status', 'approved')
+      .order('created_at', { ascending: false })
+      .range(from, from + LISTING_BATCH_SIZE - 1);
+
+    if (error) {
+      console.warn('Sitemap listing fetch failed:', {
+        message: error.message,
+        code: error.code,
+      });
+      break;
+    }
+
+    const batch = data || [];
+    listings.push(...batch);
+
+    if (batch.length < LISTING_BATCH_SIZE) break;
+  }
+
+  return listings;
+}
+
 export default async function sitemap() {
   const staticRoutes = [
     { url: siteUrl, changeFrequency: 'daily', priority: 1 },
@@ -147,14 +176,8 @@ export default async function sitemap() {
 
   if (!supabase) return [...staticRoutes, ...breedGuideRoutes, ...seoLandingRoutes];
 
-  const { data: listings } = await supabase
-    .from('listings')
-    .select('id, updated_at, created_at')
-    .eq('status', 'approved')
-    .order('created_at', { ascending: false })
-    .limit(500);
-
-  const listingRoutes = (listings || []).map((listing) => ({
+  const listings = await getAllApprovedListings(supabase);
+  const listingRoutes = listings.map((listing) => ({
     url: `${siteUrl}/listings/${listing.id}`,
     lastModified: new Date(listing.updated_at || listing.created_at || Date.now()),
     changeFrequency: 'weekly',
