@@ -54,6 +54,29 @@ create unique index if not exists unique_listing_submission_per_user
   on public.listings (user_id, submission_key)
   where submission_key is not null;
 
+-- -----------------------------------------------------------------------------
+-- Notification outbox. A listing/event pair can be delivered at most once.
+-- -----------------------------------------------------------------------------
+create table if not exists public.listing_notification_outbox (
+  id uuid primary key default gen_random_uuid(),
+  listing_id bigint not null references public.listings(id) on delete cascade,
+  event_type text not null default 'new_listing' check (event_type in ('new_listing', 'listing_review')),
+  status text not null default 'pending' check (status in ('pending', 'sending', 'sent', 'failed')),
+  attempts integer not null default 0 check (attempts >= 0),
+  last_error text,
+  sent_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (listing_id, event_type)
+);
+
+create index if not exists listing_notification_outbox_pending_idx
+  on public.listing_notification_outbox (status, created_at);
+
+alter table public.listing_notification_outbox enable row level security;
+revoke all on table public.listing_notification_outbox from anon, authenticated;
+grant all on table public.listing_notification_outbox to service_role;
+
 -- Delete all database rows belonging to one listing inside a single transaction.
 -- Storage objects are removed by the application only after this function commits.
 create or replace function public.delete_listing_with_dependencies(
@@ -96,69 +119,28 @@ revoke all on function public.delete_listing_with_dependencies(bigint, uuid) fro
 grant execute on function public.delete_listing_with_dependencies(bigint, uuid) to service_role;
 
 -- -----------------------------------------------------------------------------
--- Notification outbox. A listing/event pair can be delivered at most once.
+-- Persistent account-deletion cleanup jobs. This table intentionally has no Auth
+-- foreign key because the Auth record is removed before background cleanup ends.
 -- -----------------------------------------------------------------------------
-create table if not exists public.listing_notification_outbox (
+create table if not exists public.account_deletion_jobs (
   id uuid primary key default gen_random_uuid(),
-  listing_id bigint not null references public.listings(id) on delete cascade,
-  event_type text not null default 'new_listing' check (event_type in ('new_listing', 'listing_review')),
-  status text not null default 'pending' check (status in ('pending', 'sending', 'sent', 'failed')),
-  attempts integer not null default 0 check (attempts >= 0),
+  user_id uuid not null,
+  user_email text,
+  listing_photo_paths text[] not null default '{}',
+  avatar_path text,
+  status text not null default 'pending' check (status in ('pending', 'failed', 'completed')),
   last_error text,
-  sent_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  unique (listing_id, event_type)
+  completed_at timestamptz
 );
 
-create index if not exists listing_notification_outbox_pending_idx
-  on public.listing_notification_outbox (status, created_at);
+create index if not exists account_deletion_jobs_status_idx
+  on public.account_deletion_jobs (status, created_at);
 
-alter table public.listing_notification_outbox enable row level security;
-revoke all on table public.listing_notification_outbox from anon, authenticated;
-grant all on table public.listing_notification_outbox to service_role;
-
--- Recreate the listing deletion function after the outbox table exists on fresh
--- databases. PostgreSQL resolves the referenced relation when the function is run,
--- but keeping this definition below the table makes the dependency explicit.
-create or replace function public.delete_listing_with_dependencies(
-  p_listing_id bigint,
-  p_owner_id uuid default null
-)
-returns boolean
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-  v_owner_id uuid;
-begin
-  select user_id
-  into v_owner_id
-  from public.listings
-  where id = p_listing_id
-  for update;
-
-  if not found then
-    return false;
-  end if;
-
-  if p_owner_id is not null and v_owner_id <> p_owner_id then
-    return false;
-  end if;
-
-  delete from public.favorites where listing_id = p_listing_id;
-  delete from public.listing_reports where listing_id = p_listing_id;
-  delete from public.listing_notification_outbox where listing_id = p_listing_id;
-  delete from public.listing_photos where listing_id = p_listing_id;
-  delete from public.listings where id = p_listing_id;
-
-  return true;
-end;
-$$;
-
-revoke all on function public.delete_listing_with_dependencies(bigint, uuid) from public, anon, authenticated;
-grant execute on function public.delete_listing_with_dependencies(bigint, uuid) to service_role;
+alter table public.account_deletion_jobs enable row level security;
+revoke all on table public.account_deletion_jobs from anon, authenticated;
+grant all on table public.account_deletion_jobs to service_role;
 
 -- -----------------------------------------------------------------------------
 -- Generic atomic rate limits. Each bucket/scope pair is serialized with an
@@ -276,7 +258,6 @@ begin
     raise exception 'invalid phone challenge';
   end if;
 
-  -- Use the same lock order on every call to avoid duplicate provider requests.
   perform pg_advisory_xact_lock(hashtextextended('phone:' || p_phone_e164, 0));
   perform pg_advisory_xact_lock(hashtextextended('user:' || p_user_id::text, 0));
 
