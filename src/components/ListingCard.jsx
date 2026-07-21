@@ -2,12 +2,15 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { AnimalTypeIcon, CalendarIcon, FemaleIcon, HeartIcon, LocationIcon, MaleIcon, MixedGenderIcon, PawIcon } from './Icons';
+import { AnimalTypeIcon, CalendarIcon, FemaleIcon, HeartIcon, LocationIcon, MaleIcon, MixedGenderIcon, PawIcon, ShieldCheckIcon } from './Icons';
 
 function formatDate(date) {
   if (!date) return 'recently';
 
-  return new Date(date).toLocaleDateString('en-IE', {
+  const parsed = new Date(date);
+  if (Number.isNaN(parsed.getTime())) return 'recently';
+
+  return parsed.toLocaleDateString('en-IE', {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
@@ -37,20 +40,14 @@ function getPriceDisplay(listing) {
     return `€${listing.price}`;
   }
 
-  if (listing?.listing_type === 'For Adoption') {
-    return 'Adoption';
-  }
+  if (listing?.listing_type === 'For Adoption') return 'Adoption';
 
   return '';
 }
 
 function getAnimalPillLabel(listing) {
   if (!listing) return '';
-
-  if (listing.animal_type === 'Other Pets') {
-    return listing.breed || 'Other Pet';
-  }
-
+  if (listing.animal_type === 'Other Pets') return listing.breed || 'Other Pet';
   return listing.animal_type || listing.breed || '';
 }
 
@@ -84,10 +81,7 @@ export default function ListingCard({
   const handleFavoriteClick = (event) => {
     event.preventDefault();
     event.stopPropagation();
-
-    if (onFavoriteClick) {
-      onFavoriteClick(event, listing.id);
-    }
+    if (onFavoriteClick) onFavoriteClick(event, listing.id);
   };
 
   return (
@@ -109,6 +103,12 @@ export default function ListingCard({
           )}
         </Link>
 
+        {listing.seller_verified && (
+          <span className="absolute left-4 top-4 z-10 inline-flex items-center gap-1 rounded-full bg-green-100/95 px-3 py-1 text-xs font-extrabold text-green-800 shadow-sm">
+            <ShieldCheckIcon className="h-3.5 w-3.5" /> PawHome verified
+          </span>
+        )}
+
         {showFavorite && (
           <button
             type="button"
@@ -127,48 +127,22 @@ export default function ListingCard({
       <Link href={href} className="flex flex-1 flex-col bg-(--secondary-background) p-3">
         <div className="flex min-w-0 items-start justify-between gap-3">
           <h3 className="min-w-0 flex-1 truncate text-lg font-extrabold tracking-tight text-(--primary-green)">{title}</h3>
-
           {priceDisplay && <p className="shrink-0 whitespace-nowrap text-lg font-extrabold text-(--primary-orange)">{priceDisplay}</p>}
         </div>
 
-        <div className="text-sm text-(--muted-green-text)">
-          <p className="mt-1 line-clamp-1 text-sm font-bold text-black">
-            {[listing.breed || listing.animal_type].filter(Boolean).join(' • ')}
-          </p>
-        </div>
+        <p className="mt-1 line-clamp-1 text-sm font-bold text-black">
+          {[listing.breed || listing.animal_type, listing.seller_type].filter(Boolean).join(' • ')}
+        </p>
 
         <div className="mt-3 flex flex-wrap gap-1">
           {animalPillLabel && (
-            <InfoPill
-              icon={
-                <AnimalTypeIcon
-                  animalType={listing.animal_type}
-                  category={listing.breed}
-                  className="h-3.5 w-3.5"
-                />
-              }
-            >
+            <InfoPill icon={<AnimalTypeIcon animalType={listing.animal_type} category={listing.breed} className="h-3.5 w-3.5" />}>
               {animalPillLabel}
             </InfoPill>
           )}
-
-          {listing.age && (
-            <InfoPill icon={<CalendarIcon className="h-3.5 w-3.5 text-(--primary-green)" />}>
-              {listing.age}
-            </InfoPill>
-          )}
-
-          {listing.sex && (
-            <InfoPill icon={<span className="text-sm leading-none">{getSexIcon(listing.sex)}</span>}>
-              {listing.sex}
-            </InfoPill>
-          )}
-
-          {listing.county && (
-            <InfoPill icon={<LocationIcon className="h-3.5 w-3.5 text-(--primary-green)" />}>
-              {listing.county}
-            </InfoPill>
-          )}
+          {listing.age && <InfoPill icon={<CalendarIcon className="h-3.5 w-3.5" />}>{listing.age}</InfoPill>}
+          {listing.sex && <InfoPill icon={<span className="text-sm leading-none">{getSexIcon(listing.sex)}</span>}>{listing.sex}</InfoPill>}
+          {listing.county && <InfoPill icon={<LocationIcon className="h-3.5 w-3.5" />}>{listing.county}</InfoPill>}
         </div>
 
         {showDescription && listing.description && (
@@ -182,9 +156,7 @@ export default function ListingCard({
           </div>
 
           {['Yes', 'IKC Registered', 'KC Registered'].includes(listing.kennel_club_registered) && (
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-(--primary-green) text-[12px] font-extrabold text-white">
-              IKC
-            </div>
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-(--primary-green) text-[12px] font-extrabold text-white">IKC</div>
           )}
         </div>
       </Link>
