@@ -62,7 +62,7 @@ export default function RegisterPage() {
     const normalizedEmail = formData.email.trim().toLowerCase();
 
     try {
-      const { data, error } = await supabase.auth.signUp({
+      const { error } = await supabase.auth.signUp({
         email: normalizedEmail,
         password,
         options: {
@@ -99,19 +99,10 @@ export default function RegisterPage() {
         return;
       }
 
-      const identities = data?.user?.identities;
-
-      if (data?.user && Array.isArray(identities) && identities.length === 0) {
-        setMessage('This email is already registered. Please log in or use forgot password.');
-        return;
-      }
-
-      if (!data?.user) {
-        setMessage('PawHome could not create the account. Please try again.');
-        return;
-      }
-
-      router.push('/register/success');
+      // With email confirmation enabled, Supabase can intentionally return an
+      // ambiguous response to prevent account enumeration. A missing user
+      // payload is not a signup failure when no Auth error was returned.
+      router.replace('/register/success');
     } catch (signupError) {
       console.error('Signup request failed:', signupError);
       setMessage('Could not create account. Please check your connection and try again.');
