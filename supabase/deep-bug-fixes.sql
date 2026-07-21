@@ -54,6 +54,47 @@ create unique index if not exists unique_listing_submission_per_user
   on public.listings (user_id, submission_key)
   where submission_key is not null;
 
+-- Delete all database rows belonging to one listing inside a single transaction.
+-- Storage objects are removed by the application only after this function commits.
+create or replace function public.delete_listing_with_dependencies(
+  p_listing_id bigint,
+  p_owner_id uuid default null
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_owner_id uuid;
+begin
+  select user_id
+  into v_owner_id
+  from public.listings
+  where id = p_listing_id
+  for update;
+
+  if not found then
+    return false;
+  end if;
+
+  if p_owner_id is not null and v_owner_id <> p_owner_id then
+    return false;
+  end if;
+
+  delete from public.favorites where listing_id = p_listing_id;
+  delete from public.listing_reports where listing_id = p_listing_id;
+  delete from public.listing_notification_outbox where listing_id = p_listing_id;
+  delete from public.listing_photos where listing_id = p_listing_id;
+  delete from public.listings where id = p_listing_id;
+
+  return true;
+end;
+$$;
+
+revoke all on function public.delete_listing_with_dependencies(bigint, uuid) from public, anon, authenticated;
+grant execute on function public.delete_listing_with_dependencies(bigint, uuid) to service_role;
+
 -- -----------------------------------------------------------------------------
 -- Notification outbox. A listing/event pair can be delivered at most once.
 -- -----------------------------------------------------------------------------
@@ -76,6 +117,48 @@ create index if not exists listing_notification_outbox_pending_idx
 alter table public.listing_notification_outbox enable row level security;
 revoke all on table public.listing_notification_outbox from anon, authenticated;
 grant all on table public.listing_notification_outbox to service_role;
+
+-- Recreate the listing deletion function after the outbox table exists on fresh
+-- databases. PostgreSQL resolves the referenced relation when the function is run,
+-- but keeping this definition below the table makes the dependency explicit.
+create or replace function public.delete_listing_with_dependencies(
+  p_listing_id bigint,
+  p_owner_id uuid default null
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_owner_id uuid;
+begin
+  select user_id
+  into v_owner_id
+  from public.listings
+  where id = p_listing_id
+  for update;
+
+  if not found then
+    return false;
+  end if;
+
+  if p_owner_id is not null and v_owner_id <> p_owner_id then
+    return false;
+  end if;
+
+  delete from public.favorites where listing_id = p_listing_id;
+  delete from public.listing_reports where listing_id = p_listing_id;
+  delete from public.listing_notification_outbox where listing_id = p_listing_id;
+  delete from public.listing_photos where listing_id = p_listing_id;
+  delete from public.listings where id = p_listing_id;
+
+  return true;
+end;
+$$;
+
+revoke all on function public.delete_listing_with_dependencies(bigint, uuid) from public, anon, authenticated;
+grant execute on function public.delete_listing_with_dependencies(bigint, uuid) to service_role;
 
 -- -----------------------------------------------------------------------------
 -- Generic atomic rate limits. Each bucket/scope pair is serialized with an
