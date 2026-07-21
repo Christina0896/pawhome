@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint --rule react-hooks/set-state-in-effect:off --rule react-hooks/immutability:off --rule react/no-unescaped-entities:off --rule @next/next/no-img-element:off",
-    "check": "npm run lint && npm run build"
+    "test": "playwright test --reporter=line",
+    "check": "npm run lint && npm run test && npm run build"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.106.1",
