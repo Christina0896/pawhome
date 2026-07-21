@@ -2,31 +2,30 @@ import { getSupabaseAdminClient } from '../../../../lib/supabaseAdmin';
 import { requireSameOrigin } from '../../../../lib/requireSameOrigin';
 import { getAuthenticatedUser, removeStorageFiles } from '../../../../lib/apiHelpers';
 import { isTrueFlag } from '../../../../lib/booleanFlags';
-import { findProfileWithPhone } from '../../../../lib/profilePhoneChecks';
+import { sendListingNotification } from '../../../../lib/listingNotifications';
 import {
   ALLOWED_ANIMAL_TYPES,
   ALLOWED_LISTING_TYPES,
-  ALLOWED_SELLER_TYPES,
   ALLOWED_SEXES,
   ALLOWED_YES_NO,
-  addWeeksToDate,
   buildAgeLabel,
   cleanBoolean,
   cleanNullableText,
   cleanPhone,
   cleanText,
   getImageExtension,
-  getMinimumLegalAgeWeeks,
-  isValidAgeLabel,
   validateImageFileContent,
+  validateListingAgeAndDates,
 } from '../../../../lib/listingValidation';
+import { formatPhoneForVerification } from '../../../../lib/phoneVerification';
+import { getSellerTrustSnapshot } from '../../../../lib/sellerTrust';
 
 export const dynamic = 'force-dynamic';
 
 const REQUIRE_EMAIL_VERIFICATION_TO_POST = true;
 const REQUIRE_PHONE_VERIFICATION_TO_POST = true;
-const REQUIRE_UNIQUE_PHONE_TO_POST = true;
 const LISTING_PHOTOS_BUCKET = 'listing-photos';
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 async function deleteListingRows(supabaseAdmin, listingId) {
   if (!listingId) return;
@@ -37,12 +36,20 @@ async function deleteListingRows(supabaseAdmin, listingId) {
   await supabaseAdmin.from('listings').delete().eq('id', listingId);
 }
 
+async function findExistingSubmission(supabaseAdmin, userId, submissionKey) {
+  const { data, error } = await supabaseAdmin
+    .from('listings')
+    .select('id, status')
+    .eq('user_id', userId)
+    .eq('submission_key', submissionKey)
+    .maybeSingle();
+
+  return { listing: data || null, error: error || null };
+}
+
 export async function POST(request) {
   const sameOriginError = requireSameOrigin(request);
-
-  if (sameOriginError) {
-    return sameOriginError;
-  }
+  if (sameOriginError) return sameOriginError;
 
   const supabaseAdmin = getSupabaseAdminClient();
 
@@ -51,10 +58,7 @@ export async function POST(request) {
   }
 
   const { user, error: authError } = await getAuthenticatedUser(supabaseAdmin, request);
-
-  if (authError) {
-    return authError;
-  }
+  if (authError) return authError;
 
   const isEmailVerified = Boolean(user.email_confirmed_at || user.confirmed_at);
 
@@ -64,6 +68,25 @@ export async function POST(request) {
 
   try {
     const body = await request.formData();
+    const submissionKey = cleanText(body.get('submission_key'), 50);
+
+    if (!UUID_PATTERN.test(submissionKey)) {
+      return Response.json({ error: 'Invalid submission key. Refresh the form and try again.' }, { status: 400 });
+    }
+
+    const existingSubmission = await findExistingSubmission(supabaseAdmin, user.id, submissionKey);
+
+    if (existingSubmission.error) {
+      console.error('Listing idempotency lookup failed:', existingSubmission.error);
+      return Response.json({ error: 'Could not check the listing submission.' }, { status: 500 });
+    }
+
+    if (existingSubmission.listing) {
+      return Response.json(
+        { success: true, listing: existingSubmission.listing, deduplicated: true },
+        { status: 200 },
+      );
+    }
 
     const title = cleanText(body.get('title'), 80);
     const listingType = cleanText(body.get('listing_type'), 40);
@@ -74,12 +97,10 @@ export async function POST(request) {
     const sex = cleanText(body.get('sex'), 40);
     const county = cleanText(body.get('county'), 80);
     const city = cleanText(body.get('city'), 80);
-    const sellerType = cleanText(body.get('seller_type'), 80);
     const description = cleanText(body.get('description'), 800);
 
     const priceRaw = cleanText(body.get('price'), 20);
-    const submittedPrice = priceRaw === '' ? null : Number(priceRaw);
-    const price = submittedPrice;
+    const price = priceRaw === '' ? null : Number(priceRaw);
 
     const microchipped = cleanText(body.get('microchipped'), 20);
     const vaccinated = cleanNullableText(body.get('vaccinated'), 20);
@@ -101,6 +122,8 @@ export async function POST(request) {
 
     const registrationNumber = cleanNullableText(body.get('registrationNumber'), 120);
     const organisationName = cleanNullableText(body.get('organisationName'), 120);
+    const provenStud = listingType === 'For Stud' ? cleanNullableText(body.get('proven_stud'), 20) : null;
+    const studTerms = listingType === 'For Stud' ? cleanNullableText(body.get('stud_terms'), 800) : null;
 
     const priceNegotiable = listingType === 'For Adoption' ? false : cleanBoolean(body.get('price_negotiable'));
     const photos = body.getAll('photos');
@@ -121,13 +144,6 @@ export async function POST(request) {
       return Response.json({ error: 'Please enter a breed or pet type.' }, { status: 400 });
     }
 
-    if (!age || !isValidAgeLabel(age)) {
-      return Response.json(
-        { error: "Please enter the pet's age as a number and select days, weeks, months, or years." },
-        { status: 400 },
-      );
-    }
-
     if (!ALLOWED_SEXES.includes(sex)) {
       return Response.json({ error: 'Please select a valid sex.' }, { status: 400 });
     }
@@ -144,12 +160,12 @@ export async function POST(request) {
       return Response.json({ error: 'Please select a county.' }, { status: 400 });
     }
 
-    if (!ALLOWED_SELLER_TYPES.includes(sellerType)) {
-      return Response.json({ error: 'Please select a valid seller type.' }, { status: 400 });
-    }
-
     if (animalType === 'Dogs' && !ALLOWED_YES_NO.includes(microchipped)) {
       return Response.json({ error: 'Please confirm if the dog is microchipped.' }, { status: 400 });
+    }
+
+    if (listingType === 'For Stud' && provenStud && !ALLOWED_YES_NO.includes(provenStud)) {
+      return Response.json({ error: 'Please select a valid proven-stud option.' }, { status: 400 });
     }
 
     if (description.length < 80) {
@@ -166,21 +182,25 @@ export async function POST(request) {
 
     for (const photo of photos) {
       const imageError = await validateImageFileContent(photo);
-
-      if (imageError) {
-        return Response.json({ error: imageError }, { status: 400 });
-      }
+      if (imageError) return Response.json({ error: imageError }, { status: 400 });
     }
 
     const isDogOrCat = ['dogs', 'cats'].includes(animalType.toLowerCase());
     const isMixedLitter = sex === 'Mixed Litter';
+    const ageError = validateListingAgeAndDates({
+      animalType,
+      breed,
+      age,
+      dateOfBirth,
+      readyToLeave,
+      requireDates: isDogOrCat && isMixedLitter,
+    });
+
+    if (ageError) return Response.json({ error: ageError }, { status: 400 });
 
     if (isDogOrCat && isMixedLitter) {
-      if (!litterSize || !availableLitterCount || !dateOfBirth || !readyToLeave) {
-        return Response.json(
-          { error: 'Please enter complete litter information, including date of birth and ready-to-leave date.' },
-          { status: 400 },
-        );
+      if (!litterSize || !availableLitterCount) {
+        return Response.json({ error: 'Please enter complete litter information.' }, { status: 400 });
       }
 
       const litterSizeNumber = Number(litterSize);
@@ -205,22 +225,13 @@ export async function POST(request) {
       if (maleCount + femaleCount !== availableLitterNumber) {
         return Response.json({ error: 'Boys and girls together must match the available count.' }, { status: 400 });
       }
-
-      const minimumWeeks = getMinimumLegalAgeWeeks(animalType, breed);
-      const minimumReadyDate = addWeeksToDate(dateOfBirth, minimumWeeks);
-      const readyDate = new Date(readyToLeave);
-
-      if (minimumReadyDate && readyDate < minimumReadyDate) {
-        return Response.json(
-          { error: `This litter is too young to leave. Minimum age is ${minimumWeeks} weeks.` },
-          { status: 400 },
-        );
-      }
     }
 
     const { data: profileData, error: profileError } = await supabaseAdmin
       .from('profiles')
-      .select('*')
+      .select(
+        'user_id, first_name, last_name, phone_code, phone_number, phone_verified, verified_phone_e164, created_at, seller_verification_status, seller_verified_type, seller_verified_at',
+      )
       .eq('user_id', user.id)
       .maybeSingle();
 
@@ -235,80 +246,84 @@ export async function POST(request) {
       return Response.json({ error: 'Please add a phone number to your profile before posting an ad.' }, { status: 403 });
     }
 
-    if (REQUIRE_PHONE_VERIFICATION_TO_POST && !isTrueFlag(profileData.phone_verified)) {
+    const canonicalSavedPhone = formatPhoneForVerification(profileData.phone_code, profileData.phone_number);
+
+    if (
+      REQUIRE_PHONE_VERIFICATION_TO_POST &&
+      (!isTrueFlag(profileData.phone_verified) ||
+        !profileData.verified_phone_e164 ||
+        profileData.verified_phone_e164 !== canonicalSavedPhone)
+    ) {
       return Response.json(
-        { error: 'Please verify your phone number by automated call before posting an ad.' },
+        { error: 'Please verify your current phone number by automated call before posting an ad.' },
         { status: 403 },
       );
     }
 
-    if (REQUIRE_UNIQUE_PHONE_TO_POST) {
-      const duplicatePhone = await findProfileWithPhone(
-        supabaseAdmin,
-        profileData.phone_code,
-        profileData.phone_number,
-        user.id,
-      );
-
-      if (duplicatePhone.error) {
-        console.error('Post ad duplicate phone check failed:', duplicatePhone.error);
-        return Response.json({ error: 'Could not check phone number. Please try again.' }, { status: 500 });
-      }
-
-      if (duplicatePhone.owner) {
-        return Response.json(
-          { error: 'This phone number is already linked to another PawHome account.' },
-          { status: 409 },
-        );
-      }
-    }
-
     const sellerName =
-      cleanText(`${profileData?.first_name || ''} ${profileData?.last_name || ''}`, 120) || 'Seller';
-    const contactPhone = cleanPhone(`${profileData?.phone_code || ''} ${profileData?.phone_number || ''}`);
+      cleanText(`${profileData.first_name || ''} ${profileData.last_name || ''}`, 120) || 'Seller';
+    const contactPhone = cleanPhone(`${profileData.phone_code || ''} ${profileData.phone_number || ''}`);
     const sellerMemberSince = profileData.created_at || user.created_at;
+    const sellerTrust = getSellerTrustSnapshot(profileData);
+
+    const insertPayload = {
+      user_id: user.id,
+      submission_key: submissionKey,
+      title,
+      animal_type: animalType,
+      listing_type: listingType,
+      breed,
+      age,
+      sex,
+      county,
+      city,
+      seller_name: sellerName,
+      seller_type: sellerTrust.sellerType,
+      seller_verified: sellerTrust.sellerVerified,
+      seller_verified_at: sellerTrust.sellerVerifiedAt,
+      price,
+      price_negotiable: priceNegotiable,
+      microchipped: microchipped || null,
+      vaccinated,
+      wormed,
+      vet_checked: vetChecked,
+      spayed_neutered: spayedNeutered,
+      health_tested: healthTested,
+      kennel_club_registered: kennelClubRegistered,
+      proven_stud: provenStud,
+      stud_terms: studTerms,
+      litter_size: isMixedLitter ? litterSize : null,
+      available_litter_count: isMixedLitter ? availableLitterCount : null,
+      male_count: isMixedLitter ? maleCount : 0,
+      female_count: isMixedLitter ? femaleCount : 0,
+      date_of_birth: dateOfBirth,
+      ready_to_leave: readyToLeave,
+      mother_can_be_seen: motherCanBeSeen,
+      registration_number: registrationNumber,
+      organisation_name: organisationName,
+      seller_member_since: sellerMemberSince,
+      contact_phone: contactPhone,
+      description,
+      status: 'pending',
+    };
 
     const { data: listingData, error: listingError } = await supabaseAdmin
       .from('listings')
-      .insert({
-        user_id: user.id,
-        title,
-        animal_type: animalType,
-        listing_type: listingType,
-        breed,
-        age,
-        sex,
-        county,
-        city,
-        seller_name: sellerName,
-        seller_type: sellerType,
-        price,
-        price_negotiable: priceNegotiable,
-        microchipped: microchipped || null,
-        vaccinated,
-        wormed,
-        vet_checked: vetChecked,
-        spayed_neutered: spayedNeutered,
-        health_tested: healthTested,
-        kennel_club_registered: kennelClubRegistered,
-        litter_size: litterSize,
-        available_litter_count: availableLitterCount,
-        male_count: isMixedLitter ? maleCount : 0,
-        female_count: isMixedLitter ? femaleCount : 0,
-        date_of_birth: dateOfBirth,
-        ready_to_leave: readyToLeave,
-        mother_can_be_seen: motherCanBeSeen,
-        registration_number: registrationNumber,
-        organisation_name: organisationName,
-        seller_member_since: sellerMemberSince,
-        contact_phone: contactPhone,
-        description,
-        status: 'pending',
-      })
+      .insert(insertPayload)
       .select()
       .single();
 
     if (listingError) {
+      if (listingError.code === '23505') {
+        const duplicate = await findExistingSubmission(supabaseAdmin, user.id, submissionKey);
+        if (duplicate.listing) {
+          return Response.json(
+            { success: true, listing: duplicate.listing, deduplicated: true },
+            { status: 200 },
+          );
+        }
+      }
+
       console.error('Server listing insert failed:', {
         message: listingError.message,
         code: listingError.code,
@@ -324,11 +339,10 @@ export async function POST(request) {
     const photoRows = [];
     const uploadedPaths = [];
 
-    for (let i = 0; i < photos.length; i++) {
+    for (let i = 0; i < photos.length; i += 1) {
       const file = photos[i];
       const fileExt = getImageExtension(file);
-      const randomPart = crypto.randomUUID();
-      const fileName = `${user.id}/${listingData.id}-${i}-${Date.now()}-${randomPart}.${fileExt}`;
+      const fileName = `${user.id}/${listingData.id}-${i}-${Date.now()}-${crypto.randomUUID()}.${fileExt}`;
 
       const { error: uploadError } = await supabaseAdmin.storage.from(LISTING_PHOTOS_BUCKET).upload(fileName, file, {
         cacheControl: '3600',
@@ -351,7 +365,6 @@ export async function POST(request) {
       uploadedPaths.push(fileName);
 
       const { data: publicUrlData } = supabaseAdmin.storage.from(LISTING_PHOTOS_BUCKET).getPublicUrl(fileName);
-
       photoRows.push({
         listing_id: listingData.id,
         image_url: publicUrlData.publicUrl,
@@ -374,6 +387,18 @@ export async function POST(request) {
         { error: 'Photo records could not be saved. Your listing was not created.' },
         { status: 500 },
       );
+    }
+
+    const notification = await sendListingNotification({
+      supabaseAdmin,
+      listingId: listingData.id,
+      eventType: 'new_listing',
+    });
+
+    if (notification.error) {
+      console.warn('New listing notification queued for retry:', {
+        message: notification.error?.message,
+      });
     }
 
     return Response.json({ success: true, listing: listingData }, { status: 201 });
