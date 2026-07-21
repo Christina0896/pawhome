@@ -1,4 +1,5 @@
 import { getAuthenticatedUser } from '../../../lib/apiHelpers';
+import { isTrueFlag, normalizePhoneVerified } from '../../../lib/booleanFlags';
 import { getSupabaseAdminClient } from '../../../lib/supabaseAdmin';
 import { requireSameOrigin } from '../../../lib/requireSameOrigin';
 import { findProfileWithPhone } from '../../../lib/profilePhoneChecks';
@@ -125,10 +126,11 @@ export async function PATCH(request) {
       return Response.json({ error: 'Could not check profile.' }, { status: 500 });
     }
 
+    const existingPhoneVerified = isTrueFlag(existingProfile?.phone_verified);
     const phoneChanged =
       existingProfile && (existingProfile.phone_code !== phoneCode || existingProfile.phone_number !== phoneNumber);
 
-    if (existingProfile?.phone_verified && phoneChanged) {
+    if (existingPhoneVerified && phoneChanged) {
       phoneCode = existingProfile.phone_code || '+353';
       phoneNumber = existingProfile.phone_number || '';
     }
@@ -156,8 +158,9 @@ export async function PATCH(request) {
       county,
     };
 
-    if (!existingProfile || (!existingProfile.phone_verified && phoneChanged)) {
+    if (!existingProfile || (!existingPhoneVerified && phoneChanged)) {
       profilePayload.phone_verified = false;
+      profilePayload.verified_phone_e164 = null;
     }
 
     const { data: updatedProfile, error: updateError } = await supabaseAdmin
@@ -196,7 +199,7 @@ export async function PATCH(request) {
       });
     }
 
-    return Response.json({ success: true, profile: updatedProfile }, { status: 200 });
+    return Response.json({ success: true, profile: normalizePhoneVerified(updatedProfile) }, { status: 200 });
   } catch (error) {
     console.error('Profile route error:', {
       message: error?.message,
