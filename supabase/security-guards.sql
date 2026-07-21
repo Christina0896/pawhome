@@ -8,20 +8,15 @@ create or replace function public.is_pawhome_backend_request()
 returns boolean
 language sql
 stable
-security definer
 set search_path = public, auth
 as $$
   select current_user in ('postgres', 'service_role', 'supabase_admin')
     or coalesce(auth.role(), '') = 'service_role';
 $$;
 
-revoke all on function public.is_pawhome_backend_request() from public, anon, authenticated;
-grant execute on function public.is_pawhome_backend_request() to service_role;
-
 create or replace function public.protect_profile_security_fields()
 returns trigger
 language plpgsql
-security definer
 set search_path = public, auth
 as $$
 begin
@@ -39,6 +34,8 @@ begin
     return new;
   end if;
 
+  -- Changing the number always invalidates its previous verification, including
+  -- changes performed by a backend/admin process.
   if new.phone_code is distinct from old.phone_code
     or new.phone_number is distinct from old.phone_number then
     new.phone_verified := false;
@@ -69,9 +66,6 @@ begin
 end;
 $$;
 
-revoke all on function public.protect_profile_security_fields() from public, anon, authenticated;
-grant execute on function public.protect_profile_security_fields() to service_role;
-
 drop trigger if exists protect_profile_security_fields_trigger on public.profiles;
 create trigger protect_profile_security_fields_trigger
 before insert or update on public.profiles
@@ -80,7 +74,6 @@ for each row execute function public.protect_profile_security_fields();
 create or replace function public.protect_listing_security_fields()
 returns trigger
 language plpgsql
-security definer
 set search_path = public, auth
 as $$
 begin
@@ -116,9 +109,6 @@ begin
 end;
 $$;
 
-revoke all on function public.protect_listing_security_fields() from public, anon, authenticated;
-grant execute on function public.protect_listing_security_fields() to service_role;
-
 drop trigger if exists protect_listing_security_fields_trigger on public.listings;
 create trigger protect_listing_security_fields_trigger
 before insert or update on public.listings
@@ -143,18 +133,25 @@ using (auth.uid() = user_id);
 
 drop policy if exists pawhome_profiles_own_insert_guard on public.profiles;
 create policy pawhome_profiles_own_insert_guard
-as restrictive
 on public.profiles
+as restrictive
 for insert
 with check (auth.uid() = user_id);
 
 drop policy if exists pawhome_profiles_own_update_guard on public.profiles;
 create policy pawhome_profiles_own_update_guard
-as restrictive
 on public.profiles
+as restrictive
 for update
 using (auth.uid() = user_id)
 with check (auth.uid() = user_id);
+
+drop policy if exists pawhome_profiles_own_delete_guard on public.profiles;
+create policy pawhome_profiles_own_delete_guard
+on public.profiles
+as restrictive
+for delete
+using (auth.uid() = user_id);
 
 -- Listings: everyone may read approved rows; authenticated owners may also read
 -- their own pending/rejected rows. Any direct mutation is restricted to ownership,
@@ -173,23 +170,23 @@ using (auth.uid() = user_id);
 
 drop policy if exists pawhome_listings_owner_insert_guard on public.listings;
 create policy pawhome_listings_owner_insert_guard
-as restrictive
 on public.listings
+as restrictive
 for insert
 with check (auth.uid() = user_id);
 
 drop policy if exists pawhome_listings_owner_update_guard on public.listings;
 create policy pawhome_listings_owner_update_guard
-as restrictive
 on public.listings
+as restrictive
 for update
 using (auth.uid() = user_id)
 with check (auth.uid() = user_id);
 
 drop policy if exists pawhome_listings_owner_delete_guard on public.listings;
 create policy pawhome_listings_owner_delete_guard
-as restrictive
 on public.listings
+as restrictive
 for delete
 using (auth.uid() = user_id);
 
@@ -207,11 +204,25 @@ using (
   )
 );
 
-drop policy if exists pawhome_listing_photos_owner_mutation_guard on public.listing_photos;
-create policy pawhome_listing_photos_owner_mutation_guard
-as restrictive
+drop policy if exists pawhome_listing_photos_owner_insert_guard on public.listing_photos;
+create policy pawhome_listing_photos_owner_insert_guard
 on public.listing_photos
-for all
+as restrictive
+for insert
+with check (
+  exists (
+    select 1
+    from public.listings
+    where listings.id = listing_photos.listing_id
+      and listings.user_id = auth.uid()
+  )
+);
+
+drop policy if exists pawhome_listing_photos_owner_update_guard on public.listing_photos;
+create policy pawhome_listing_photos_owner_update_guard
+on public.listing_photos
+as restrictive
+for update
 using (
   exists (
     select 1
@@ -221,6 +232,20 @@ using (
   )
 )
 with check (
+  exists (
+    select 1
+    from public.listings
+    where listings.id = listing_photos.listing_id
+      and listings.user_id = auth.uid()
+  )
+);
+
+drop policy if exists pawhome_listing_photos_owner_delete_guard on public.listing_photos;
+create policy pawhome_listing_photos_owner_delete_guard
+on public.listing_photos
+as restrictive
+for delete
+using (
   exists (
     select 1
     from public.listings
