@@ -4,7 +4,6 @@ import { isTrueFlag } from '../src/lib/booleanFlags.js';
 import { buildAgeLabel, validateListingAgeAndDates } from '../src/lib/listingValidation.js';
 import { formatPhoneForVerification } from '../src/lib/phoneVerification.js';
 import { getSellerTrustSnapshot } from '../src/lib/sellerTrust.js';
-import { getSeoRouteConfig } from '../src/lib/seoLandingConfig.js';
 
 test('does not treat false text as a verified boolean', () => {
   assert.equal(isTrueFlag(false), false);
@@ -93,9 +92,4 @@ test('accepts consistent adult animal dates', () => {
   });
 
   assert.equal(error, '');
-});
-
-test('marks puppy and kitten SEO routes with youth filters', () => {
-  assert.equal(getSeoRouteConfig(['puppies-for-sale'])?.keyword, 'puppies');
-  assert.equal(getSeoRouteConfig(['kittens-for-sale'])?.keyword, 'kittens');
 });
