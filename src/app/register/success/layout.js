@@ -1,6 +1,6 @@
 export const metadata = {
-  title: 'Registration Complete',
-  description: 'Your PawHome account registration is complete.',
+  title: 'Check Your Email',
+  description: 'Confirm your email address to finish creating your PawHome account.',
   robots: {
     index: false,
     follow: false,
