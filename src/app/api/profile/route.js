@@ -160,7 +160,6 @@ export async function PATCH(request) {
 
     if (!existingProfile || (!existingPhoneVerified && phoneChanged)) {
       profilePayload.phone_verified = false;
-      profilePayload.verified_phone_e164 = null;
     }
 
     const { data: updatedProfile, error: updateError } = await supabaseAdmin
