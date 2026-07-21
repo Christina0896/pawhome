@@ -6,6 +6,9 @@ const EVENT_SUBJECTS = {
   listing_review: 'PawHome ad updated for review',
 };
 
+const MAX_NOTIFICATION_ATTEMPTS = 5;
+const STALE_SENDING_MS = 5 * 60 * 1000;
+
 export async function queueListingNotification(supabaseAdmin, listingId, eventType = 'new_listing') {
   const { error } = await supabaseAdmin
     .from('listing_notification_outbox')
@@ -36,8 +39,17 @@ export async function sendListingNotification({ supabaseAdmin, listingId, eventT
     .eq('event_type', eventType)
     .maybeSingle();
 
-  if (outboxError || !outbox) return { sent: false, error: outboxError || new Error('Notification outbox row missing.') };
-  if (outbox.status === 'sent' || outbox.status === 'sending') return { sent: outbox.status === 'sent', error: null };
+  if (outboxError || !outbox) {
+    return { sent: false, error: outboxError || new Error('Notification outbox row missing.') };
+  }
+
+  if (outbox.status === 'sent' || outbox.status === 'sending') {
+    return { sent: outbox.status === 'sent', error: null };
+  }
+
+  if ((outbox.attempts || 0) >= MAX_NOTIFICATION_ATTEMPTS) {
+    return { sent: false, error: new Error('Notification retry limit reached.') };
+  }
 
   const { data: claimed, error: claimError } = await supabaseAdmin
     .from('listing_notification_outbox')
@@ -134,4 +146,43 @@ export async function sendListingNotification({ supabaseAdmin, listingId, eventT
     .eq('id', outbox.id);
 
   return { sent: true, error: null };
+}
+
+export async function retryPendingListingNotifications(supabaseAdmin, limit = 3) {
+  const staleCutoff = new Date(Date.now() - STALE_SENDING_MS).toISOString();
+
+  const { error: staleError } = await supabaseAdmin
+    .from('listing_notification_outbox')
+    .update({
+      status: 'failed',
+      last_error: 'Previous delivery process ended before completion.',
+      updated_at: new Date().toISOString(),
+    })
+    .eq('status', 'sending')
+    .lt('updated_at', staleCutoff);
+
+  if (staleError) return { attempted: 0, error: staleError };
+
+  const { data: rows, error } = await supabaseAdmin
+    .from('listing_notification_outbox')
+    .select('listing_id, event_type')
+    .in('status', ['pending', 'failed'])
+    .lt('attempts', MAX_NOTIFICATION_ATTEMPTS)
+    .order('created_at', { ascending: true })
+    .limit(Math.max(Math.min(limit, 10), 1));
+
+  if (error) return { attempted: 0, error };
+
+  let attempted = 0;
+
+  for (const row of rows || []) {
+    attempted += 1;
+    await sendListingNotification({
+      supabaseAdmin,
+      listingId: row.listing_id,
+      eventType: row.event_type,
+    });
+  }
+
+  return { attempted, error: null };
 }
