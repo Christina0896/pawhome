@@ -3,57 +3,78 @@ import { notFound } from 'next/navigation';
 import Header from '../../components/header';
 import Footer from '../../components/footer';
 import { PUBLIC_LISTING_SELECT } from '../../lib/publicListingSelect';
+import { ageLabelToDays } from '../../lib/listingValidation';
 import { getSupabaseServerClient } from '../../lib/supabaseServer';
 import {
-  SEO_FALLBACK_LIMIT,
   SEO_PAGE_LIMIT,
   buildListingsHref,
   getRelatedSeoLinks,
   getSeoRouteConfig,
   matchesSeoConfig,
+  normalise,
 } from '../../lib/seoLandingConfig';
 
 export const dynamic = 'force-dynamic';
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://pawhome.ie';
+const FETCH_BATCH_SIZE = 500;
+const MAX_FETCHED_LISTINGS = 10000;
+
+function matchesYouthKeyword(listing, keyword) {
+  if (keyword !== 'puppies' && keyword !== 'kittens') return true;
+
+  const text = normalise([listing.title, listing.description].filter(Boolean).join(' '));
+  const ageDays = ageLabelToDays(listing.age);
+
+  if (keyword === 'puppies') {
+    return text.includes('puppy') || text.includes('puppies') || (ageDays !== null && ageDays <= 365);
+  }
+
+  return text.includes('kitten') || text.includes('kittens') || (ageDays !== null && ageDays <= 365);
+}
 
 async function getSeoListings(config) {
   const supabase = getSupabaseServerClient();
-
   if (!supabase) return [];
 
-  let strictQuery = supabase
-    .from('listings')
-    .select(PUBLIC_LISTING_SELECT)
-    .eq('status', 'approved')
-    .order('created_at', { ascending: false })
-    .limit(SEO_PAGE_LIMIT);
+  const matches = [];
 
-  if (config.animalType) strictQuery = strictQuery.ilike('animal_type', config.animalType);
-  if (config.listingType) strictQuery = strictQuery.ilike('listing_type', config.listingType);
-  if (config.county) strictQuery = strictQuery.ilike('county', config.county);
-  if (config.breed) strictQuery = strictQuery.ilike('breed', `%${config.breed}%`);
+  for (let from = 0; from < MAX_FETCHED_LISTINGS && matches.length < SEO_PAGE_LIMIT; from += FETCH_BATCH_SIZE) {
+    let query = supabase
+      .from('listings')
+      .select(PUBLIC_LISTING_SELECT)
+      .eq('status', 'approved')
+      .order('created_at', { ascending: false })
+      .range(from, from + FETCH_BATCH_SIZE - 1);
 
-  const { data: strictData, error: strictError } = await strictQuery;
+    if (config.animalType) query = query.ilike('animal_type', config.animalType);
+    if (config.listingType) query = query.ilike('listing_type', config.listingType);
+    if (config.county) query = query.ilike('county', config.county);
+    if (config.breed) query = query.ilike('breed', `%${config.breed}%`);
 
-  if (!strictError && strictData?.length) return strictData;
+    const { data, error } = await query;
 
-  const { data: fallbackData, error: fallbackError } = await supabase
-    .from('listings')
-    .select(PUBLIC_LISTING_SELECT)
-    .eq('status', 'approved')
-    .order('created_at', { ascending: false })
-    .limit(SEO_FALLBACK_LIMIT);
+    if (error) {
+      console.warn('SEO landing listing fetch failed:', {
+        message: error.message,
+        code: error.code,
+      });
+      return matches;
+    }
 
-  if (fallbackError) {
-    console.warn('SEO landing listing fetch failed:', {
-      message: fallbackError.message,
-      code: fallbackError.code,
-    });
-    return [];
+    const batch = data || [];
+
+    for (const listing of batch) {
+      if (matchesSeoConfig(listing, config) && matchesYouthKeyword(listing, config.keyword)) {
+        matches.push(listing);
+        if (matches.length >= SEO_PAGE_LIMIT) break;
+      }
+    }
+
+    if (batch.length < FETCH_BATCH_SIZE) break;
   }
 
-  return (fallbackData || []).filter((listing) => matchesSeoConfig(listing, config)).slice(0, SEO_PAGE_LIMIT);
+  return matches;
 }
 
 function getMainImage(listing) {
@@ -257,7 +278,7 @@ export default async function SeoLandingPage({ params }) {
             <div className="mt-6 rounded-3xl border border-dashed border-(--border-beige) bg-white p-8 text-center">
               <h2 className="text-xl font-extrabold text-(--secondary-green)">No listings found yet</h2>
               <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-(--muted-green-text)">
-                This SEO page is connected to the approved listings database. It only shows public approved ads that match this page.
+                This page only shows public approved ads that match its animal, location, breed, and age filters.
               </p>
               <Link href="/post-ad" className="mt-5 inline-flex rounded-full bg-(--primary-orange) px-6 py-3 text-sm font-extrabold text-white">Post the first ad</Link>
             </div>
