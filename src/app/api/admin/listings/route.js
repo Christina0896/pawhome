@@ -1,3 +1,4 @@
+import { retryAccountDeletionJobs } from '../../../../lib/accountDeletionJobs';
 import { requireAdmin } from '../../../../lib/requireAdmin';
 import { retryPendingListingNotifications } from '../../../../lib/listingNotifications';
 
@@ -92,14 +93,24 @@ export async function GET(request) {
     return Response.json({ error: 'Invalid listing status.' }, { status: 400 });
   }
 
-  // Retry a small number of queued messages whenever an administrator opens the
-  // moderation queue. Failures never block the listing response.
-  const retryResult = await retryPendingListingNotifications(supabaseAdmin, 3);
+  // Retry a small amount of deferred maintenance whenever an administrator opens
+  // the moderation queue. Failures never block the listings response.
+  const [notificationRetry, deletionRetry] = await Promise.all([
+    retryPendingListingNotifications(supabaseAdmin, 3),
+    retryAccountDeletionJobs(supabaseAdmin, 1),
+  ]);
 
-  if (retryResult.error) {
+  if (notificationRetry.error) {
     console.warn('Queued listing notification retry failed:', {
-      message: retryResult.error?.message,
-      code: retryResult.error?.code,
+      message: notificationRetry.error?.message,
+      code: notificationRetry.error?.code,
+    });
+  }
+
+  if (deletionRetry.error) {
+    console.warn('Account deletion cleanup retry failed:', {
+      message: deletionRetry.error?.message,
+      code: deletionRetry.error?.code,
     });
   }
 
