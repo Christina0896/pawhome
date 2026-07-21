@@ -1,6 +1,7 @@
 import { getSupabaseAdminClient } from '../../../../lib/supabaseAdmin';
 import { requireSameOrigin } from '../../../../lib/requireSameOrigin';
 import { getAuthenticatedUser, removeStorageFiles } from '../../../../lib/apiHelpers';
+import { isTrueFlag } from '../../../../lib/booleanFlags';
 import { findProfileWithPhone } from '../../../../lib/profilePhoneChecks';
 import {
   ALLOWED_ANIMAL_TYPES,
@@ -234,7 +235,7 @@ export async function POST(request) {
       return Response.json({ error: 'Please add a phone number to your profile before posting an ad.' }, { status: 403 });
     }
 
-    if (REQUIRE_PHONE_VERIFICATION_TO_POST && !profileData.phone_verified) {
+    if (REQUIRE_PHONE_VERIFICATION_TO_POST && !isTrueFlag(profileData.phone_verified)) {
       return Response.json(
         { error: 'Please verify your phone number by automated call before posting an ad.' },
         { status: 403 },
