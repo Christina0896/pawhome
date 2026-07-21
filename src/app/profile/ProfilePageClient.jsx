@@ -20,7 +20,6 @@ const DEFAULT_PROFILE = {
 
 const ALLOWED_AVATAR_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_AVATAR_SIZE = 2 * 1024 * 1024;
-const SMS_PHONE_VERIFICATION_ENABLED = false;
 
 async function fetchJson(url, options = {}, timeoutMs = 7000) {
   const controller = new AbortController();
@@ -43,26 +42,10 @@ function VerifiedBadge() {
   );
 }
 
-function SavedBadge() {
-  return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-3 py-1 text-xs font-extrabold text-green-700">
-      <ShieldCheckIcon className="h-3.5 w-3.5" /> Saved
-    </span>
-  );
-}
-
 function NotVerifiedBadge() {
   return (
     <span className="inline-flex items-center rounded-full bg-orange-100 px-3 py-1 text-xs font-extrabold text-orange-700">
       Not verified
-    </span>
-  );
-}
-
-function PhoneRequiredBadge() {
-  return (
-    <span className="inline-flex items-center rounded-full bg-orange-100 px-3 py-1 text-xs font-extrabold text-orange-700">
-      Required to post
     </span>
   );
 }
@@ -73,15 +56,16 @@ export default function ProfilePageClient() {
   const [form, setForm] = useState(DEFAULT_PROFILE);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
-  const [phoneCodeSent, setPhoneCodeSent] = useState(false);
-  const [phoneCode, setPhoneCode] = useState('');
+  const [messageType, setMessageType] = useState('error');
   const [busy, setBusy] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
+  const [callStarted, setCallStarted] = useState(false);
+  const [phoneCode, setPhoneCode] = useState('');
 
   useEffect(() => {
     let active = true;
 
-    async function load() {
+    async function loadProfile() {
       try {
         const token = await getVerifiedAccessToken();
         if (!token) throw new Error('Please log in again.');
@@ -91,56 +75,59 @@ export default function ProfilePageClient() {
         });
 
         if (!response.ok) throw new Error(data.error || 'Could not load profile.');
-
-        const safeProfile = data.profile || DEFAULT_PROFILE;
         if (!active) return;
 
+        const safeProfile = { ...DEFAULT_PROFILE, ...(data.profile || {}) };
         setUser(data.user || null);
         setProfile(safeProfile);
-        setForm({ ...DEFAULT_PROFILE, ...safeProfile });
+        setForm(safeProfile);
       } catch (error) {
-        if (active) setMessage(error.message || 'Could not load profile.');
+        if (active) {
+          setMessageType('error');
+          setMessage(error.message || 'Could not load profile.');
+        }
       } finally {
         if (active) setLoading(false);
       }
     }
 
-    load();
+    loadProfile();
 
     return () => {
       active = false;
     };
   }, []);
 
-  const fullName = `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim() || 'PawHome User';
+  const fullName = `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'PawHome User';
   const emailVerified = Boolean(user?.email_confirmed_at || user?.confirmed_at);
-  const phoneVerified = SMS_PHONE_VERIFICATION_ENABLED && Boolean(profile?.phone_verified);
-  const phoneSaved = Boolean(profile?.phone_number);
+  const phoneVerified = Boolean(profile.phone_verified);
+  const phoneSaved = Boolean(profile.phone_number);
   const phoneChanged =
-    SMS_PHONE_VERIFICATION_ENABLED &&
-    !phoneVerified &&
-    (profile.phone_code !== form.phone_code || profile.phone_number !== form.phone_number);
+    !phoneVerified && (profile.phone_code !== form.phone_code || profile.phone_number !== form.phone_number);
 
-  const updateField = (event) => {
-    const { name, value } = event.target;
-
-    if (phoneVerified && (name === 'phone_code' || name === 'phone_number')) {
-      return;
-    }
-
-    setForm((current) => ({ ...current, [name]: value }));
-    setMessage('');
-
-    if (name === 'phone_code' || name === 'phone_number') {
-      setPhoneCodeSent(false);
-      setPhoneCode('');
-    }
+  const showMessage = (text, type = 'error') => {
+    setMessage(text);
+    setMessageType(type);
   };
 
   const updateProfileState = (nextProfile) => {
     const safeProfile = { ...DEFAULT_PROFILE, ...(nextProfile || {}) };
     setProfile(safeProfile);
     setForm(safeProfile);
+  };
+
+  const updateField = (event) => {
+    const { name, value } = event.target;
+
+    if (phoneVerified && (name === 'phone_code' || name === 'phone_number')) return;
+
+    setForm((current) => ({ ...current, [name]: value }));
+    setMessage('');
+
+    if (name === 'phone_code' || name === 'phone_number') {
+      setCallStarted(false);
+      setPhoneCode('');
+    }
   };
 
   const handleAvatarUpload = async (event) => {
@@ -150,12 +137,12 @@ export default function ProfilePageClient() {
     if (!file) return;
 
     if (!ALLOWED_AVATAR_TYPES.includes(file.type)) {
-      setMessage('Please upload a JPG, PNG, or WEBP image.');
+      showMessage('Please upload a JPG, PNG, or WEBP image.');
       return;
     }
 
     if (file.size > MAX_AVATAR_SIZE) {
-      setMessage('Profile picture must be 2 MB or smaller.');
+      showMessage('Profile picture must be 2 MB or smaller.');
       return;
     }
 
@@ -182,9 +169,9 @@ export default function ProfilePageClient() {
       if (!response.ok) throw new Error(data.error || 'Could not upload profile picture.');
 
       updateProfileState(data.profile);
-      setMessage('Profile picture updated.');
+      showMessage('Profile picture updated.', 'success');
     } catch (error) {
-      setMessage(error.message || 'Could not upload profile picture.');
+      showMessage(error.message || 'Could not upload profile picture.');
     } finally {
       setAvatarUploading(false);
     }
@@ -210,9 +197,9 @@ export default function ProfilePageClient() {
       if (!response.ok) throw new Error(data.error || 'Could not remove profile picture.');
 
       updateProfileState(data.profile);
-      setMessage('Profile picture removed.');
+      showMessage('Profile picture removed.', 'success');
     } catch (error) {
-      setMessage(error.message || 'Could not remove profile picture.');
+      showMessage(error.message || 'Could not remove profile picture.');
     } finally {
       setAvatarUploading(false);
     }
@@ -229,7 +216,10 @@ export default function ProfilePageClient() {
 
       const { response, data } = await fetchJson('/api/profile', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({
           first_name: form.first_name.trim(),
           last_name: form.last_name.trim(),
@@ -243,24 +233,29 @@ export default function ProfilePageClient() {
       if (!response.ok) throw new Error(data.error || 'Could not save settings.');
 
       updateProfileState(data.profile);
-      setPhoneCodeSent(false);
+      setCallStarted(false);
       setPhoneCode('');
-      setMessage('Settings saved.');
+
+      if (data.profile?.phone_number && !data.profile?.phone_verified) {
+        showMessage('Settings saved. Request an automated call below to verify your phone.', 'success');
+      } else {
+        showMessage('Settings saved.', 'success');
+      }
     } catch (error) {
-      setMessage(error.message || 'Could not save settings.');
+      showMessage(error.message || 'Could not save settings.');
     } finally {
       setBusy(false);
     }
   };
 
-  const sendPhoneCode = async () => {
-    if (!SMS_PHONE_VERIFICATION_ENABLED) {
-      setMessage('SMS verification is temporarily unavailable. Your saved phone number will be checked for uniqueness before posting.');
+  const startVerificationCall = async () => {
+    if (phoneChanged) {
+      showMessage('Save your phone number before requesting the verification call.');
       return;
     }
 
-    if (phoneChanged) {
-      setMessage('Save your phone number before verifying it.');
+    if (!phoneSaved) {
+      showMessage('Add and save a phone number before requesting the verification call.');
       return;
     }
 
@@ -271,25 +266,35 @@ export default function ProfilePageClient() {
       const token = await getVerifiedAccessToken();
       if (!token) throw new Error('Please log in again.');
 
-      const { response, data } = await fetchJson('/api/phone/send-code', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const { response, data } = await fetchJson(
+        '/api/phone/send-code',
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+        },
+        15000,
+      );
 
-      if (!response.ok) throw new Error(data.error || 'Could not send verification code.');
+      if (!response.ok) throw new Error(data.error || 'Could not start the verification call.');
 
-      setPhoneCodeSent(true);
-      setMessage(`Verification code sent to ${data.phone || 'your phone'}.`);
+      if (data.alreadyVerified) {
+        updateProfileState({ ...profile, phone_verified: true });
+        showMessage('Your phone number is already verified.', 'success');
+        return;
+      }
+
+      setCallStarted(true);
+      showMessage(`An automated call is being placed to ${data.phone || 'your saved phone number'}.`, 'success');
     } catch (error) {
-      setMessage(error.message || 'Could not send verification code.');
+      showMessage(error.message || 'Could not start the verification call.');
     } finally {
       setBusy(false);
     }
   };
 
   const verifyPhoneCode = async () => {
-    if (!SMS_PHONE_VERIFICATION_ENABLED) {
-      setMessage('SMS verification is temporarily unavailable.');
+    if (!phoneCode.trim()) {
+      showMessage('Enter the code read during the automated call.');
       return;
     }
 
@@ -302,18 +307,21 @@ export default function ProfilePageClient() {
 
       const { response, data } = await fetchJson('/api/phone/verify-code', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({ code: phoneCode.trim() }),
       });
 
-      if (!response.ok) throw new Error(data.error || 'Could not verify code.');
+      if (!response.ok) throw new Error(data.error || 'Could not verify the code.');
 
-      updateProfileState(data.profile);
-      setPhoneCodeSent(false);
+      updateProfileState(data.profile || { ...profile, phone_verified: true });
+      setCallStarted(false);
       setPhoneCode('');
-      setMessage('Phone number verified. You can now post ads.');
+      showMessage('Phone number verified. You can now post ads.', 'success');
     } catch (error) {
-      setMessage(error.message || 'Could not verify code.');
+      showMessage(error.message || 'Could not verify the code.');
     } finally {
       setBusy(false);
     }
@@ -331,6 +339,7 @@ export default function ProfilePageClient() {
   return (
     <div className="min-h-screen bg-(--background)">
       <Header />
+
       <main className="mx-auto max-w-[1440px] px-6 py-10">
         <p className="text-sm font-semibold text-(--primary-green)">My Account</p>
         <h1 className="mt-2 text-4xl font-extrabold text-(--secondary-green)">Profile</h1>
@@ -352,6 +361,7 @@ export default function ProfilePageClient() {
                     fullName.charAt(0).toUpperCase()
                   )}
                 </div>
+
                 <label className="absolute bottom-0 right-0 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-(--primary-green) text-xs font-extrabold text-white shadow-md">
                   <input
                     type="file"
@@ -362,6 +372,7 @@ export default function ProfilePageClient() {
                   {avatarUploading ? '...' : '+'}
                 </label>
               </div>
+
               {profile.avatar_url && (
                 <button
                   type="button"
@@ -372,6 +383,7 @@ export default function ProfilePageClient() {
                   Remove profile picture
                 </button>
               )}
+
               <h2 className="mt-5 text-2xl font-extrabold text-(--secondary-green)">{fullName}</h2>
               <p className="mt-1 break-all text-sm text-(--muted-green-text)">{user?.email}</p>
             </div>
@@ -384,9 +396,11 @@ export default function ProfilePageClient() {
                   value={form.first_name || ''}
                   onChange={updateField}
                   required
+                  maxLength={80}
                   className="mt-2 h-12 w-full rounded-xl border border-(--border-beige) px-4"
                 />
               </label>
+
               <label className="block text-sm font-bold text-(--secondary-green)">
                 Last Name
                 <input
@@ -394,6 +408,7 @@ export default function ProfilePageClient() {
                   value={form.last_name || ''}
                   onChange={updateField}
                   required
+                  maxLength={80}
                   className="mt-2 h-12 w-full rounded-xl border border-(--border-beige) px-4"
                 />
               </label>
@@ -414,18 +429,19 @@ export default function ProfilePageClient() {
               </label>
 
               <div className="rounded-2xl bg-(--background) p-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-3">
                   <p className="text-xs text-(--muted-green-text)">Email</p>
                   {emailVerified ? <VerifiedBadge /> : <NotVerifiedBadge />}
                 </div>
                 <p className="mt-2 break-all text-sm font-bold text-(--secondary-green)">{user?.email || '-'}</p>
               </div>
 
-              <div>
-                <div className="mb-2 flex items-center justify-between">
-                  <p className="text-sm font-bold text-(--secondary-green)">Phone</p>
-                  {SMS_PHONE_VERIFICATION_ENABLED ? (phoneVerified ? <VerifiedBadge /> : <NotVerifiedBadge />) : phoneSaved ? <SavedBadge /> : <PhoneRequiredBadge />}
+              <div className="rounded-2xl border border-(--border-beige) p-4">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <p className="text-sm font-bold text-(--secondary-green)">Phone verification</p>
+                  {phoneVerified ? <VerifiedBadge /> : <NotVerifiedBadge />}
                 </div>
+
                 <div className="grid grid-cols-[105px_1fr] gap-3">
                   <select
                     name="phone_code"
@@ -441,51 +457,59 @@ export default function ProfilePageClient() {
                     <option value="+33">+33</option>
                     <option value="+34">+34</option>
                   </select>
+
                   <input
                     name="phone_number"
+                    type="tel"
                     value={form.phone_number || ''}
                     onChange={updateField}
                     disabled={phoneVerified}
+                    placeholder="85 123 4567"
+                    autoComplete="tel"
                     className="h-12 rounded-xl border border-(--border-beige) px-4 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500"
                   />
                 </div>
-                {!SMS_PHONE_VERIFICATION_ENABLED && (
-                  <p className="mt-2 text-xs font-semibold text-(--muted-green-text)">
-                    Phone verification by SMS is temporarily unavailable. A saved phone number is required and must be unique before posting ads.
+
+                {phoneVerified ? (
+                  <p className="mt-3 text-xs font-semibold leading-5 text-(--muted-green-text)">
+                    This phone number is verified and cannot be changed from the profile. Contact support if it needs to
+                    be replaced.
                   </p>
-                )}
-                {SMS_PHONE_VERIFICATION_ENABLED && phoneVerified && (
-                  <p className="mt-2 text-xs font-semibold text-(--muted-green-text)">
-                    Verified phone numbers cannot be changed. If you would like to change your phone number, please
-                    contact our support team.
-                  </p>
-                )}
-                {SMS_PHONE_VERIFICATION_ENABLED && !phoneVerified && (
-                  <div className="mt-3 rounded-2xl bg-(--background) p-4">
-                    <p className="text-xs font-semibold text-(--muted-green-text)">
-                      Verify this number by SMS before posting ads.
+                ) : (
+                  <div className="mt-4 rounded-2xl bg-(--background) p-4">
+                    <p className="text-xs font-semibold leading-5 text-(--muted-green-text)">
+                      Save the number first. Then PawHome will place an automated call and read a four-digit code. No SMS
+                      is sent and no PawHome staff member calls you.
                     </p>
+
                     <button
                       type="button"
-                      onClick={sendPhoneCode}
-                      disabled={busy || phoneChanged || !form.phone_number}
-                      className="mt-3 h-10 w-full rounded-xl bg-(--primary-orange) text-sm font-bold text-white disabled:opacity-60"
+                      onClick={startVerificationCall}
+                      disabled={busy || phoneChanged || !phoneSaved}
+                      className="mt-3 h-10 w-full rounded-xl bg-(--primary-orange) px-4 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      {phoneCodeSent ? 'Send code again' : 'Send verification code'}
+                      {busy ? 'Please wait...' : callStarted ? 'Call me again' : 'Call me with a verification code'}
                     </button>
-                    {phoneCodeSent && (
+
+                    {phoneChanged && (
+                      <p className="mt-2 text-xs font-semibold text-orange-700">Save Settings before requesting the call.</p>
+                    )}
+
+                    {callStarted && (
                       <div className="mt-3 grid gap-2">
                         <input
                           value={phoneCode}
-                          onChange={(event) => setPhoneCode(event.target.value)}
-                          placeholder="Enter SMS code"
+                          onChange={(event) => setPhoneCode(event.target.value.replace(/\D/g, '').slice(0, 10))}
+                          inputMode="numeric"
+                          autoComplete="one-time-code"
+                          placeholder="Enter the code from the call"
                           className="h-11 rounded-xl border border-(--border-beige) px-4"
                         />
                         <button
                           type="button"
                           onClick={verifyPhoneCode}
                           disabled={busy || !phoneCode.trim()}
-                          className="h-10 rounded-xl bg-(--primary-green) text-sm font-bold text-white disabled:opacity-60"
+                          className="h-10 rounded-xl bg-(--primary-green) text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           Verify phone
                         </button>
@@ -501,21 +525,21 @@ export default function ProfilePageClient() {
                   name="county"
                   value={form.county || ''}
                   onChange={updateField}
+                  maxLength={80}
                   className="mt-2 h-12 w-full rounded-xl border border-(--border-beige) px-4"
                 />
               </label>
 
               {message && (
-                <p
-                  className={`text-sm font-bold ${message.includes('saved') || message.includes('verified') || message.includes('sent') || message.includes('updated') || message.includes('removed') ? 'text-green-700' : 'text-red-600'}`}
-                >
+                <p className={`rounded-xl px-4 py-3 text-sm font-bold ${messageType === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
                   {message}
                 </p>
               )}
+
               <button
                 type="submit"
                 disabled={busy || avatarUploading}
-                className="h-12 w-full rounded-xl bg-(--primary-green) text-sm font-bold text-white disabled:opacity-60"
+                className="h-12 w-full rounded-xl bg-(--primary-green) text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {busy ? 'Saving...' : 'Save Settings'}
               </button>
@@ -525,6 +549,7 @@ export default function ProfilePageClient() {
           <MyListingsSimple />
         </div>
       </main>
+
       <Footer />
     </div>
   );
