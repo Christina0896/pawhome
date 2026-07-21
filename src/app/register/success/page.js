@@ -15,15 +15,19 @@ export default function RegisterSuccessPage() {
 
           <h1 className="mt-6 text-3xl font-bold text-(--secondary-green)">Check your email</h1>
 
-          <p className="mx-auto mt-4 max-w-[620px] text-sm leading-7 text-(--muted-green-text)">
-            PawHome sent you a confirmation link. Confirm your email first, then return to PawHome and log in. After
-            logging in, save your phone number and verify it by automated call before posting an ad.
+          <p className="mx-auto mt-4 max-w-[640px] text-sm leading-7 text-(--muted-green-text)">
+            Check the address you entered for a PawHome confirmation link. After confirming the email, return to PawHome,
+            log in, save your phone number, and verify it by automated call before posting an ad.
           </p>
 
-          <div className="mx-auto mt-7 max-w-[560px] rounded-2xl bg-(--background) px-5 py-4 text-left text-sm leading-6 text-(--secondary-green)">
-            <p><strong>1.</strong> Open the confirmation email from PawHome.</p>
+          <div className="mx-auto mt-7 max-w-[580px] rounded-2xl bg-(--background) px-5 py-4 text-left text-sm leading-6 text-(--secondary-green)">
+            <p><strong>1.</strong> Open the newest email from PawHome.</p>
             <p><strong>2.</strong> Press the confirmation link.</p>
             <p><strong>3.</strong> Log in and complete phone verification.</p>
+            <p className="mt-3 text-xs text-(--muted-green-text)">
+              No email arrived? The address may already have an account. Try logging in or use forgot password instead of
+              registering again.
+            </p>
           </div>
 
           <div className="mt-8 flex items-center justify-center">
