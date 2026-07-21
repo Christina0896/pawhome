@@ -1,11 +1,11 @@
 import { getAuthenticatedUser } from '../../../../lib/apiHelpers';
+import { validateImageFileContent } from '../../../../lib/listingValidation';
 import { requireSameOrigin } from '../../../../lib/requireSameOrigin';
 import { getStoragePathFromPublicUrl } from '../../../../lib/storagePaths';
 import { getSupabaseAdminClient } from '../../../../lib/supabaseAdmin';
 
 export const dynamic = 'force-dynamic';
 
-const ALLOWED_AVATAR_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_AVATAR_SIZE = 2 * 1024 * 1024;
 const AVATAR_EXTENSION_BY_TYPE = {
   'image/jpeg': 'jpg',
@@ -62,18 +62,17 @@ export async function POST(request) {
       return Response.json({ error: 'Missing avatar file.' }, { status: 400 });
     }
 
-    if (!ALLOWED_AVATAR_TYPES.includes(file.type)) {
-      return Response.json({ error: 'Please upload a JPG, PNG, or WEBP image.' }, { status: 400 });
-    }
-
     if (file.size > MAX_AVATAR_SIZE) {
       return Response.json({ error: 'Profile picture must be 2 MB or smaller.' }, { status: 400 });
     }
 
+    const imageError = await validateImageFileContent(file);
+    if (imageError) return Response.json({ error: imageError }, { status: 400 });
+
     const existingProfile = await getExistingProfile(supabaseAdmin, user.id);
     const previousAvatarUrl = existingProfile?.avatar_url || null;
     const fileExt = AVATAR_EXTENSION_BY_TYPE[file.type];
-    const fileName = `${user.id}/avatar-${Date.now()}.${fileExt}`;
+    const fileName = `${user.id}/avatar-${Date.now()}-${crypto.randomUUID()}.${fileExt}`;
 
     const { error: uploadError } = await supabaseAdmin.storage.from('avatars').upload(fileName, file, {
       upsert: false,
@@ -108,9 +107,7 @@ export async function POST(request) {
       return Response.json({ error: 'Could not update profile picture.' }, { status: 500 });
     }
 
-    if (previousAvatarUrl) {
-      await deleteAvatarFile(supabaseAdmin, previousAvatarUrl, user.id);
-    }
+    if (previousAvatarUrl) await deleteAvatarFile(supabaseAdmin, previousAvatarUrl, user.id);
 
     return Response.json({ success: true, profile: updatedProfile }, { status: 200 });
   } catch (error) {
@@ -157,9 +154,7 @@ export async function DELETE(request) {
       return Response.json({ error: 'Could not remove profile picture.' }, { status: 500 });
     }
 
-    if (previousAvatarUrl) {
-      await deleteAvatarFile(supabaseAdmin, previousAvatarUrl, user.id);
-    }
+    if (previousAvatarUrl) await deleteAvatarFile(supabaseAdmin, previousAvatarUrl, user.id);
 
     return Response.json({ success: true, profile: updatedProfile }, { status: 200 });
   } catch (error) {
