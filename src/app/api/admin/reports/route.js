@@ -2,6 +2,9 @@ import { requireAdmin } from '../../../../lib/requireAdmin';
 
 export const dynamic = 'force-dynamic';
 
+const DEFAULT_PAGE_SIZE = 20;
+const MAX_PAGE_SIZE = 50;
+
 const ADMIN_REPORT_SELECT = `
   id,
   listing_id,
@@ -23,8 +26,16 @@ const ADMIN_REPORT_SELECT = `
   )
 `;
 
+function getPositiveInt(value, fallback, max = Number.MAX_SAFE_INTEGER) {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1) return fallback;
+  return Math.min(parsed, max);
+}
+
 function formatReport(report) {
-  const sortedPhotos = [...(report.listings?.listing_photos || [])].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+  const sortedPhotos = [...(report.listings?.listing_photos || [])].sort(
+    (a, b) => (a.sort_order || 0) - (b.sort_order || 0),
+  );
 
   return {
     ...report,
@@ -35,17 +46,20 @@ function formatReport(report) {
 
 export async function GET(request) {
   const admin = await requireAdmin(request);
-
-  if (admin.error) {
-    return admin.error;
-  }
+  if (admin.error) return admin.error;
 
   const { supabaseAdmin } = admin;
+  const { searchParams } = new URL(request.url);
+  const page = getPositiveInt(searchParams.get('page'), 1);
+  const pageSize = getPositiveInt(searchParams.get('pageSize'), DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE);
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
 
-  const { data, error } = await supabaseAdmin
+  const { data, error, count } = await supabaseAdmin
     .from('listing_reports')
-    .select(ADMIN_REPORT_SELECT)
-    .order('created_at', { ascending: false });
+    .select(ADMIN_REPORT_SELECT, { count: 'exact' })
+    .order('created_at', { ascending: false })
+    .range(from, to);
 
   if (error) {
     console.error('Admin reports API fetch error:', {
@@ -57,5 +71,16 @@ export async function GET(request) {
     return Response.json({ error: 'Could not load reports.' }, { status: 500 });
   }
 
-  return Response.json({ reports: (data || []).map(formatReport) }, { status: 200 });
+  const totalCount = count || 0;
+
+  return Response.json(
+    {
+      reports: (data || []).map(formatReport),
+      page,
+      pageSize,
+      totalCount,
+      totalPages: Math.max(Math.ceil(totalCount / pageSize), 1),
+    },
+    { status: 200 },
+  );
 }
