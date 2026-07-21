@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'node:crypto';
 import { getSupabaseAdminClient } from '../../../../../lib/supabaseAdmin';
 
 export const dynamic = 'force-dynamic';
@@ -15,11 +16,10 @@ function isAuthorized(request) {
 
   const url = new URL(request.url);
   const supplied = url.searchParams.get('secret') || request.headers.get('x-pawhome-webhook-secret') || '';
+  const expectedBuffer = Buffer.from(expected);
+  const suppliedBuffer = Buffer.from(supplied);
 
-  return supplied.length === expected.length && crypto.timingSafeEqual?.(
-    new TextEncoder().encode(supplied),
-    new TextEncoder().encode(expected),
-  );
+  return expectedBuffer.length === suppliedBuffer.length && timingSafeEqual(expectedBuffer, suppliedBuffer);
 }
 
 export async function POST(request) {
