@@ -9,6 +9,42 @@ export const dynamic = 'force-dynamic';
 
 const MAX_CODE_ATTEMPTS = 3;
 
+async function recordFailedAttempt(supabaseAdmin, challenge) {
+  const currentAttemptCount = challenge.attempt_count || 0;
+  const nextAttemptCount = currentAttemptCount + 1;
+  const nextStatus = nextAttemptCount >= MAX_CODE_ATTEMPTS ? 'failed' : 'pending';
+
+  const { data, error } = await supabaseAdmin
+    .from('phone_verification_challenges')
+    .update({
+      attempt_count: nextAttemptCount,
+      status: nextStatus,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', challenge.id)
+    .eq('attempt_count', currentAttemptCount)
+    .eq('status', 'pending')
+    .select('attempt_count, status')
+    .maybeSingle();
+
+  if (error) {
+    console.error('Phone verification attempt update failed:', {
+      message: error.message,
+      code: error.code,
+    });
+  }
+
+  return data || null;
+}
+
+async function failChallenge(supabaseAdmin, challengeId) {
+  await supabaseAdmin
+    .from('phone_verification_challenges')
+    .update({ status: 'failed', updated_at: new Date().toISOString() })
+    .eq('id', challengeId)
+    .in('status', ['pending', 'provider_verified']);
+}
+
 export async function POST(request) {
   const sameOriginError = requireSameOrigin(request);
   if (sameOriginError) return sameOriginError;
@@ -37,7 +73,7 @@ export async function POST(request) {
 
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
-      .select('user_id, phone_code, phone_number, phone_verified')
+      .select('user_id, phone_code, phone_number, phone_verified, verified_phone_e164')
       .eq('user_id', user.id)
       .maybeSingle();
 
@@ -110,12 +146,15 @@ export async function POST(request) {
       return Response.json({ error: 'Start a new verification call first.' }, { status: 400 });
     }
 
-    if ((challenge.attempt_count || 0) >= MAX_CODE_ATTEMPTS) {
-      await supabaseAdmin
-        .from('phone_verification_challenges')
-        .update({ status: 'failed', updated_at: nowIso })
-        .eq('id', challenge.id);
+    if (String(challenge.provider_request_id || '').startsWith('reserved:')) {
+      return Response.json(
+        { error: 'The verification call is still being prepared. Please wait a few seconds and try again.' },
+        { status: 409 },
+      );
+    }
 
+    if ((challenge.attempt_count || 0) >= MAX_CODE_ATTEMPTS) {
+      await failChallenge(supabaseAdmin, challenge.id);
       return Response.json({ error: 'Too many incorrect attempts. Start a new verification call.' }, { status: 429 });
     }
 
@@ -128,42 +167,22 @@ export async function POST(request) {
         const isCodeError = error?.status && error.status >= 400 && error.status < 500;
 
         if (isCodeError) {
-          const nextAttemptCount = (challenge.attempt_count || 0) + 1;
-          const nextStatus = nextAttemptCount >= MAX_CODE_ATTEMPTS ? 'failed' : 'pending';
-
-          await supabaseAdmin
-            .from('phone_verification_challenges')
-            .update({
-              attempt_count: nextAttemptCount,
-              status: nextStatus,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', challenge.id);
+          await recordFailedAttempt(supabaseAdmin, challenge);
         }
 
         throw error;
       }
 
       if (verificationCheck.status !== 'completed') {
-        const nextAttemptCount = (challenge.attempt_count || 0) + 1;
-        const nextStatus = nextAttemptCount >= MAX_CODE_ATTEMPTS ? 'failed' : 'pending';
-
-        await supabaseAdmin
-          .from('phone_verification_challenges')
-          .update({
-            attempt_count: nextAttemptCount,
-            status: nextStatus,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', challenge.id);
-
+        await recordFailedAttempt(supabaseAdmin, challenge);
         return Response.json({ error: 'The code is incorrect or expired.' }, { status: 400 });
       }
 
       const { error: providerVerifiedError } = await supabaseAdmin
         .from('phone_verification_challenges')
         .update({ status: 'provider_verified', updated_at: new Date().toISOString() })
-        .eq('id', challenge.id);
+        .eq('id', challenge.id)
+        .eq('status', 'pending');
 
       if (providerVerifiedError) {
         console.error('Phone verification provider result save failed:', {
@@ -171,7 +190,10 @@ export async function POST(request) {
           code: providerVerifiedError.code,
         });
 
-        return Response.json({ error: 'The code was accepted, but PawHome could not save the result. Please try again.' }, { status: 500 });
+        return Response.json(
+          { error: 'The code was accepted, but PawHome could not save the result. Please try again.' },
+          { status: 500 },
+        );
       }
     }
 
@@ -183,15 +205,14 @@ export async function POST(request) {
         code: phoneOwnerResult.error.code,
       });
 
-      return Response.json({ error: 'Could not check this phone number.' }, { status: 500 });
+      return Response.json(
+        { error: 'Phone ownership checks are not configured correctly. Please contact PawHome support.' },
+        { status: 500 },
+      );
     }
 
     if (phoneOwnerResult.owner) {
-      await supabaseAdmin
-        .from('phone_verification_challenges')
-        .update({ status: 'failed', updated_at: new Date().toISOString() })
-        .eq('id', challenge.id);
-
+      await failChallenge(supabaseAdmin, challenge.id);
       return Response.json(
         { error: 'This phone number is already linked to another PawHome account.' },
         { status: 409 },
@@ -205,6 +226,14 @@ export async function POST(request) {
     );
 
     if (updateError) {
+      if (updateError.code === '23505') {
+        await failChallenge(supabaseAdmin, challenge.id);
+        return Response.json(
+          { error: 'This phone number is already linked to another PawHome account.' },
+          { status: 409 },
+        );
+      }
+
       console.error('Phone verification profile update failed:', {
         message: updateError.message,
         code: updateError.code,
@@ -216,7 +245,8 @@ export async function POST(request) {
     const { error: completionError } = await supabaseAdmin
       .from('phone_verification_challenges')
       .update({ status: 'completed', updated_at: new Date().toISOString() })
-      .eq('id', challenge.id);
+      .eq('id', challenge.id)
+      .eq('status', 'provider_verified');
 
     if (completionError) {
       console.error('Phone verification challenge completion save failed:', {
