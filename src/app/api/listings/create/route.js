@@ -6,7 +6,6 @@ import { findProfileWithPhone } from '../../../../lib/profilePhoneChecks';
 import {
   ALLOWED_ANIMAL_TYPES,
   ALLOWED_LISTING_TYPES,
-  ALLOWED_SELLER_TYPES,
   ALLOWED_SEXES,
   ALLOWED_YES_NO,
   addWeeksToDate,
@@ -17,6 +16,7 @@ import {
   cleanText,
   getImageExtension,
   getMinimumLegalAgeWeeks,
+  getSellerTypeFromAccountType,
   isValidAgeLabel,
   validateImageFileContent,
 } from '../../../../lib/listingValidation';
@@ -74,7 +74,6 @@ export async function POST(request) {
     const sex = cleanText(body.get('sex'), 40);
     const county = cleanText(body.get('county'), 80);
     const city = cleanText(body.get('city'), 80);
-    const sellerType = cleanText(body.get('seller_type'), 80);
     const description = cleanText(body.get('description'), 800);
 
     const priceRaw = cleanText(body.get('price'), 20);
@@ -142,10 +141,6 @@ export async function POST(request) {
 
     if (!county) {
       return Response.json({ error: 'Please select a county.' }, { status: 400 });
-    }
-
-    if (!ALLOWED_SELLER_TYPES.includes(sellerType)) {
-      return Response.json({ error: 'Please select a valid seller type.' }, { status: 400 });
     }
 
     if (animalType === 'Dogs' && !ALLOWED_YES_NO.includes(microchipped)) {
@@ -228,6 +223,15 @@ export async function POST(request) {
       return Response.json(
         { error: 'Your profile could not be loaded. Please go to your profile and save your details.' },
         { status: 400 },
+      );
+    }
+
+    const sellerType = getSellerTypeFromAccountType(profileData.account_type);
+
+    if (!sellerType) {
+      return Response.json(
+        { error: 'Buyer accounts cannot post ads. Change your account type to Private Seller or Breeder first.' },
+        { status: 403 },
       );
     }
 
