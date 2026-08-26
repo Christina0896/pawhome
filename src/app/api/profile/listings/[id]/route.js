@@ -14,7 +14,7 @@ import {
   getImageExtension,
   getMinimumLegalAgeWeeks,
   getSellerTypeFromAccountType,
-  validateImageFile,
+  validateImageFileContent,
 } from '../../../../../lib/listingValidation';
 
 export const dynamic = 'force-dynamic';
@@ -156,7 +156,7 @@ export async function PATCH(request, { params }) {
     }
 
     if (!ALLOWED_SEXES.includes(sex)) {
-      return Response.json({ error: 'Please select a valid sex.' }, { status: 400 });
+      return Response.json({ error: 'Please select the sex.' }, { status: 400 });
     }
 
     if ((listingType === 'For Sale' || listingType === 'For Stud') && (!price || price <= 0)) {
@@ -215,7 +215,7 @@ export async function PATCH(request, { params }) {
     }
 
     for (const photo of newPhotos) {
-      const imageError = validateImageFile(photo);
+      const imageError = await validateImageFileContent(photo);
 
       if (imageError) {
         return Response.json({ error: imageError }, { status: 400 });
@@ -232,6 +232,8 @@ export async function PATCH(request, { params }) {
         message: currentPhotosError.message,
         code: currentPhotosError.code,
       });
+
+      return Response.json({ error: 'Could not load the current listing photos.' }, { status: 500 });
     }
 
     let photosToDelete = [];
@@ -239,7 +241,7 @@ export async function PATCH(request, { params }) {
     if (photoDeleteIds.length > 0) {
       const { data: deleteRows, error: deleteLookupError } = await supabaseAdmin
         .from('listing_photos')
-        .select('id, image_url')
+        .select('id, image_url, sort_order')
         .eq('listing_id', listingId)
         .in('id', photoDeleteIds);
 
@@ -275,13 +277,13 @@ export async function PATCH(request, { params }) {
 
       if (!fileExt) {
         await removeStorageFiles(supabaseAdmin, LISTING_PHOTOS_BUCKET, uploadedPaths, 'Edit listing photo cleanup');
-
         return Response.json({ error: 'Only JPG, PNG, and WebP images are allowed.' }, { status: 400 });
       }
 
-      const fileName = `${user.id}/${listingId}-edit-${Date.now()}-${i}.${fileExt}`;
+      const fileName = `${user.id}/${listingId}-edit-${Date.now()}-${i}-${crypto.randomUUID()}.${fileExt}`;
 
       const { error: uploadError } = await supabaseAdmin.storage.from(LISTING_PHOTOS_BUCKET).upload(fileName, file, {
+        cacheControl: '3600',
         upsert: false,
         contentType: file.type,
       });
@@ -293,7 +295,6 @@ export async function PATCH(request, { params }) {
         });
 
         await removeStorageFiles(supabaseAdmin, LISTING_PHOTOS_BUCKET, uploadedPaths, 'Edit listing photo cleanup');
-
         return Response.json({ error: 'Photo upload failed.' }, { status: 500 });
       }
 
@@ -306,6 +307,27 @@ export async function PATCH(request, { params }) {
         image_url: publicUrlData.publicUrl,
         sort_order: remainingExistingPhotoCount + i,
       });
+    }
+
+    let insertedNewPhotoIds = [];
+
+    if (newPhotoRows.length > 0) {
+      const { data: insertedRows, error: photoInsertError } = await supabaseAdmin
+        .from('listing_photos')
+        .insert(newPhotoRows)
+        .select('id');
+
+      if (photoInsertError) {
+        console.error('Edit listing new photo row insert failed:', {
+          message: photoInsertError.message,
+          code: photoInsertError.code,
+        });
+
+        await removeStorageFiles(supabaseAdmin, LISTING_PHOTOS_BUCKET, uploadedPaths, 'Edit listing photo cleanup');
+        return Response.json({ error: 'Could not save new photos.' }, { status: 500 });
+      }
+
+      insertedNewPhotoIds = (insertedRows || []).map((row) => row.id).filter(Boolean);
     }
 
     const { data: updatedListing, error: updateError } = await supabaseAdmin
@@ -350,10 +372,19 @@ export async function PATCH(request, { params }) {
         code: updateError?.code,
       });
 
-      await removeStorageFiles(supabaseAdmin, LISTING_PHOTOS_BUCKET, uploadedPaths, 'Edit listing photo cleanup');
+      if (insertedNewPhotoIds.length > 0) {
+        await supabaseAdmin
+          .from('listing_photos')
+          .delete()
+          .eq('listing_id', listingId)
+          .in('id', insertedNewPhotoIds);
+      }
 
+      await removeStorageFiles(supabaseAdmin, LISTING_PHOTOS_BUCKET, uploadedPaths, 'Edit listing photo rollback');
       return Response.json({ error: 'Could not save listing.' }, { status: 500 });
     }
+
+    let cleanupWarning = false;
 
     if (photosToDelete.length > 0) {
       const idsToDelete = photosToDelete.map((photo) => photo.id);
@@ -365,39 +396,21 @@ export async function PATCH(request, { params }) {
         .in('id', idsToDelete);
 
       if (photoDeleteError) {
-        console.error('Edit listing photo row delete failed:', {
+        cleanupWarning = true;
+        console.error('Edit listing old photo row delete failed after save:', {
           message: photoDeleteError.message,
           code: photoDeleteError.code,
         });
+      } else {
+        const pathsToDelete = photosToDelete
+          .map((photo) => getStoragePathFromPublicUrl(photo.image_url, LISTING_PHOTOS_BUCKET))
+          .filter(Boolean);
 
-        await removeStorageFiles(supabaseAdmin, LISTING_PHOTOS_BUCKET, uploadedPaths, 'Edit listing photo cleanup');
-
-        return Response.json({ error: 'Could not delete old photo rows.' }, { status: 500 });
-      }
-
-      const pathsToDelete = photosToDelete
-        .map((photo) => getStoragePathFromPublicUrl(photo.image_url, LISTING_PHOTOS_BUCKET))
-        .filter(Boolean);
-
-      await removeStorageFiles(supabaseAdmin, LISTING_PHOTOS_BUCKET, pathsToDelete, 'Edit listing old photo cleanup');
-    }
-
-    if (newPhotoRows.length > 0) {
-      const { error: photoInsertError } = await supabaseAdmin.from('listing_photos').insert(newPhotoRows);
-
-      if (photoInsertError) {
-        console.error('Edit listing photo row insert failed:', {
-          message: photoInsertError.message,
-          code: photoInsertError.code,
-        });
-
-        await removeStorageFiles(supabaseAdmin, LISTING_PHOTOS_BUCKET, uploadedPaths, 'Edit listing photo cleanup');
-
-        return Response.json({ error: 'Could not save new photos.' }, { status: 500 });
+        await removeStorageFiles(supabaseAdmin, LISTING_PHOTOS_BUCKET, pathsToDelete, 'Edit listing old photo cleanup');
       }
     }
 
-    return Response.json({ success: true, listing: updatedListing }, { status: 200 });
+    return Response.json({ success: true, listing: updatedListing, cleanupWarning }, { status: 200 });
   } catch (error) {
     console.error('Edit listing route error:', {
       message: error?.message,
