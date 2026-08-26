@@ -15,6 +15,7 @@ export const dynamic = 'force-dynamic';
 const PHONE_CALL_COOLDOWN_MS = 60 * 1000;
 const PHONE_CALL_DAILY_LIMIT = 5;
 const PHONE_CALL_DAILY_WINDOW_MS = 24 * 60 * 60 * 1000;
+const PHONE_GLOBAL_DAILY_LIMIT = 10;
 
 export async function POST(request) {
   const sameOriginError = requireSameOrigin(request);
@@ -42,7 +43,7 @@ export async function POST(request) {
   try {
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
-      .select('user_id, phone_code, phone_number, phone_verified')
+      .select('user_id, phone_code, phone_number, phone_verified, verified_phone_e164')
       .eq('user_id', user.id)
       .maybeSingle();
 
@@ -77,7 +78,10 @@ export async function POST(request) {
         code: phoneOwnerResult.error.code,
       });
 
-      return Response.json({ error: 'Could not check this phone number.' }, { status: 500 });
+      return Response.json(
+        { error: 'Phone ownership checks are not configured correctly. Please contact PawHome support.' },
+        { status: 500 },
+      );
     }
 
     if (phoneOwnerResult.owner) {
@@ -88,13 +92,13 @@ export async function POST(request) {
     }
 
     const now = Date.now();
+    const nowIso = new Date(now).toISOString();
     const cooldownCutoff = new Date(now - PHONE_CALL_COOLDOWN_MS).toISOString();
     const dailyCutoff = new Date(now - PHONE_CALL_DAILY_WINDOW_MS).toISOString();
 
     const { data: recentChallenge, error: recentError } = await supabaseAdmin
       .from('phone_verification_challenges')
       .select('created_at')
-      .eq('user_id', user.id)
       .eq('phone_e164', phoneToVerify)
       .gte('created_at', cooldownCutoff)
       .order('created_at', { ascending: false })
@@ -141,17 +145,41 @@ export async function POST(request) {
 
     if ((dailyCount || 0) >= PHONE_CALL_DAILY_LIMIT) {
       return Response.json(
+        { error: 'Too many verification calls were requested for this account. Please try again tomorrow.' },
+        { status: 429 },
+      );
+    }
+
+    const { count: phoneDailyCount, error: phoneDailyError } = await supabaseAdmin
+      .from('phone_verification_challenges')
+      .select('id', { count: 'exact', head: true })
+      .eq('phone_e164', phoneToVerify)
+      .gte('created_at', dailyCutoff);
+
+    if (phoneDailyError) {
+      console.error('Phone verification number limit lookup failed:', {
+        message: phoneDailyError.message,
+        code: phoneDailyError.code,
+      });
+
+      return Response.json({ error: 'Could not check the verification call limit.' }, { status: 500 });
+    }
+
+    if ((phoneDailyCount || 0) >= PHONE_GLOBAL_DAILY_LIMIT) {
+      return Response.json(
         { error: 'Too many verification calls were requested for this number. Please try again tomorrow.' },
         { status: 429 },
       );
     }
 
-    const updatedAt = new Date(now).toISOString();
+    // Only cancel stale active requests. The created_at condition prevents one
+    // concurrent request from cancelling a reservation created by another.
     const { error: cancelError } = await supabaseAdmin
       .from('phone_verification_challenges')
-      .update({ status: 'cancelled', updated_at: updatedAt })
+      .update({ status: 'cancelled', updated_at: nowIso })
       .eq('user_id', user.id)
-      .in('status', ['pending', 'provider_verified']);
+      .in('status', ['pending', 'provider_verified'])
+      .lt('created_at', cooldownCutoff);
 
     if (cancelError) {
       console.error('Old phone verification challenge cleanup failed:', {
@@ -162,33 +190,84 @@ export async function POST(request) {
       return Response.json({ error: 'Could not prepare a new verification call.' }, { status: 500 });
     }
 
-    const verificationRequest = await startPhoneVerificationCall(phoneToVerify, user.id);
+    const expiresAt = new Date(now + PHONE_VERIFICATION_CHALLENGE_TTL_MS).toISOString();
+    const reservationToken = `reserved:${crypto.randomUUID()}`;
+
+    const { data: reservation, error: reservationError } = await supabaseAdmin
+      .from('phone_verification_challenges')
+      .insert({
+        user_id: user.id,
+        phone_e164: phoneToVerify,
+        provider: 'vonage',
+        provider_request_id: reservationToken,
+        channel: 'voice',
+        status: 'pending',
+        attempt_count: 0,
+        expires_at: expiresAt,
+        updated_at: nowIso,
+      })
+      .select('id')
+      .single();
+
+    if (reservationError || !reservation) {
+      if (reservationError?.code === '23505') {
+        return Response.json(
+          { error: 'A verification call is already being started. Please wait one minute before trying again.' },
+          { status: 429 },
+        );
+      }
+
+      console.error('Phone verification reservation failed:', {
+        message: reservationError?.message,
+        code: reservationError?.code,
+      });
+
+      return Response.json({ error: 'Could not reserve a verification call. Please try again.' }, { status: 500 });
+    }
+
+    let verificationRequest;
+
+    try {
+      verificationRequest = await startPhoneVerificationCall(phoneToVerify, user.id);
+    } catch (providerError) {
+      await supabaseAdmin
+        .from('phone_verification_challenges')
+        .update({ status: 'failed', updated_at: new Date().toISOString() })
+        .eq('id', reservation.id)
+        .eq('provider_request_id', reservationToken);
+
+      throw providerError;
+    }
 
     if (!verificationRequest?.request_id) {
+      await supabaseAdmin
+        .from('phone_verification_challenges')
+        .update({ status: 'failed', updated_at: new Date().toISOString() })
+        .eq('id', reservation.id);
+
       return Response.json({ error: 'Verification provider did not return a request ID.' }, { status: 500 });
     }
 
-    const expiresAt = new Date(now + PHONE_VERIFICATION_CHALLENGE_TTL_MS).toISOString();
-    const { error: challengeError } = await supabaseAdmin.from('phone_verification_challenges').insert({
-      user_id: user.id,
-      phone_e164: phoneToVerify,
-      provider: 'vonage',
-      provider_request_id: verificationRequest.request_id,
-      channel: 'voice',
-      status: 'pending',
-      attempt_count: 0,
-      expires_at: expiresAt,
-      updated_at: updatedAt,
-    });
+    const { data: activatedChallenge, error: activationError } = await supabaseAdmin
+      .from('phone_verification_challenges')
+      .update({
+        provider_request_id: verificationRequest.request_id,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', reservation.id)
+      .eq('provider_request_id', reservationToken)
+      .eq('status', 'pending')
+      .select('id')
+      .maybeSingle();
 
-    if (challengeError) {
-      console.error('Phone verification challenge insert failed:', {
-        message: challengeError.message,
-        code: challengeError.code,
+    if (activationError || !activatedChallenge) {
+      console.error('Phone verification challenge activation failed:', {
+        message: activationError?.message,
+        code: activationError?.code,
       });
 
       return Response.json(
-        { error: 'The call was started, but PawHome could not save the verification request. Please wait one minute and try again.' },
+        { error: 'The call started, but PawHome could not activate the verification request. Please wait one minute and try again.' },
         { status: 500 },
       );
     }
