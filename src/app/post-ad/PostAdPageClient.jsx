@@ -8,7 +8,12 @@ import { ArrowIcon, CloseIcon, GalleryIcon } from '../../components/Icons';
 import { counties } from '../../data/countyList';
 import { catBreeds, dogBreeds, otherPetTypes } from '../../data/petOptions';
 import { getVerifiedAccessToken } from '../../lib/authTokens';
-import { addWeeksToDate, getMinimumLegalAgeWeeks, validateImageFile } from '../../lib/listingValidation';
+import {
+  addWeeksToDate,
+  getMinimumLegalAgeWeeks,
+  validateImageFile,
+  validateListingAgeAndDates,
+} from '../../lib/listingValidation';
 import CustomSelect from './components/CustomSelect';
 import {
   AGE_UNIT_OPTIONS,
@@ -44,7 +49,6 @@ const initialFormData = {
   price_negotiable: false,
   county: '',
   city: '',
-  seller_type: '',
   registrationNumber: '',
   organisationName: '',
   microchipped: '',
@@ -59,15 +63,16 @@ const initialFormData = {
   description: '',
 };
 
-function getSellerTypeFromAccountType(accountType) {
-  if (accountType === 'Breeder') return 'Registered Breeder';
-  if (accountType === 'Shelter / Rescue') return 'Shelter / Rescue';
-  return 'Private Seller';
-}
-
 function formatDateInput(date) {
   if (!date) return '';
   return date.toISOString().split('T')[0];
+}
+
+function buildAgeLabel(formData) {
+  const value = Number(formData.age_value);
+  if (!Number.isInteger(value) || value < 1) return '';
+  const unit = formData.age_unit || 'weeks';
+  return `${value} ${value === 1 ? unit.replace(/s$/, '') : unit}`;
 }
 
 function Field({ label, required = false, error, children }) {
@@ -96,6 +101,7 @@ function SectionHeader({ title, children }) {
 export default function PostAdPageClient() {
   const router = useRouter();
   const fileInputRef = useRef(null);
+  const [submissionKey] = useState(() => crypto.randomUUID());
   const [openDropdown, setOpenDropdown] = useState(null);
   const [photos, setPhotos] = useState([]);
   const [photoPreviews, setPhotoPreviews] = useState([]);
@@ -112,14 +118,17 @@ export default function PostAdPageClient() {
         ? catBreeds
         : [];
 
-  const filteredBreedOptions = breedOptions.filter((breed) => breed.toLowerCase().includes(formData.breed.toLowerCase()));
+  const filteredBreedOptions = breedOptions.filter((breed) =>
+    breed.toLowerCase().includes(formData.breed.toLowerCase()),
+  );
   const isDogOrCat = ['dogs', 'cats'].includes(formData.animal_type?.toLowerCase());
-  const showLitterInfo = isDogOrCat && formData.sex === 'Mixed Litter';
+  const showLitterCounts = isDogOrCat && formData.sex === 'Mixed Litter';
   const priceRequired = formData.listing_type === 'For Sale' || formData.listing_type === 'For Stud';
   const minimumLegalAgeWeeks = useMemo(
     () => getMinimumLegalAgeWeeks(formData.animal_type, formData.breed),
     [formData.animal_type, formData.breed],
   );
+  const showAgeCompliance = Boolean(minimumLegalAgeWeeks) || showLitterCounts;
   const minimumReadyToLeaveDate = useMemo(
     () => formatDateInput(addWeeksToDate(formData.date_of_birth, minimumLegalAgeWeeks)),
     [formData.date_of_birth, minimumLegalAgeWeeks],
@@ -176,7 +185,6 @@ export default function PostAdPageClient() {
 
         setFormData((current) => ({
           ...current,
-          seller_type: getSellerTypeFromAccountType(result.profile?.account_type),
           county: result.profile?.county || current.county,
         }));
       } catch (error) {
@@ -201,8 +209,11 @@ export default function PostAdPageClient() {
 
   const validateForm = () => {
     const nextErrors = {};
+    const ageLabel = buildAgeLabel(formData);
 
-    if (!formData.title || formData.title.trim().length < 5) nextErrors.title = 'Please enter a listing title with at least 5 characters.';
+    if (!formData.title || formData.title.trim().length < 5) {
+      nextErrors.title = 'Please enter a listing title with at least 5 characters.';
+    }
     if (!formData.listing_type) nextErrors.listing_type = 'Please select an ad type.';
     if (!formData.animal_type) nextErrors.animal_type = 'Please select an animal type.';
     if (!formData.breed || formData.breed.trim().length < 2) nextErrors.breed = 'Please enter a breed or pet type.';
@@ -210,11 +221,30 @@ export default function PostAdPageClient() {
     if (!formData.sex) nextErrors.sex = 'Please select the sex.';
     if (priceRequired && (!formData.price || Number(formData.price) <= 0)) nextErrors.price = 'Please enter a valid price.';
     if (!formData.county) nextErrors.county = 'Please select a county.';
-    if (formData.animal_type === 'Dogs' && !formData.microchipped) nextErrors.microchipped = 'Please confirm if the dog is microchipped.';
-    if (!formData.description || formData.description.trim().length < 80) nextErrors.description = 'Description must be at least 80 characters.';
+    if (formData.animal_type === 'Dogs' && !formData.microchipped) {
+      nextErrors.microchipped = 'Please confirm if the dog is microchipped.';
+    }
+    if (!formData.description || formData.description.trim().length < 80) {
+      nextErrors.description = 'Description must be at least 80 characters.';
+    }
     if (photos.length === 0) nextErrors.photos = 'Please upload at least one photo.';
 
-    if (showLitterInfo) {
+    const ageError = validateListingAgeAndDates({
+      animalType: formData.animal_type,
+      breed: formData.breed,
+      age: ageLabel,
+      dateOfBirth: formData.date_of_birth,
+      readyToLeave: formData.ready_to_leave,
+      requireDates: showLitterCounts,
+    });
+
+    if (ageError) {
+      if (ageError.toLowerCase().includes('ready')) nextErrors.ready_to_leave = ageError;
+      else if (ageError.toLowerCase().includes('date of birth')) nextErrors.date_of_birth = ageError;
+      else nextErrors.age_value = ageError;
+    }
+
+    if (showLitterCounts) {
       const litterSize = Number(formData.litter_size || 0);
       const available = Number(formData.available_litter_count || 0);
       const boys = Number(formData.male_count || 0);
@@ -227,9 +257,10 @@ export default function PostAdPageClient() {
         nextErrors.male_count = 'Boys and girls together must match the available count.';
         nextErrors.female_count = 'Boys and girls together must match the available count.';
       }
-      if (!formData.date_of_birth) nextErrors.date_of_birth = 'Please enter the litter date of birth.';
-      if (!formData.ready_to_leave) nextErrors.ready_to_leave = 'Please enter when the litter is ready to leave.';
-      if (readyToLeaveTooEarly) nextErrors.ready_to_leave = `Minimum legal ready date is ${minimumReadyToLeaveDate}.`;
+    }
+
+    if (readyToLeaveTooEarly) {
+      nextErrors.ready_to_leave = `Minimum legal ready date is ${minimumReadyToLeaveDate}.`;
     }
 
     setErrors(nextErrors);
@@ -256,11 +287,6 @@ export default function PostAdPageClient() {
     setErrors((current) => ({ ...current, photos: '' }));
   };
 
-  const handlePhotoChange = (event) => {
-    addPhotos(Array.from(event.target.files || []));
-    event.target.value = '';
-  };
-
   const handlePhotoDrop = (event) => {
     event.preventDefault();
     event.stopPropagation();
@@ -274,22 +300,10 @@ export default function PostAdPageClient() {
     setPhotoPreviews((current) => current.filter((_, itemIndex) => itemIndex !== index));
   };
 
-  const notifyAdminAboutNewListing = async (listingId) => {
-    const accessToken = await getVerifiedAccessToken({ openLogin: false });
-    if (!accessToken) return;
-
-    await fetch('/api/notify-new-listing', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({ listingId }),
-    }).catch(() => {});
-  };
-
   const handleSubmitListing = async (event) => {
     event.preventDefault();
+    if (submitting) return;
+
     setHasTriedSubmit(true);
 
     if (!validateForm()) {
@@ -302,6 +316,7 @@ export default function PostAdPageClient() {
 
     const submitData = new FormData();
     Object.entries(formData).forEach(([key, value]) => submitData.append(key, value ?? ''));
+    submitData.set('submission_key', submissionKey);
     photos.forEach((file) => submitData.append('photos', file));
 
     setSubmitting(true);
@@ -320,7 +335,6 @@ export default function PostAdPageClient() {
         return;
       }
 
-      await notifyAdminAboutNewListing(result.listing.id);
       router.push('/post-ad/success');
     } catch (error) {
       console.error('Listing create request failed:', error);
@@ -380,12 +394,12 @@ export default function PostAdPageClient() {
                 <div className="relative data-dropdown-root">
                   <div className="flex h-[45px] w-full items-center rounded-xl border border-(--border-beige) bg-white px-4">
                     <input name="breed" value={formData.breed} onFocus={() => setOpenDropdown('breed')} onChange={handleInputChange} placeholder="Start typing..." className="min-w-0 flex-1 bg-transparent text-sm text-(--secondary-green) outline-none" />
-                    <button type="button" onClick={() => setOpenDropdown(openDropdown === 'breed' ? null : 'breed')} className="ml-3 text-(--primary-green)"><ArrowIcon className="h-3.5 w-3.5 rotate-90" /></button>
+                    <button type="button" onClick={() => setOpenDropdown(openDropdown === 'breed' ? null : 'breed')} className="ml-3 text-(--primary-green)" aria-label="Open breed options"><ArrowIcon className="h-3.5 w-3.5 rotate-90" /></button>
                   </div>
                   {openDropdown === 'breed' && (
-                    <div className="absolute left-0 right-0 top-full z-[9999] mt-2 max-h-72 overflow-y-auto rounded-xl border border-(--border-beige) bg-white shadow-lg">
+                    <div role="listbox" className="absolute left-0 right-0 top-full z-[9999] mt-2 max-h-72 overflow-y-auto rounded-xl border border-(--border-beige) bg-white shadow-lg">
                       {filteredBreedOptions.map((breed) => (
-                        <button key={breed} type="button" onMouseDown={(event) => { event.preventDefault(); updateField('breed', breed); setOpenDropdown(null); }} className="block w-full border-b border-(--border-beige) px-4 py-3 text-left text-sm text-(--secondary-green) hover:bg-(--background)">{breed}</button>
+                        <button key={breed} type="button" role="option" aria-selected={formData.breed === breed} onClick={() => { updateField('breed', breed); setOpenDropdown(null); }} className="block w-full border-b border-(--border-beige) px-4 py-3 text-left text-sm text-(--secondary-green) hover:bg-(--background)">{breed}</button>
                       ))}
                     </div>
                   )}
@@ -433,23 +447,36 @@ export default function PostAdPageClient() {
                 <div className="mt-5 grid grid-cols-1 gap-5 md:grid-cols-2">
                   <CustomSelect id="proven_stud" label="Proven Stud" value={formData.proven_stud} placeholder="Select option" options={YES_NO_OPTIONS} {...selectProps} onChange={(value) => updateField('proven_stud', value)} />
                   <Field label="Stud Terms" error={errors.stud_terms}>
-                    <textarea name="stud_terms" value={formData.stud_terms} onChange={handleInputChange} rows={4} placeholder="Add details about fee, conditions, and requirements." className="min-h-[120px] w-full resize-y rounded-2xl border border-(--border-beige) bg-white px-4 py-3 text-sm text-(--secondary-green) outline-none focus:border-(--primary-green)" />
+                    <textarea name="stud_terms" value={formData.stud_terms} onChange={handleInputChange} maxLength={800} rows={4} placeholder="Add details about fee, conditions, and requirements." className="min-h-[120px] w-full resize-y rounded-2xl border border-(--border-beige) bg-white px-4 py-3 text-sm text-(--secondary-green) outline-none focus:border-(--primary-green)" />
                   </Field>
                 </div>
               </div>
             )}
 
-            {showLitterInfo && (
+            {showAgeCompliance && (
               <section className="col-span-full rounded-2xl border border-(--border-beige) bg-white p-6">
-                <h2 className="text-xl font-extrabold text-(--secondary-green)">Litter Info</h2>
+                <h2 className="text-xl font-extrabold text-(--secondary-green)">
+                  {showLitterCounts ? 'Litter Information' : 'Age & Ready-to-Leave Information'}
+                </h2>
+                <p className="mt-1 text-xs text-(--muted-green-text)">
+                  Young animals must include dates proving that they will not leave before the minimum age.
+                </p>
                 <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {['litter_size', 'available_litter_count', 'male_count', 'female_count'].map((name) => (
+                  {showLitterCounts && ['litter_size', 'available_litter_count', 'male_count', 'female_count'].map((name) => (
                     <Field key={name} label={name === 'litter_size' ? 'Litter Size' : name === 'available_litter_count' ? 'Available' : name === 'male_count' ? 'Number of Boys' : 'Number of Girls'} error={errors[name]}>
-                      <input name={name} type="number" min="0" value={formData[name]} onChange={handleInputChange} className={INPUT_CLASS} />
+                      <input name={name} type="number" min={name === 'litter_size' || name === 'available_litter_count' ? '1' : '0'} value={formData[name]} onChange={handleInputChange} className={INPUT_CLASS} />
                     </Field>
                   ))}
-                  <Field label="Date of Birth" error={errors.date_of_birth}><input name="date_of_birth" type="date" value={formData.date_of_birth} onChange={(event) => { updateField('date_of_birth', event.target.value); if (event.target.value && minimumLegalAgeWeeks) updateField('ready_to_leave', formatDateInput(addWeeksToDate(event.target.value, minimumLegalAgeWeeks))); }} className={INPUT_CLASS} /></Field>
-                  <Field label="Ready to Leave" error={errors.ready_to_leave}><input name="ready_to_leave" type="date" min={minimumReadyToLeaveDate || undefined} value={formData.ready_to_leave} onChange={handleInputChange} className={INPUT_CLASS} />{minimumReadyToLeaveDate && <p className="mt-1 text-xs font-semibold text-red-600">Minimum legal ready date: {minimumReadyToLeaveDate}</p>}{readyToLeaveTooEarly && <p className="mt-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700">This litter is too young to leave. Minimum age is {minimumLegalAgeWeeks} weeks.</p>}</Field>
+                  <Field label="Date of Birth" required={showLitterCounts} error={errors.date_of_birth}>
+                    <input name="date_of_birth" type="date" max={formatDateInput(new Date())} value={formData.date_of_birth} onChange={(event) => { updateField('date_of_birth', event.target.value); if (event.target.value && minimumLegalAgeWeeks) updateField('ready_to_leave', formatDateInput(addWeeksToDate(event.target.value, minimumLegalAgeWeeks))); }} className={INPUT_CLASS} />
+                  </Field>
+                  <Field label="Ready to Leave" required={showLitterCounts} error={errors.ready_to_leave}>
+                    <input name="ready_to_leave" type="date" min={minimumReadyToLeaveDate || undefined} value={formData.ready_to_leave} onChange={handleInputChange} className={INPUT_CLASS} />
+                    {minimumReadyToLeaveDate && <p className="mt-1 text-xs font-semibold text-red-600">Minimum legal ready date: {minimumReadyToLeaveDate}</p>}
+                  </Field>
+                  {showLitterCounts && (
+                    <CustomSelect id="mother_can_be_seen" label="Mother Can Be Seen" value={formData.mother_can_be_seen} placeholder="Select" options={YES_NO_OPTIONS} {...selectProps} onChange={(value) => updateField('mother_can_be_seen', value)} />
+                  )}
                 </div>
               </section>
             )}
@@ -457,7 +484,7 @@ export default function PostAdPageClient() {
             <div className="col-span-full">
               <SectionHeader title="Photos">Add clear photos of the pet. You can upload up to 6 images.</SectionHeader>
               <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={(event) => { addPhotos(Array.from(event.target.files || [])); event.target.value = ''; }} className="hidden" />
-              <div role="button" tabIndex={0} onClick={() => fileInputRef.current?.click()} onDragEnter={(event) => event.preventDefault()} onDragOver={(event) => event.preventDefault()} onDrop={handlePhotoDrop} className={`mt-6 flex min-h-[170px] cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed px-6 text-center transition ${errors.photos ? 'border-red-300 bg-red-50' : 'border-(--border-beige) bg-(--background) hover:border-(--primary-green)'}`}>
+              <div role="button" tabIndex={0} onClick={() => fileInputRef.current?.click()} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); fileInputRef.current?.click(); } }} onDragEnter={(event) => event.preventDefault()} onDragOver={(event) => event.preventDefault()} onDrop={handlePhotoDrop} className={`mt-6 flex min-h-[170px] cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed px-6 text-center transition ${errors.photos ? 'border-red-300 bg-red-50' : 'border-(--border-beige) bg-(--background) hover:border-(--primary-green)'}`}>
                 <GalleryIcon className="h-8 w-8 text-(--primary-green)" />
                 <p className="mt-3 text-sm font-semibold text-(--secondary-green)">Click or drag photos here</p>
                 <p className="mt-1 text-xs text-(--muted-green-text)">JPG, PNG or WEBP. Maximum 6 photos.</p>
@@ -466,7 +493,7 @@ export default function PostAdPageClient() {
               {photoPreviews.length > 0 && <div className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-6">{photoPreviews.map((preview, index) => <div key={preview} className="relative h-28 overflow-hidden rounded-xl border border-(--border-beige)"><img src={preview} alt={`Preview ${index + 1}`} className="h-full w-full object-cover" /><button type="button" onClick={() => removePhoto(index)} className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-white text-red-500 shadow" aria-label="Remove photo"><CloseIcon className="h-3.5 w-3.5" /></button></div>)}</div>}
             </div>
 
-            <div className="col-span-full"><SectionHeader title="Seller Registration" /></div>
+            <div className="col-span-full"><SectionHeader title="Seller Registration">Registration information is reviewed by PawHome and does not automatically create a verified badge.</SectionHeader></div>
             <Field label="Pet Seller Registration Number"><input name="registrationNumber" value={formData.registrationNumber} onChange={handleInputChange} placeholder="Enter registration number if applicable" className={INPUT_CLASS} /></Field>
             <Field label="Licence / Organisation Name"><input name="organisationName" value={formData.organisationName} onChange={handleInputChange} placeholder="Breeder, rescue, shelter, or organisation name" className={INPUT_CLASS} /></Field>
 

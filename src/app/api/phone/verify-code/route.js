@@ -1,13 +1,24 @@
 import { getAuthenticatedUser } from '../../../../lib/apiHelpers';
 import { isTrueFlag, normalizePhoneVerified } from '../../../../lib/booleanFlags';
 import { checkPhoneVerificationCode, formatPhoneForVerification } from '../../../../lib/phoneVerification';
-import { findVerifiedPhoneOwner, updateProfilePhoneVerified } from '../../../../lib/phoneUniqueness';
+import {
+  findVerifiedPhoneOwner,
+  isDuplicateVerifiedPhoneError,
+  updateProfilePhoneVerified,
+} from '../../../../lib/phoneUniqueness';
 import { requireSameOrigin } from '../../../../lib/requireSameOrigin';
 import { getSupabaseAdminClient } from '../../../../lib/supabaseAdmin';
 
 export const dynamic = 'force-dynamic';
 
 const MAX_CODE_ATTEMPTS = 3;
+
+async function markChallenge(supabaseAdmin, challengeId, values) {
+  return supabaseAdmin
+    .from('phone_verification_challenges')
+    .update({ ...values, updated_at: new Date().toISOString() })
+    .eq('id', challengeId);
+}
 
 export async function POST(request) {
   const sameOriginError = requireSameOrigin(request);
@@ -20,10 +31,7 @@ export async function POST(request) {
   }
 
   const auth = await getAuthenticatedUser(supabaseAdmin, request);
-
-  if (auth.error) {
-    return auth.error;
-  }
+  if (auth.error) return auth.error;
 
   const { user } = auth;
 
@@ -67,9 +75,9 @@ export async function POST(request) {
     const nowIso = new Date().toISOString();
     const { error: expiryError } = await supabaseAdmin
       .from('phone_verification_challenges')
-      .update({ status: 'expired', updated_at: nowIso })
+      .update({ status: 'expired', provider_status: 'expired', finalized_at: nowIso, updated_at: nowIso })
       .eq('user_id', user.id)
-      .in('status', ['pending', 'provider_verified'])
+      .in('status', ['creating', 'pending', 'provider_verified'])
       .lte('expires_at', nowIso);
 
     if (expiryError) {
@@ -79,14 +87,14 @@ export async function POST(request) {
       });
 
       return Response.json(
-        { error: 'Phone verification storage is not configured. Run the Supabase phone verification SQL first.' },
+        { error: 'Phone verification storage is not configured. Run the latest Supabase migration first.' },
         { status: 500 },
       );
     }
 
     const { data: challenge, error: challengeError } = await supabaseAdmin
       .from('phone_verification_challenges')
-      .select('id, provider_request_id, status, attempt_count, expires_at')
+      .select('id, provider_request_id, status, provider_status, attempt_count, expires_at')
       .eq('user_id', user.id)
       .eq('phone_e164', phoneToVerify)
       .eq('provider', 'vonage')
@@ -107,14 +115,28 @@ export async function POST(request) {
     }
 
     if (!challenge) {
+      const { data: latestChallenge } = await supabaseAdmin
+        .from('phone_verification_challenges')
+        .select('status')
+        .eq('user_id', user.id)
+        .eq('phone_e164', phoneToVerify)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (['failed', 'expired', 'rejected', 'user_rejected'].includes(latestChallenge?.status)) {
+        return Response.json({ error: 'The last call failed or expired. Request a new verification call.' }, { status: 400 });
+      }
+
       return Response.json({ error: 'Start a new verification call first.' }, { status: 400 });
     }
 
     if ((challenge.attempt_count || 0) >= MAX_CODE_ATTEMPTS) {
-      await supabaseAdmin
-        .from('phone_verification_challenges')
-        .update({ status: 'failed', updated_at: nowIso })
-        .eq('id', challenge.id);
+      await markChallenge(supabaseAdmin, challenge.id, {
+        status: 'failed',
+        provider_status: 'too_many_code_attempts',
+        finalized_at: nowIso,
+      });
 
       return Response.json({ error: 'Too many incorrect attempts. Start a new verification call.' }, { status: 429 });
     }
@@ -129,16 +151,14 @@ export async function POST(request) {
 
         if (isCodeError) {
           const nextAttemptCount = (challenge.attempt_count || 0) + 1;
-          const nextStatus = nextAttemptCount >= MAX_CODE_ATTEMPTS ? 'failed' : 'pending';
+          const terminal = nextAttemptCount >= MAX_CODE_ATTEMPTS;
 
-          await supabaseAdmin
-            .from('phone_verification_challenges')
-            .update({
-              attempt_count: nextAttemptCount,
-              status: nextStatus,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', challenge.id);
+          await markChallenge(supabaseAdmin, challenge.id, {
+            attempt_count: nextAttemptCount,
+            status: terminal ? 'failed' : 'pending',
+            provider_status: error?.code || (terminal ? 'too_many_code_attempts' : 'invalid_code'),
+            ...(terminal ? { finalized_at: new Date().toISOString() } : {}),
+          });
         }
 
         throw error;
@@ -146,24 +166,23 @@ export async function POST(request) {
 
       if (verificationCheck.status !== 'completed') {
         const nextAttemptCount = (challenge.attempt_count || 0) + 1;
-        const nextStatus = nextAttemptCount >= MAX_CODE_ATTEMPTS ? 'failed' : 'pending';
+        const terminal = nextAttemptCount >= MAX_CODE_ATTEMPTS;
 
-        await supabaseAdmin
-          .from('phone_verification_challenges')
-          .update({
-            attempt_count: nextAttemptCount,
-            status: nextStatus,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', challenge.id);
+        await markChallenge(supabaseAdmin, challenge.id, {
+          attempt_count: nextAttemptCount,
+          status: terminal ? 'failed' : 'pending',
+          provider_status: terminal ? 'too_many_code_attempts' : 'invalid_code',
+          ...(terminal ? { finalized_at: new Date().toISOString() } : {}),
+        });
 
         return Response.json({ error: 'The code is incorrect or expired.' }, { status: 400 });
       }
 
-      const { error: providerVerifiedError } = await supabaseAdmin
-        .from('phone_verification_challenges')
-        .update({ status: 'provider_verified', updated_at: new Date().toISOString() })
-        .eq('id', challenge.id);
+      const { error: providerVerifiedError } = await markChallenge(supabaseAdmin, challenge.id, {
+        status: 'provider_verified',
+        provider_status: 'code_completed',
+        provider_details: verificationCheck,
+      });
 
       if (providerVerifiedError) {
         console.error('Phone verification provider result save failed:', {
@@ -171,7 +190,10 @@ export async function POST(request) {
           code: providerVerifiedError.code,
         });
 
-        return Response.json({ error: 'The code was accepted, but PawHome could not save the result. Please try again.' }, { status: 500 });
+        return Response.json(
+          { error: 'The code was accepted, but PawHome could not save the result. Please try again.' },
+          { status: 500 },
+        );
       }
     }
 
@@ -187,10 +209,11 @@ export async function POST(request) {
     }
 
     if (phoneOwnerResult.owner) {
-      await supabaseAdmin
-        .from('phone_verification_challenges')
-        .update({ status: 'failed', updated_at: new Date().toISOString() })
-        .eq('id', challenge.id);
+      await markChallenge(supabaseAdmin, challenge.id, {
+        status: 'failed',
+        provider_status: 'duplicate_phone',
+        finalized_at: new Date().toISOString(),
+      });
 
       return Response.json(
         { error: 'This phone number is already linked to another PawHome account.' },
@@ -210,13 +233,30 @@ export async function POST(request) {
         code: updateError.code,
       });
 
-      return Response.json({ error: 'Phone was verified, but your profile could not be updated. Please try again.' }, { status: 500 });
+      if (isDuplicateVerifiedPhoneError(updateError)) {
+        await markChallenge(supabaseAdmin, challenge.id, {
+          status: 'failed',
+          provider_status: 'duplicate_phone',
+          finalized_at: new Date().toISOString(),
+        });
+
+        return Response.json(
+          { error: 'This phone number is already linked to another PawHome account.' },
+          { status: 409 },
+        );
+      }
+
+      return Response.json(
+        { error: 'Phone was verified, but your profile could not be updated. Please try again.' },
+        { status: 500 },
+      );
     }
 
-    const { error: completionError } = await supabaseAdmin
-      .from('phone_verification_challenges')
-      .update({ status: 'completed', updated_at: new Date().toISOString() })
-      .eq('id', challenge.id);
+    const { error: completionError } = await markChallenge(supabaseAdmin, challenge.id, {
+      status: 'completed',
+      provider_status: 'completed',
+      finalized_at: new Date().toISOString(),
+    });
 
     if (completionError) {
       console.error('Phone verification challenge completion save failed:', {
@@ -236,7 +276,11 @@ export async function POST(request) {
     const isClientError = error?.status && error.status >= 400 && error.status < 500;
 
     return Response.json(
-      { error: isClientError ? error.message || 'The code is incorrect or expired.' : 'Could not verify code. Please try again.' },
+      {
+        error: isClientError
+          ? error.message || 'The code is incorrect or expired.'
+          : 'Could not verify code. Please try again.',
+      },
       { status: isClientError ? 400 : 500 },
     );
   }

@@ -9,10 +9,13 @@ import { getVerifiedAdminAccessToken } from '../../lib/authTokens';
 
 const STATUS_OPTIONS = ['pending', 'approved', 'rejected', 'reports'];
 const LISTING_STATUS_FILTERS = ['pending', 'approved', 'rejected'];
+const PAGE_SIZE = 20;
 
 function formatDate(value) {
   if (!value) return '-';
-  return new Date(value).toLocaleDateString('en-IE', { day: '2-digit', month: 'short', year: 'numeric' });
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+  return date.toLocaleDateString('en-IE', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 function yesNo(value) {
@@ -29,6 +32,9 @@ export default function AdminPageClient() {
   const [loading, setLoading] = useState(true);
   const [listings, setListings] = useState([]);
   const [reports, setReports] = useState([]);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
 
   const handleApiAuthError = (response) => {
     if (response.status === 401 || response.status === 403) {
@@ -49,13 +55,8 @@ export default function AdminPageClient() {
     return token;
   };
 
-  const loadListings = async (status) => {
-    if (!LISTING_STATUS_FILTERS.includes(status)) {
-      setListings([]);
-      setLoading(false);
-      setCheckingAdmin(false);
-      return;
-    }
+  const loadListings = async (status, requestedPage) => {
+    if (!LISTING_STATUS_FILTERS.includes(status)) return;
 
     setLoading(true);
 
@@ -63,9 +64,10 @@ export default function AdminPageClient() {
       const token = await getAdminToken();
       if (!token) return;
 
-      const response = await fetch(`/api/admin/listings?status=${encodeURIComponent(status)}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await fetch(
+        `/api/admin/listings?status=${encodeURIComponent(status)}&page=${requestedPage}&pageSize=${PAGE_SIZE}`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
       const result = await response.json();
 
       if (!response.ok) {
@@ -75,6 +77,8 @@ export default function AdminPageClient() {
       }
 
       setListings(result.listings || []);
+      setTotalPages(result.totalPages || 1);
+      setTotalCount(result.totalCount || 0);
     } catch (error) {
       console.error('Admin listing load failed:', error);
       alert('Could not load admin listings.');
@@ -85,14 +89,14 @@ export default function AdminPageClient() {
     }
   };
 
-  const loadReports = async () => {
+  const loadReports = async (requestedPage) => {
     setLoading(true);
 
     try {
       const token = await getAdminToken();
       if (!token) return;
 
-      const response = await fetch('/api/admin/reports', {
+      const response = await fetch(`/api/admin/reports?page=${requestedPage}&pageSize=${PAGE_SIZE}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const result = await response.json();
@@ -104,6 +108,8 @@ export default function AdminPageClient() {
       }
 
       setReports(result.reports || []);
+      setTotalPages(result.totalPages || 1);
+      setTotalCount(result.totalCount || 0);
     } catch (error) {
       console.error('Admin report load failed:', error);
       alert('Could not load reports.');
@@ -115,9 +121,16 @@ export default function AdminPageClient() {
   };
 
   useEffect(() => {
-    if (selectedStatus === 'reports') loadReports();
-    else loadListings(selectedStatus);
-  }, [selectedStatus]);
+    if (selectedStatus === 'reports') loadReports(page);
+    else loadListings(selectedStatus, page);
+  }, [selectedStatus, page]);
+
+  const chooseStatus = (status) => {
+    setSelectedStatus(status);
+    setPage(1);
+    setTotalPages(1);
+    setTotalCount(0);
+  };
 
   const updateListingStatus = async (listingId, status) => {
     const token = await getAdminToken();
@@ -135,7 +148,40 @@ export default function AdminPageClient() {
       return;
     }
 
-    setListings((current) => current.map((listing) => (listing.id === listingId ? { ...listing, status } : listing)));
+    setListings((current) => current.filter((listing) => listing.id !== listingId));
+    setReports((current) => current.filter((report) => report.listing_id !== listingId || status !== 'rejected'));
+    setTotalCount((current) => Math.max(current - 1, 0));
+  };
+
+  const updateSellerVerification = async (userId, status, sellerType = '') => {
+    const token = await getAdminToken();
+    if (!token) return;
+
+    const response = await fetch(`/api/admin/sellers/${userId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ status, sellerType }),
+    });
+    const result = await response.json();
+
+    if (!response.ok) {
+      if (!handleApiAuthError(response)) alert(result.error || 'Could not update seller verification.');
+      return;
+    }
+
+    setListings((current) =>
+      current.map((listing) =>
+        listing.user_id === userId
+          ? {
+              ...listing,
+              seller_type: result.sellerType,
+              seller_verified: result.sellerVerified,
+              seller_verified_at: result.sellerVerifiedAt,
+              seller_profile: result.profile,
+            }
+          : listing,
+      ),
+    );
   };
 
   const deleteListing = async (listingId) => {
@@ -155,8 +201,10 @@ export default function AdminPageClient() {
       return;
     }
 
+    if (result.warning) alert(result.warning);
     setListings((current) => current.filter((listing) => listing.id !== listingId));
     setReports((current) => current.filter((report) => report.listing_id !== listingId));
+    setTotalCount((current) => Math.max(current - 1, 0));
   };
 
   const updateReportStatus = async (reportId, status) => {
@@ -196,10 +244,13 @@ export default function AdminPageClient() {
     }
 
     setReports((current) => current.filter((report) => report.id !== reportId));
+    setTotalCount((current) => Math.max(current - 1, 0));
   };
 
   if (checkingAdmin) return <AdminShell><AdminMessage text="Checking admin..." /></AdminShell>;
   if (accessDenied) return <AdminShell><AccessDenied /></AdminShell>;
+
+  const currentItems = selectedStatus === 'reports' ? reports : listings;
 
   return (
     <AdminShell>
@@ -207,19 +258,28 @@ export default function AdminPageClient() {
         <div>
           <p className="text-sm font-bold text-(--primary-green)">PawHome Admin</p>
           <h1 className="mt-2 text-4xl font-extrabold text-(--secondary-green)">Listing Review</h1>
-          <p className="mt-3 text-sm text-(--muted-green-text)">Review submitted ads before they appear publicly on PawHome.</p>
+          <p className="mt-3 text-sm text-(--muted-green-text)">Review submitted ads and manage verified seller trust labels.</p>
+          <p className="mt-2 text-xs font-bold text-(--primary-green)">{totalCount} records</p>
         </div>
         <div className="flex flex-wrap gap-2">
           {STATUS_OPTIONS.map((status) => (
-            <button key={status} type="button" onClick={() => setSelectedStatus(status)} className={`rounded-xl px-5 py-3 text-sm font-bold capitalize transition ${selectedStatus === status ? 'bg-(--primary-green) text-white' : 'border border-(--border-beige) bg-white text-(--secondary-green) hover:border-(--primary-green)'}`}>{status}</button>
+            <button key={status} type="button" onClick={() => chooseStatus(status)} className={`rounded-xl px-5 py-3 text-sm font-bold capitalize transition ${selectedStatus === status ? 'bg-(--primary-green) text-white' : 'border border-(--border-beige) bg-white text-(--secondary-green) hover:border-(--primary-green)'}`}>{status}</button>
           ))}
         </div>
       </div>
 
-      {selectedStatus === 'reports' ? (
-        loading ? <AdminMessage text="Loading reports..." /> : reports.length === 0 ? <EmptyState label="reports" /> : <ReportList reports={reports} updateReportStatus={updateReportStatus} deleteReport={deleteReport} updateListingStatus={updateListingStatus} deleteListing={deleteListing} />
+      {loading ? (
+        <AdminMessage text={selectedStatus === 'reports' ? 'Loading reports...' : 'Loading listings...'} />
+      ) : currentItems.length === 0 ? (
+        <EmptyState label={selectedStatus} />
+      ) : selectedStatus === 'reports' ? (
+        <ReportList reports={reports} updateReportStatus={updateReportStatus} deleteReport={deleteReport} updateListingStatus={updateListingStatus} deleteListing={deleteListing} />
       ) : (
-        loading ? <AdminMessage text="Loading listings..." /> : listings.length === 0 ? <EmptyState label={selectedStatus} /> : <ListingList listings={listings} selectedStatus={selectedStatus} updateListingStatus={updateListingStatus} deleteListing={deleteListing} />
+        <ListingList listings={listings} selectedStatus={selectedStatus} updateListingStatus={updateListingStatus} updateSellerVerification={updateSellerVerification} deleteListing={deleteListing} />
+      )}
+
+      {!loading && totalPages > 1 && (
+        <Pagination page={page} totalPages={totalPages} onChange={setPage} />
       )}
     </AdminShell>
   );
@@ -246,7 +306,7 @@ function AccessDenied() {
         <p className="text-sm font-bold uppercase tracking-wide text-red-500">403 Forbidden</p>
         <h1 className="mt-3 text-3xl font-extrabold text-(--secondary-green)">You do not have access to this page</h1>
         <p className="mx-auto mt-4 max-w-[560px] text-sm leading-6 text-(--muted-green-text)">This area is restricted to PawHome administrators only.</p>
-        <Link href="/" className="mt-7 inline-flex rounded-full bg-(--primary-orange) px-6 py-3 text-sm font-bold text-white transition hover:bg-(--secondary-orange)">Back to homepage</Link>
+        <Link href="/" className="mt-7 inline-flex rounded-full bg-(--primary-orange) px-6 py-3 text-sm font-bold text-white">Back to homepage</Link>
       </div>
     </div>
   );
@@ -256,8 +316,18 @@ function EmptyState({ label }) {
   return (
     <div className="rounded-3xl border border-(--border-beige) bg-white p-10 text-center">
       <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-(--light-green) text-(--primary-green)"><PawIcon className="h-8 w-8" /></div>
-      <h2 className="mt-4 text-2xl font-extrabold text-(--secondary-green)">No {label} listings</h2>
-      <p className="mt-2 text-sm text-(--muted-green-text)">Listings with this status will appear here.</p>
+      <h2 className="mt-4 text-2xl font-extrabold text-(--secondary-green)">No {label} records</h2>
+      <p className="mt-2 text-sm text-(--muted-green-text)">Records in this section will appear here.</p>
+    </div>
+  );
+}
+
+function Pagination({ page, totalPages, onChange }) {
+  return (
+    <div className="mt-8 flex items-center justify-center gap-4">
+      <button type="button" disabled={page <= 1} onClick={() => onChange(page - 1)} className="rounded-xl border border-(--border-beige) bg-white px-5 py-3 text-sm font-bold disabled:opacity-50">Previous</button>
+      <span className="text-sm font-bold text-(--secondary-green)">Page {page} of {totalPages}</span>
+      <button type="button" disabled={page >= totalPages} onClick={() => onChange(page + 1)} className="rounded-xl border border-(--border-beige) bg-white px-5 py-3 text-sm font-bold disabled:opacity-50">Next</button>
     </div>
   );
 }
@@ -266,8 +336,10 @@ function ListingList(props) {
   return <div className="space-y-6">{props.listings.map((listing) => <ListingCard key={listing.id} listing={listing} {...props} />)}</div>;
 }
 
-function ListingCard({ listing, selectedStatus, updateListingStatus, deleteListing }) {
+function ListingCard({ listing, selectedStatus, updateListingStatus, updateSellerVerification, deleteListing }) {
   const priceLabel = listing.price !== null && listing.price !== undefined && listing.price !== '' ? `€${listing.price}` : listing.listing_type === 'For Adoption' ? 'No fee listed' : '-';
+  const profile = listing.seller_profile || {};
+  const verifiedType = profile.seller_verified_type || '';
 
   return (
     <article className="overflow-hidden rounded-3xl border border-(--border-beige) bg-white shadow-sm">
@@ -282,15 +354,33 @@ function ListingCard({ listing, selectedStatus, updateListingStatus, deleteListi
             <div>
               <p className="text-sm font-bold text-(--primary-green)">{listing.listing_type || 'Listing'}</p>
               <h2 className="mt-1 text-3xl font-extrabold text-(--secondary-green)">{listing.title || listing.breed || listing.animal_type || 'Untitled listing'}</h2>
-              <TagList items={[listing.animal_type, listing.breed, listing.age, listing.sex, listing.county, listing.seller_type]} />
+              <TagList items={[listing.animal_type, listing.breed, listing.age, listing.sex, listing.county, listing.seller_type, listing.seller_verified ? 'PawHome verified seller' : 'Unverified seller type']} />
             </div>
             <div className="rounded-2xl bg-(--light-green) px-5 py-4 text-right"><p className="text-xs font-semibold text-(--muted-green-text)">Price</p><p className="text-2xl font-extrabold text-(--primary-green)">{priceLabel}</p></div>
           </div>
+
           <div className="mt-6 grid grid-cols-1 gap-4 xl:grid-cols-3">
             <DetailCard title="Health"><InfoRow label="Microchipped" value={yesNo(listing.microchipped)} /><InfoRow label="Vaccinated" value={yesNo(listing.vaccinated)} /><InfoRow label="Wormed" value={yesNo(listing.wormed)} /><InfoRow label="Vet Checked" value={yesNo(listing.vet_checked)} /><InfoRow label="IKC / KC" value={yesNo(listing.kennel_club_registered)} /></DetailCard>
-            <DetailCard title="Litter"><InfoRow label="Litter Size" value={listing.litter_size || '-'} /><InfoRow label="Available" value={listing.available_litter_count || '-'} /><InfoRow label="Date of Birth" value={formatDate(listing.date_of_birth)} /><InfoRow label="Ready" value={formatDate(listing.ready_to_leave)} /></DetailCard>
-            <DetailCard title="Seller"><InfoRow label="Seller Type" value={listing.seller_type || '-'} /><InfoRow label="Phone" value={listing.contact_phone || '-'} /><InfoRow label="Submitted" value={formatDate(listing.created_at)} /></DetailCard>
+            <DetailCard title="Litter / Stud"><InfoRow label="Litter Size" value={listing.litter_size || '-'} /><InfoRow label="Available" value={listing.available_litter_count || '-'} /><InfoRow label="Boys / Girls" value={listing.sex === 'Mixed Litter' ? `${listing.male_count || 0} / ${listing.female_count || 0}` : '-'} /><InfoRow label="Proven Stud" value={yesNo(listing.proven_stud)} /></DetailCard>
+            <DetailCard title="Seller"><InfoRow label="Public Type" value={listing.seller_type || '-'} /><InfoRow label="Self-declared Account" value={profile.account_type || '-'} /><InfoRow label="Phone Verified" value={yesNo(profile.phone_verified)} /><InfoRow label="Phone" value={listing.contact_phone || '-'} /></DetailCard>
           </div>
+
+          <div className="mt-5 rounded-2xl border border-(--border-beige) bg-(--background) p-4">
+            <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
+              <div>
+                <h3 className="font-bold text-(--secondary-green)">Seller verification</h3>
+                <p className="mt-1 text-xs text-(--muted-green-text)">
+                  Current status: {profile.seller_verification_status || 'unverified'}{verifiedType ? ` — ${verifiedType}` : ''}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={() => updateSellerVerification(listing.user_id, 'verified', 'Registered Breeder')} className="rounded-xl bg-(--primary-green) px-4 py-2 text-xs font-bold text-white">Verify Breeder</button>
+                <button type="button" onClick={() => updateSellerVerification(listing.user_id, 'verified', 'Shelter / Rescue')} className="rounded-xl bg-(--secondary-green) px-4 py-2 text-xs font-bold text-white">Verify Rescue</button>
+                <button type="button" onClick={() => updateSellerVerification(listing.user_id, 'unverified')} className="rounded-xl border border-(--border-beige) bg-white px-4 py-2 text-xs font-bold text-(--secondary-green)">Clear Verification</button>
+              </div>
+            </div>
+          </div>
+
           <p className="mt-5 line-clamp-4 rounded-2xl bg-(--background) p-4 text-sm leading-6 text-(--muted-green-text)">{listing.description || 'No description provided.'}</p>
           <AdminActions listingId={listing.id} selectedStatus={selectedStatus} updateListingStatus={updateListingStatus} deleteListing={deleteListing} />
         </div>

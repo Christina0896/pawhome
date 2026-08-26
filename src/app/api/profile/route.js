@@ -2,7 +2,6 @@ import { getAuthenticatedUser } from '../../../lib/apiHelpers';
 import { isTrueFlag, normalizePhoneVerified } from '../../../lib/booleanFlags';
 import { getSupabaseAdminClient } from '../../../lib/supabaseAdmin';
 import { requireSameOrigin } from '../../../lib/requireSameOrigin';
-import { findProfileWithPhone } from '../../../lib/profilePhoneChecks';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,9 +24,7 @@ function normalizeAccountType(value) {
   const accountType = cleanText(value);
   const lowerAccountType = accountType.toLowerCase();
 
-  if (!accountType || lowerAccountType === 'buyer') {
-    return 'Buyer';
-  }
+  if (!accountType || lowerAccountType === 'buyer') return 'Buyer';
 
   if (
     lowerAccountType === 'private owner' ||
@@ -38,19 +35,15 @@ function normalizeAccountType(value) {
     return 'Private Seller';
   }
 
-  if (lowerAccountType === 'breeder') {
-    return 'Breeder';
-  }
+  if (lowerAccountType === 'breeder') return 'Breeder';
 
   return 'Buyer';
 }
 
 export async function PATCH(request) {
   const sameOriginError = requireSameOrigin(request);
+  if (sameOriginError) return sameOriginError;
 
-  if (sameOriginError) {
-    return sameOriginError;
-  }
   const supabaseAdmin = getSupabaseAdminClient();
 
   if (!supabaseAdmin) {
@@ -58,10 +51,7 @@ export async function PATCH(request) {
   }
 
   const authResult = await getAuthenticatedUser(supabaseAdmin, request);
-
-  if (authResult.error) {
-    return authResult.error;
-  }
+  if (authResult.error) return authResult.error;
 
   const { user } = authResult;
 
@@ -105,7 +95,7 @@ export async function PATCH(request) {
 
     const { data: existingProfile, error: existingError } = await supabaseAdmin
       .from('profiles')
-      .select('user_id, phone_code, phone_number, phone_verified')
+      .select('user_id, phone_code, phone_number, phone_verified, verified_phone_e164')
       .eq('user_id', user.id)
       .maybeSingle();
 
@@ -120,24 +110,13 @@ export async function PATCH(request) {
 
     const existingPhoneVerified = isTrueFlag(existingProfile?.phone_verified);
     const phoneChanged =
-      existingProfile && (existingProfile.phone_code !== phoneCode || existingProfile.phone_number !== phoneNumber);
+      Boolean(existingProfile) &&
+      (existingProfile.phone_code !== phoneCode || existingProfile.phone_number !== phoneNumber);
 
+    // A verified number can only be replaced through a dedicated support/admin flow.
     if (existingPhoneVerified && phoneChanged) {
       phoneCode = existingProfile.phone_code || '+353';
       phoneNumber = existingProfile.phone_number || '';
-    }
-
-    if (phoneNumber) {
-      const duplicatePhone = await findProfileWithPhone(supabaseAdmin, phoneCode, phoneNumber, user.id);
-
-      if (duplicatePhone.error) {
-        console.error('Phone duplicate check failed:', duplicatePhone.error);
-        return Response.json({ error: 'Could not check phone number.' }, { status: 500 });
-      }
-
-      if (duplicatePhone.owner) {
-        return Response.json({ error: 'This phone number is already linked to another PawHome account.' }, { status: 409 });
-      }
     }
 
     const profilePayload = {
@@ -150,15 +129,16 @@ export async function PATCH(request) {
       county,
     };
 
+    // Merely saving a number does not reserve or verify it. Uniqueness is enforced
+    // atomically only when the provider confirms possession of the number.
     if (!existingProfile || (!existingPhoneVerified && phoneChanged)) {
       profilePayload.phone_verified = false;
+      profilePayload.verified_phone_e164 = null;
     }
 
     const { data: updatedProfile, error: updateError } = await supabaseAdmin
       .from('profiles')
-      .upsert(profilePayload, {
-        onConflict: 'user_id',
-      })
+      .upsert(profilePayload, { onConflict: 'user_id' })
       .select()
       .single();
 
@@ -172,16 +152,16 @@ export async function PATCH(request) {
     }
 
     const sellerName = cleanText(`${firstName} ${lastName}`) || 'Seller';
-    const contactPhone = cleanPhone(`${phoneCode} ${phoneNumber}`);
+    const contactPhone = phoneNumber ? cleanPhone(`${phoneCode} ${phoneNumber}`) : '';
 
+    // Trust-sensitive fields on approved listings are immutable from the profile.
+    // Pending/rejected listings may receive ordinary contact/name corrections, but
+    // seller_type and seller_verified remain admin-controlled snapshots.
     const { error: listingSyncError } = await supabaseAdmin
       .from('listings')
-      .update({
-        seller_name: sellerName,
-        seller_type: accountType,
-        contact_phone: contactPhone,
-      })
-      .eq('user_id', user.id);
+      .update({ seller_name: sellerName, contact_phone: contactPhone })
+      .eq('user_id', user.id)
+      .in('status', ['pending', 'rejected']);
 
     if (listingSyncError) {
       console.error('Listing seller sync failed:', {
@@ -192,10 +172,7 @@ export async function PATCH(request) {
 
     return Response.json({ success: true, profile: normalizePhoneVerified(updatedProfile) }, { status: 200 });
   } catch (error) {
-    console.error('Profile route error:', {
-      message: error?.message,
-    });
-
+    console.error('Profile route error:', { message: error?.message });
     return Response.json({ error: 'Something went wrong.' }, { status: 500 });
   }
 }

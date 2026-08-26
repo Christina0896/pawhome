@@ -14,6 +14,8 @@ export const ALLOWED_YES_NO = ['Yes', 'No'];
 export const ALLOWED_SELLER_TYPES = ['Private Seller', 'Registered Breeder', 'Shelter / Rescue'];
 export const ALLOWED_AGE_UNITS = ['days', 'weeks', 'months', 'years'];
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 export function cleanText(value, maxLength = 120) {
   return String(value || '')
     .replace(/[<>]/g, '')
@@ -60,8 +62,35 @@ export function buildAgeLabel(ageValue, ageUnit) {
   return `${number} ${labelUnit}`;
 }
 
+export function parseAgeLabel(age) {
+  const cleaned = cleanText(age, 40).toLowerCase();
+  const match = cleaned.match(/^(\d{1,3})\s+(day|days|week|weeks|month|months|year|years)$/);
+
+  if (!match) return null;
+
+  const value = Number(match[1]);
+  if (!Number.isInteger(value) || value < 1 || value > 999) return null;
+
+  const rawUnit = match[2];
+  const unit = rawUnit.endsWith('s') ? rawUnit : `${rawUnit}s`;
+
+  return { value, unit };
+}
+
 export function isValidAgeLabel(age) {
-  return /^\d{1,3}\s+(day|days|week|weeks|month|months|year|years)$/.test(cleanText(age, 40).toLowerCase());
+  return Boolean(parseAgeLabel(age));
+}
+
+export function ageLabelToDays(age) {
+  const parsed = parseAgeLabel(age);
+  if (!parsed) return null;
+
+  if (parsed.unit === 'days') return parsed.value;
+  if (parsed.unit === 'weeks') return parsed.value * 7;
+  if (parsed.unit === 'months') return Math.round(parsed.value * 30.4375);
+  if (parsed.unit === 'years') return Math.round(parsed.value * 365.25);
+
+  return null;
 }
 
 export function validateImageFile(file) {
@@ -185,14 +214,79 @@ export function getMinimumLegalAgeWeeks(animalType, breed) {
   return null;
 }
 
+export function parseDateInput(dateString) {
+  const value = cleanText(dateString, 20);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+
+  const date = new Date(`${value}T00:00:00.000Z`);
+  if (Number.isNaN(date.getTime())) return null;
+
+  const [year, month, day] = value.split('-').map(Number);
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() + 1 !== month || date.getUTCDate() !== day) return null;
+
+  return date;
+}
+
 export function addWeeksToDate(dateString, weeks) {
   if (!dateString || !weeks) return null;
 
-  const date = new Date(dateString);
+  const date = parseDateInput(dateString);
+  if (!date) return null;
 
-  if (Number.isNaN(date.getTime())) return null;
-
-  date.setDate(date.getDate() + weeks * 7);
-
+  date.setUTCDate(date.getUTCDate() + weeks * 7);
   return date;
+}
+
+export function validateListingAgeAndDates({
+  animalType,
+  breed,
+  age,
+  dateOfBirth,
+  readyToLeave,
+  requireDates = false,
+  now = new Date(),
+}) {
+  if (!isValidAgeLabel(age)) {
+    return "Please enter the pet's age as a number and select days, weeks, months, or years.";
+  }
+
+  const minimumWeeks = getMinimumLegalAgeWeeks(animalType, breed);
+  const minimumDays = minimumWeeks ? minimumWeeks * 7 : null;
+  const ageDays = ageLabelToDays(age);
+  const birthDate = dateOfBirth ? parseDateInput(dateOfBirth) : null;
+  const readyDate = readyToLeave ? parseDateInput(readyToLeave) : null;
+  const todayUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+
+  if (dateOfBirth && !birthDate) return 'Please enter a valid date of birth.';
+  if (readyToLeave && !readyDate) return 'Please enter a valid ready-to-leave date.';
+  if (birthDate && birthDate > todayUtc) return 'Date of birth cannot be in the future.';
+  if ((dateOfBirth && !readyToLeave) || (!dateOfBirth && readyToLeave)) {
+    return 'Date of birth and ready-to-leave date must be entered together.';
+  }
+
+  if (requireDates && (!birthDate || !readyDate)) {
+    return 'Please enter the date of birth and ready-to-leave date.';
+  }
+
+  if (birthDate && readyDate) {
+    if (readyDate < birthDate) return 'Ready-to-leave date cannot be before the date of birth.';
+
+    if (minimumWeeks) {
+      const minimumReadyDate = addWeeksToDate(dateOfBirth, minimumWeeks);
+      if (minimumReadyDate && readyDate < minimumReadyDate) {
+        return `This animal is too young to leave. Minimum age is ${minimumWeeks} weeks.`;
+      }
+    }
+
+    const actualAgeDays = Math.max(Math.floor((todayUtc.getTime() - birthDate.getTime()) / DAY_MS), 0);
+    if (ageDays !== null && Math.abs(actualAgeDays - ageDays) > 45) {
+      return 'The age does not match the date of birth. Please correct one of them.';
+    }
+  }
+
+  if (minimumDays && ageDays !== null && ageDays < minimumDays && (!birthDate || !readyDate)) {
+    return `Animals younger than ${minimumWeeks} weeks must include a date of birth and a legal ready-to-leave date.`;
+  }
+
+  return '';
 }

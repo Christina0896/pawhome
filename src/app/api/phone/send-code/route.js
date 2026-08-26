@@ -1,20 +1,63 @@
-import { getAuthenticatedUser } from '../../../../lib/apiHelpers';
+import { getAuthenticatedUser, getRequestIp } from '../../../../lib/apiHelpers';
 import { isTrueFlag } from '../../../../lib/booleanFlags';
 import {
   PHONE_VERIFICATION_CHALLENGE_TTL_MS,
+  cancelPhoneVerificationRequest,
   formatPhoneForVerification,
   maskPhoneForDisplay,
   startPhoneVerificationCall,
 } from '../../../../lib/phoneVerification';
 import { findVerifiedPhoneOwner } from '../../../../lib/phoneUniqueness';
+import { getIpHash, isScopedRateLimited } from '../../../../lib/rateLimiter';
 import { requireSameOrigin } from '../../../../lib/requireSameOrigin';
 import { getSupabaseAdminClient } from '../../../../lib/supabaseAdmin';
 
 export const dynamic = 'force-dynamic';
 
-const PHONE_CALL_COOLDOWN_MS = 60 * 1000;
-const PHONE_CALL_DAILY_LIMIT = 5;
-const PHONE_CALL_DAILY_WINDOW_MS = 24 * 60 * 60 * 1000;
+const PHONE_CALL_COOLDOWN_SECONDS = 60;
+const DAY_MS = 24 * 60 * 60 * 1000;
+const HOUR_MS = 60 * 60 * 1000;
+
+async function consumeVerificationLimits({ supabaseAdmin, userId, phone, ipHash }) {
+  const checks = [
+    {
+      bucket: 'phone-verify:user-day',
+      scopeKey: userId,
+      maxHits: 5,
+      windowMs: DAY_MS,
+    },
+    {
+      bucket: 'phone-verify:phone-day',
+      scopeKey: phone,
+      maxHits: 5,
+      windowMs: DAY_MS,
+    },
+    {
+      bucket: 'phone-verify:ip-hour',
+      scopeKey: ipHash,
+      maxHits: 10,
+      windowMs: HOUR_MS,
+    },
+    {
+      bucket: 'phone-verify:ip-day',
+      scopeKey: ipHash,
+      maxHits: 20,
+      windowMs: DAY_MS,
+    },
+  ];
+
+  for (const check of checks) {
+    const limited = await isScopedRateLimited({
+      supabaseAdmin,
+      ...check,
+      cleanupMs: 7 * DAY_MS,
+    });
+
+    if (limited) return check.bucket;
+  }
+
+  return '';
+}
 
 export async function POST(request) {
   const sameOriginError = requireSameOrigin(request);
@@ -27,10 +70,7 @@ export async function POST(request) {
   }
 
   const auth = await getAuthenticatedUser(supabaseAdmin, request);
-
-  if (auth.error) {
-    return auth.error;
-  }
+  if (auth.error) return auth.error;
 
   const { user } = auth;
   const emailVerified = Boolean(user.email_confirmed_at || user.confirmed_at);
@@ -87,108 +127,134 @@ export async function POST(request) {
       );
     }
 
+    const requestIp = getRequestIp(request);
+    const ipHash =
+      getIpHash(requestIp, 'PHONE_VERIFICATION_RATE_LIMIT_SECRET') ||
+      getIpHash(requestIp, 'COUNTER_RATE_LIMIT_SECRET');
+
+    if (!ipHash) {
+      return Response.json({ error: 'Phone verification rate limiting is not configured.' }, { status: 500 });
+    }
+
+    const limitedBucket = await consumeVerificationLimits({
+      supabaseAdmin,
+      userId: user.id,
+      phone: phoneToVerify,
+      ipHash,
+    });
+
+    if (limitedBucket) {
+      const message = limitedBucket.includes('hour')
+        ? 'Too many verification calls were requested from this connection. Please try again later.'
+        : 'Too many verification calls were requested. Please try again tomorrow.';
+
+      return Response.json({ error: message }, { status: 429 });
+    }
+
     const now = Date.now();
-    const cooldownCutoff = new Date(now - PHONE_CALL_COOLDOWN_MS).toISOString();
-    const dailyCutoff = new Date(now - PHONE_CALL_DAILY_WINDOW_MS).toISOString();
+    const expiresAt = new Date(now + PHONE_VERIFICATION_CHALLENGE_TTL_MS).toISOString();
 
-    const { data: recentChallenge, error: recentError } = await supabaseAdmin
-      .from('phone_verification_challenges')
-      .select('created_at')
-      .eq('user_id', user.id)
-      .eq('phone_e164', phoneToVerify)
-      .gte('created_at', cooldownCutoff)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    const { data: challengeId, error: reserveError } = await supabaseAdmin.rpc(
+      'reserve_phone_verification_challenge',
+      {
+        p_user_id: user.id,
+        p_phone_e164: phoneToVerify,
+        p_ip_hash: ipHash,
+        p_expires_at: expiresAt,
+        p_cooldown_seconds: PHONE_CALL_COOLDOWN_SECONDS,
+      },
+    );
 
-    if (recentError) {
-      console.error('Phone verification cooldown lookup failed:', {
-        message: recentError.message,
-        code: recentError.code,
+    if (reserveError) {
+      const reserveMessage = String(reserveError.message || '');
+
+      if (reserveMessage.includes('PHONE_VERIFICATION_COOLDOWN')) {
+        return Response.json(
+          { error: `Please wait ${PHONE_CALL_COOLDOWN_SECONDS} seconds before requesting another call.` },
+          { status: 429 },
+        );
+      }
+
+      console.error('Phone verification reservation failed:', {
+        message: reserveError.message,
+        code: reserveError.code,
       });
 
       return Response.json(
-        { error: 'Phone verification storage is not configured. Run the Supabase phone verification SQL first.' },
+        { error: 'Phone verification storage is not configured. Run the latest Supabase migration first.' },
         { status: 500 },
       );
     }
 
-    if (recentChallenge) {
-      const elapsedMs = now - new Date(recentChallenge.created_at).getTime();
-      const retryAfterSeconds = Math.max(Math.ceil((PHONE_CALL_COOLDOWN_MS - elapsedMs) / 1000), 1);
+    let verificationRequest;
 
-      return Response.json(
-        { error: `Please wait ${retryAfterSeconds} seconds before requesting another call.`, retryAfterSeconds },
-        { status: 429 },
-      );
+    try {
+      verificationRequest = await startPhoneVerificationCall(phoneToVerify, String(challengeId));
+    } catch (providerError) {
+      await supabaseAdmin
+        .from('phone_verification_challenges')
+        .update({
+          status: 'failed',
+          provider_status: 'request_failed',
+          provider_details: {
+            message: providerError?.message || 'Provider request failed.',
+            code: providerError?.code || null,
+          },
+          finalized_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', challengeId);
+
+      throw providerError;
     }
-
-    const { count: dailyCount, error: dailyCountError } = await supabaseAdmin
-      .from('phone_verification_challenges')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', user.id)
-      .eq('phone_e164', phoneToVerify)
-      .gte('created_at', dailyCutoff);
-
-    if (dailyCountError) {
-      console.error('Phone verification daily limit lookup failed:', {
-        message: dailyCountError.message,
-        code: dailyCountError.code,
-      });
-
-      return Response.json({ error: 'Could not check the verification call limit.' }, { status: 500 });
-    }
-
-    if ((dailyCount || 0) >= PHONE_CALL_DAILY_LIMIT) {
-      return Response.json(
-        { error: 'Too many verification calls were requested for this number. Please try again tomorrow.' },
-        { status: 429 },
-      );
-    }
-
-    const updatedAt = new Date(now).toISOString();
-    const { error: cancelError } = await supabaseAdmin
-      .from('phone_verification_challenges')
-      .update({ status: 'cancelled', updated_at: updatedAt })
-      .eq('user_id', user.id)
-      .in('status', ['pending', 'provider_verified']);
-
-    if (cancelError) {
-      console.error('Old phone verification challenge cleanup failed:', {
-        message: cancelError.message,
-        code: cancelError.code,
-      });
-
-      return Response.json({ error: 'Could not prepare a new verification call.' }, { status: 500 });
-    }
-
-    const verificationRequest = await startPhoneVerificationCall(phoneToVerify, user.id);
 
     if (!verificationRequest?.request_id) {
+      await supabaseAdmin
+        .from('phone_verification_challenges')
+        .update({
+          status: 'failed',
+          provider_status: 'missing_request_id',
+          provider_details: verificationRequest || {},
+          finalized_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', challengeId);
+
       return Response.json({ error: 'Verification provider did not return a request ID.' }, { status: 500 });
     }
 
-    const expiresAt = new Date(now + PHONE_VERIFICATION_CHALLENGE_TTL_MS).toISOString();
-    const { error: challengeError } = await supabaseAdmin.from('phone_verification_challenges').insert({
-      user_id: user.id,
-      phone_e164: phoneToVerify,
-      provider: 'vonage',
-      provider_request_id: verificationRequest.request_id,
-      channel: 'voice',
-      status: 'pending',
-      attempt_count: 0,
-      expires_at: expiresAt,
-      updated_at: updatedAt,
-    });
+    const { error: challengeUpdateError } = await supabaseAdmin
+      .from('phone_verification_challenges')
+      .update({
+        provider_request_id: verificationRequest.request_id,
+        status: 'pending',
+        provider_status: 'accepted',
+        provider_details: verificationRequest,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', challengeId)
+      .eq('status', 'creating');
 
-    if (challengeError) {
-      console.error('Phone verification challenge insert failed:', {
-        message: challengeError.message,
-        code: challengeError.code,
+    if (challengeUpdateError) {
+      console.error('Phone verification challenge finalization failed:', {
+        message: challengeUpdateError.message,
+        code: challengeUpdateError.code,
       });
 
+      await cancelPhoneVerificationRequest(verificationRequest.request_id).catch(() => {});
+
+      await supabaseAdmin
+        .from('phone_verification_challenges')
+        .update({
+          status: 'failed',
+          provider_status: 'storage_failed',
+          finalized_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', challengeId);
+
       return Response.json(
-        { error: 'The call was started, but PawHome could not save the verification request. Please wait one minute and try again.' },
+        { error: 'The call was cancelled because PawHome could not save the verification request. Please try again.' },
         { status: 500 },
       );
     }

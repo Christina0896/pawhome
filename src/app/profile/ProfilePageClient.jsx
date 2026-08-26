@@ -60,6 +60,7 @@ export default function ProfilePageClient() {
   const [busy, setBusy] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [callStarted, setCallStarted] = useState(false);
+  const [callStatus, setCallStatus] = useState('');
   const [phoneCode, setPhoneCode] = useState('');
 
   useEffect(() => {
@@ -98,6 +99,58 @@ export default function ProfilePageClient() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!callStarted) return undefined;
+
+    let active = true;
+    let checks = 0;
+
+    const checkCallStatus = async () => {
+      checks += 1;
+
+      try {
+        const token = await getVerifiedAccessToken({ openLogin: false });
+        if (!token || !active) return;
+
+        const { response, data } = await fetchJson('/api/phone/status', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (!active || !response.ok) return;
+
+        if (data.status === 'pending' || data.status === 'creating') {
+          setCallStatus(
+            data.providerStatus === 'accepted'
+              ? 'Vonage accepted the request. Waiting for the call to connect.'
+              : 'Preparing the automated call...',
+          );
+        }
+
+        if (data.terminal && data.status !== 'completed') {
+          setCallStarted(false);
+          setCallStatus('');
+          setPhoneCode('');
+          setMessageType('error');
+          setMessage(data.message || 'The automated call failed. Request a new call.');
+        }
+      } catch (error) {
+        console.warn('Phone verification status check failed:', error);
+      }
+
+      if (checks >= 30 && active) {
+        setCallStatus('The call is taking longer than expected. Check your phone, then request another call if needed.');
+      }
+    };
+
+    checkCallStatus();
+    const interval = window.setInterval(checkCallStatus, 4000);
+
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, [callStarted]);
+
   const fullName = `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'PawHome User';
   const emailVerified = Boolean(user?.email_confirmed_at || user?.confirmed_at);
   const phoneVerified = Boolean(profile.phone_verified);
@@ -126,6 +179,7 @@ export default function ProfilePageClient() {
 
     if (name === 'phone_code' || name === 'phone_number') {
       setCallStarted(false);
+      setCallStatus('');
       setPhoneCode('');
     }
   };
@@ -234,6 +288,7 @@ export default function ProfilePageClient() {
 
       updateProfileState(data.profile);
       setCallStarted(false);
+      setCallStatus('');
       setPhoneCode('');
 
       if (data.profile?.phone_number && !data.profile?.phone_verified) {
@@ -261,6 +316,7 @@ export default function ProfilePageClient() {
 
     setBusy(true);
     setMessage('');
+    setCallStatus('Preparing the automated call...');
 
     try {
       const token = await getVerifiedAccessToken();
@@ -279,6 +335,7 @@ export default function ProfilePageClient() {
 
       if (data.alreadyVerified) {
         updateProfileState({ ...profile, phone_verified: true });
+        setCallStatus('');
         showMessage('Your phone number is already verified.', 'success');
         return;
       }
@@ -286,6 +343,7 @@ export default function ProfilePageClient() {
       setCallStarted(true);
       showMessage(`An automated call is being placed to ${data.phone || 'your saved phone number'}.`, 'success');
     } catch (error) {
+      setCallStatus('');
       showMessage(error.message || 'Could not start the verification call.');
     } finally {
       setBusy(false);
@@ -318,6 +376,7 @@ export default function ProfilePageClient() {
 
       updateProfileState(data.profile || { ...profile, phone_verified: true });
       setCallStarted(false);
+      setCallStatus('');
       setPhoneCode('');
       showMessage('Phone number verified. You can now post ads.', 'success');
     } catch (error) {
@@ -425,6 +484,9 @@ export default function ProfilePageClient() {
                   <option value="Private Seller">Private Seller</option>
                   <option value="Breeder">Breeder</option>
                 </select>
+                <span className="mt-2 block text-xs leading-5 text-(--muted-green-text)">
+                  Account type is self-declared. Public breeder or rescue verification is controlled separately by PawHome.
+                </span>
               </label>
 
               <div className="rounded-2xl bg-(--background) p-4">
@@ -494,6 +556,12 @@ export default function ProfilePageClient() {
                       <p className="mt-2 text-xs font-semibold text-orange-700">Save Settings before requesting the call.</p>
                     )}
 
+                    {callStatus && (
+                      <p className="mt-2 text-xs font-semibold leading-5 text-(--muted-green-text)" aria-live="polite">
+                        {callStatus}
+                      </p>
+                    )}
+
                     {callStarted && (
                       <div className="mt-3 grid gap-2">
                         <input
@@ -530,7 +598,12 @@ export default function ProfilePageClient() {
               </label>
 
               {message && (
-                <p className={`rounded-xl px-4 py-3 text-sm font-bold ${messageType === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                <p
+                  aria-live="polite"
+                  className={`rounded-xl px-4 py-3 text-sm font-bold ${
+                    messageType === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+                  }`}
+                >
                   {message}
                 </p>
               )}

@@ -9,9 +9,7 @@ function getVonageConfig() {
   const apiSecret = process.env.VONAGE_API_SECRET;
   const brandName = process.env.VONAGE_BRAND_NAME || 'PawHome';
 
-  if (!apiKey || !apiSecret || !brandName) {
-    return null;
-  }
+  if (!apiKey || !apiSecret || !brandName) return null;
 
   return { apiKey, apiSecret, brandName: brandName.slice(0, 18) };
 }
@@ -24,9 +22,7 @@ export function formatPhoneForVerification(phoneCode, phoneNumber) {
   const rawPhoneNumber = String(phoneNumber || '').trim();
   const codeDigits = cleanDigits(phoneCode);
 
-  if (!rawPhoneNumber || !codeDigits) {
-    return null;
-  }
+  if (!rawPhoneNumber || !codeDigits) return null;
 
   if (rawPhoneNumber.startsWith('+')) {
     const fullDigits = cleanDigits(rawPhoneNumber);
@@ -40,9 +36,7 @@ export function formatPhoneForVerification(phoneCode, phoneNumber) {
     return localNumber.length >= 8 && localNumber.length <= 15 ? `+${localNumber}` : null;
   }
 
-  while (localNumber.startsWith('0')) {
-    localNumber = localNumber.slice(1);
-  }
+  while (localNumber.startsWith('0')) localNumber = localNumber.slice(1);
 
   const e164Number = `+${codeDigits}${localNumber}`;
   const totalDigits = cleanDigits(e164Number).length;
@@ -57,14 +51,12 @@ function formatPhoneForVonage(phoneNumber) {
 export function maskPhoneForDisplay(phoneNumber) {
   const value = String(phoneNumber || '');
 
-  if (value.length <= 7) {
-    return value;
-  }
+  if (value.length <= 7) return value;
 
   return `${value.slice(0, 4)}••••${value.slice(-3)}`;
 }
 
-async function vonageVerifyRequest(path, bodyParams) {
+async function vonageVerifyRequest(path, { method = 'POST', body } = {}) {
   const config = getVonageConfig();
 
   if (!config) {
@@ -74,15 +66,18 @@ async function vonageVerifyRequest(path, bodyParams) {
   }
 
   const auth = Buffer.from(`${config.apiKey}:${config.apiSecret}`).toString('base64');
+  const headers = {
+    Authorization: `Basic ${auth}`,
+    'Content-Type': 'application/json',
+  };
 
   const response = await fetch(`${VONAGE_VERIFY_BASE_URL}${path}`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Basic ${auth}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(bodyParams),
+    method,
+    headers,
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
+
+  if (response.status === 204) return {};
 
   const result = await response.json().catch(() => ({}));
 
@@ -90,6 +85,7 @@ async function vonageVerifyRequest(path, bodyParams) {
     const error = new Error(result?.title || result?.detail || result?.message || 'Phone verification request failed.');
     error.status = response.status;
     error.code = result?.type || result?.error_code;
+    error.details = result;
     throw error;
   }
 
@@ -110,6 +106,7 @@ export async function startPhoneVerificationCall(to, clientRef = '') {
     brand: config.brandName,
     locale: 'en-gb',
     code_length: 4,
+    channel_timeout: 120,
     workflow: [
       {
         channel: 'voice',
@@ -121,7 +118,7 @@ export async function startPhoneVerificationCall(to, clientRef = '') {
   const safeClientRef = String(clientRef || '').trim().slice(0, 40);
   if (safeClientRef) requestBody.client_ref = safeClientRef;
 
-  return vonageVerifyRequest('/', requestBody);
+  return vonageVerifyRequest('/', { body: requestBody });
 }
 
 export async function checkPhoneVerificationCode(requestId, code) {
@@ -134,6 +131,15 @@ export async function checkPhoneVerificationCode(requestId, code) {
   }
 
   return vonageVerifyRequest(`/${encodeURIComponent(safeRequestId)}`, {
-    code,
+    body: { code },
+  });
+}
+
+export async function cancelPhoneVerificationRequest(requestId) {
+  const safeRequestId = String(requestId || '').trim();
+  if (!safeRequestId || safeRequestId.startsWith('creating:')) return;
+
+  return vonageVerifyRequest(`/${encodeURIComponent(safeRequestId)}`, {
+    method: 'DELETE',
   });
 }

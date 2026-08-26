@@ -1,0 +1,318 @@
+-- PawHome deep bug-fix migration.
+-- Run this file in the Supabase SQL Editor before deploying the matching application changes.
+
+begin;
+
+-- -----------------------------------------------------------------------------
+-- Seller verification: account_type remains self-declared, while these fields are
+-- controlled only by the service role/admin API and are the source of public trust.
+-- -----------------------------------------------------------------------------
+alter table public.profiles
+  add column if not exists seller_verification_status text not null default 'unverified',
+  add column if not exists seller_verified_type text,
+  add column if not exists seller_verified_at timestamptz,
+  add column if not exists seller_verified_by uuid references auth.users(id) on delete set null,
+  add column if not exists verified_phone_e164 text;
+
+alter table public.profiles
+  drop constraint if exists profiles_seller_verification_status_check;
+
+alter table public.profiles
+  add constraint profiles_seller_verification_status_check
+  check (seller_verification_status in ('unverified', 'verified', 'rejected'));
+
+alter table public.profiles
+  drop constraint if exists profiles_seller_verified_type_check;
+
+alter table public.profiles
+  add constraint profiles_seller_verified_type_check
+  check (seller_verified_type is null or seller_verified_type in ('Registered Breeder', 'Shelter / Rescue'));
+
+create unique index if not exists unique_verified_phone_e164
+  on public.profiles (verified_phone_e164)
+  where verified_phone_e164 is not null;
+
+-- -----------------------------------------------------------------------------
+-- Listing trust snapshots, idempotent submissions, and fields already present in
+-- the create form but previously discarded.
+-- -----------------------------------------------------------------------------
+alter table public.listings
+  add column if not exists seller_verified boolean not null default false,
+  add column if not exists seller_verified_at timestamptz,
+  add column if not exists submission_key uuid,
+  add column if not exists proven_stud text,
+  add column if not exists stud_terms text;
+
+alter table public.listings
+  drop constraint if exists listings_proven_stud_check;
+
+alter table public.listings
+  add constraint listings_proven_stud_check
+  check (proven_stud is null or proven_stud in ('Yes', 'No'));
+
+create unique index if not exists unique_listing_submission_per_user
+  on public.listings (user_id, submission_key)
+  where submission_key is not null;
+
+-- -----------------------------------------------------------------------------
+-- Notification outbox. A listing/event pair can be delivered at most once.
+-- -----------------------------------------------------------------------------
+create table if not exists public.listing_notification_outbox (
+  id uuid primary key default gen_random_uuid(),
+  listing_id bigint not null references public.listings(id) on delete cascade,
+  event_type text not null default 'new_listing' check (event_type in ('new_listing', 'listing_review')),
+  status text not null default 'pending' check (status in ('pending', 'sending', 'sent', 'failed')),
+  attempts integer not null default 0 check (attempts >= 0),
+  last_error text,
+  sent_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (listing_id, event_type)
+);
+
+create index if not exists listing_notification_outbox_pending_idx
+  on public.listing_notification_outbox (status, created_at);
+
+alter table public.listing_notification_outbox enable row level security;
+revoke all on table public.listing_notification_outbox from anon, authenticated;
+grant all on table public.listing_notification_outbox to service_role;
+
+-- Delete all database rows belonging to one listing inside a single transaction.
+-- Storage objects are removed by the application only after this function commits.
+create or replace function public.delete_listing_with_dependencies(
+  p_listing_id bigint,
+  p_owner_id uuid default null
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_owner_id uuid;
+begin
+  select user_id
+  into v_owner_id
+  from public.listings
+  where id = p_listing_id
+  for update;
+
+  if not found then
+    return false;
+  end if;
+
+  if p_owner_id is not null and v_owner_id <> p_owner_id then
+    return false;
+  end if;
+
+  delete from public.favorites where listing_id = p_listing_id;
+  delete from public.listing_reports where listing_id = p_listing_id;
+  delete from public.listing_notification_outbox where listing_id = p_listing_id;
+  delete from public.listing_photos where listing_id = p_listing_id;
+  delete from public.listings where id = p_listing_id;
+
+  return true;
+end;
+$$;
+
+revoke all on function public.delete_listing_with_dependencies(bigint, uuid) from public, anon, authenticated;
+grant execute on function public.delete_listing_with_dependencies(bigint, uuid) to service_role;
+
+-- -----------------------------------------------------------------------------
+-- Persistent account-deletion cleanup jobs. This table intentionally has no Auth
+-- foreign key because the Auth record is removed before background cleanup ends.
+-- -----------------------------------------------------------------------------
+create table if not exists public.account_deletion_jobs (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null,
+  user_email text,
+  listing_photo_paths text[] not null default '{}',
+  avatar_path text,
+  status text not null default 'pending' check (status in ('pending', 'failed', 'completed')),
+  last_error text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  completed_at timestamptz
+);
+
+create index if not exists account_deletion_jobs_status_idx
+  on public.account_deletion_jobs (status, created_at);
+
+alter table public.account_deletion_jobs enable row level security;
+revoke all on table public.account_deletion_jobs from anon, authenticated;
+grant all on table public.account_deletion_jobs to service_role;
+
+-- -----------------------------------------------------------------------------
+-- Generic atomic rate limits. Each bucket/scope pair is serialized with an
+-- advisory lock, so concurrent requests cannot all pass a count-then-insert race.
+-- -----------------------------------------------------------------------------
+create table if not exists public.api_rate_limits (
+  id bigint generated by default as identity primary key,
+  bucket text not null,
+  scope_key text not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists api_rate_limits_lookup_idx
+  on public.api_rate_limits (bucket, scope_key, created_at desc);
+
+alter table public.api_rate_limits enable row level security;
+revoke all on table public.api_rate_limits from anon, authenticated;
+grant all on table public.api_rate_limits to service_role;
+
+create or replace function public.consume_api_rate_limit(
+  p_bucket text,
+  p_scope_key text,
+  p_max_hits integer,
+  p_window_seconds integer,
+  p_cleanup_seconds integer default 86400
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_count integer;
+  v_now timestamptz := now();
+begin
+  if coalesce(trim(p_bucket), '') = '' or coalesce(trim(p_scope_key), '') = '' then
+    raise exception 'invalid rate-limit scope';
+  end if;
+
+  if p_max_hits < 1 or p_window_seconds < 1 then
+    raise exception 'invalid rate-limit configuration';
+  end if;
+
+  perform pg_advisory_xact_lock(hashtextextended(p_bucket || ':' || p_scope_key, 0));
+
+  delete from public.api_rate_limits
+  where bucket = p_bucket
+    and scope_key = p_scope_key
+    and created_at < v_now - make_interval(secs => greatest(p_cleanup_seconds, p_window_seconds));
+
+  select count(*)
+  into v_count
+  from public.api_rate_limits
+  where bucket = p_bucket
+    and scope_key = p_scope_key
+    and created_at >= v_now - make_interval(secs => p_window_seconds);
+
+  if v_count >= p_max_hits then
+    return true;
+  end if;
+
+  insert into public.api_rate_limits (bucket, scope_key, created_at)
+  values (p_bucket, p_scope_key, v_now);
+
+  return false;
+end;
+$$;
+
+revoke all on function public.consume_api_rate_limit(text, text, integer, integer, integer) from public, anon, authenticated;
+grant execute on function public.consume_api_rate_limit(text, text, integer, integer, integer) to service_role;
+
+-- -----------------------------------------------------------------------------
+-- Voice verification lifecycle and atomic call reservation.
+-- -----------------------------------------------------------------------------
+alter table public.phone_verification_challenges
+  add column if not exists ip_hash text,
+  add column if not exists provider_status text,
+  add column if not exists provider_details jsonb,
+  add column if not exists finalized_at timestamptz;
+
+alter table public.phone_verification_challenges
+  drop constraint if exists phone_verification_challenges_status_check;
+
+alter table public.phone_verification_challenges
+  add constraint phone_verification_challenges_status_check
+  check (status in (
+    'creating', 'pending', 'provider_verified', 'completed', 'failed',
+    'expired', 'cancelled', 'rejected', 'user_rejected'
+  ));
+
+drop index if exists public.one_active_phone_verification_per_user;
+
+create index if not exists phone_verification_active_user_idx
+  on public.phone_verification_challenges (user_id, created_at desc)
+  where status in ('creating', 'pending', 'provider_verified');
+
+create or replace function public.reserve_phone_verification_challenge(
+  p_user_id uuid,
+  p_phone_e164 text,
+  p_ip_hash text,
+  p_expires_at timestamptz,
+  p_cooldown_seconds integer default 60
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_id uuid := gen_random_uuid();
+  v_now timestamptz := now();
+  v_recent timestamptz;
+begin
+  if p_user_id is null or coalesce(trim(p_phone_e164), '') = '' then
+    raise exception 'invalid phone challenge';
+  end if;
+
+  perform pg_advisory_xact_lock(hashtextextended('phone:' || p_phone_e164, 0));
+  perform pg_advisory_xact_lock(hashtextextended('user:' || p_user_id::text, 0));
+
+  update public.phone_verification_challenges
+  set status = 'expired', updated_at = v_now, finalized_at = coalesce(finalized_at, v_now)
+  where user_id = p_user_id
+    and status in ('creating', 'pending', 'provider_verified')
+    and expires_at <= v_now;
+
+  select max(created_at)
+  into v_recent
+  from public.phone_verification_challenges
+  where user_id = p_user_id
+    and phone_e164 = p_phone_e164
+    and created_at >= v_now - make_interval(secs => p_cooldown_seconds);
+
+  if v_recent is not null then
+    raise exception using errcode = 'P0001', message = 'PHONE_VERIFICATION_COOLDOWN';
+  end if;
+
+  insert into public.phone_verification_challenges (
+    id,
+    user_id,
+    phone_e164,
+    provider,
+    provider_request_id,
+    channel,
+    status,
+    attempt_count,
+    ip_hash,
+    provider_status,
+    expires_at,
+    created_at,
+    updated_at
+  ) values (
+    v_id,
+    p_user_id,
+    p_phone_e164,
+    'vonage',
+    'creating:' || v_id::text,
+    'voice',
+    'creating',
+    0,
+    p_ip_hash,
+    'creating',
+    p_expires_at,
+    v_now,
+    v_now
+  );
+
+  return v_id;
+end;
+$$;
+
+revoke all on function public.reserve_phone_verification_challenge(uuid, text, text, timestamptz, integer) from public, anon, authenticated;
+grant execute on function public.reserve_phone_verification_challenge(uuid, text, text, timestamptz, integer) to service_role;
+
+commit;

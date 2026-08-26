@@ -10,10 +10,7 @@ const RATE_LIMIT_MAX_VIEWS = 1;
 
 export async function POST(request, { params }) {
   const sameOriginError = requireSameOrigin(request);
-
-  if (sameOriginError) {
-    return sameOriginError;
-  }
+  if (sameOriginError) return sameOriginError;
 
   const supabaseAdmin = getSupabaseAdminClient();
 
@@ -24,7 +21,7 @@ export async function POST(request, { params }) {
   const { id } = await params;
   const listingId = Number(id);
 
-  if (!listingId) {
+  if (!Number.isInteger(listingId) || listingId < 1) {
     return Response.json({ error: 'Missing listing ID.' }, { status: 400 });
   }
 
@@ -35,6 +32,26 @@ export async function POST(request, { params }) {
   }
 
   try {
+    const { data: listing, error: listingError } = await supabaseAdmin
+      .from('listings')
+      .select('id')
+      .eq('id', listingId)
+      .eq('status', 'approved')
+      .maybeSingle();
+
+    if (listingError) {
+      console.error('View listing lookup failed:', {
+        message: listingError.message,
+        code: listingError.code,
+      });
+
+      return Response.json({ error: 'Could not track view.' }, { status: 500 });
+    }
+
+    if (!listing) {
+      return Response.json({ error: 'Listing not found.' }, { status: 404 });
+    }
+
     const limited = await isCounterRateLimited({
       supabaseAdmin,
       counterType: 'view',
