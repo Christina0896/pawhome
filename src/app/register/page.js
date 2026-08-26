@@ -192,7 +192,6 @@ export default function RegisterPage() {
                 <option value="Buyer">Buyer</option>
                 <option value="Private Seller">Private Seller</option>
                 <option value="Breeder">Breeder</option>
-                <option value="Shelter / Rescue">Shelter / Rescue</option>
               </select>
             </div>
 
