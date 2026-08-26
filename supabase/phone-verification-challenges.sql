@@ -20,6 +20,12 @@ create unique index if not exists one_active_phone_verification_per_user
   on public.phone_verification_challenges (user_id)
   where status in ('pending', 'provider_verified');
 
+-- A phone can have only one active verification challenge at a time. This
+-- prevents two accounts from racing to start simultaneous calls to one number.
+create unique index if not exists one_active_phone_verification_per_phone
+  on public.phone_verification_challenges (phone_e164)
+  where status in ('pending', 'provider_verified');
+
 create index if not exists phone_verification_user_created_idx
   on public.phone_verification_challenges (user_id, created_at desc);
 
