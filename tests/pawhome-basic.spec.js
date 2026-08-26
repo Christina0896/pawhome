@@ -11,8 +11,8 @@ test('header links are visible', async ({ page }) => {
   await page.goto('/');
 
   await expect(page.getByText('Shelters').first()).toBeVisible();
-  await expect(page.getByText('Buying Safely').first()).toBeVisible();
   await expect(page.getByText('Breed Guide').first()).toBeVisible();
+  await expect(page.getByText('About Us').first()).toBeVisible();
   await expect(page.getByText(/Contact|Contact Us/i).first()).toBeVisible();
 });
 
@@ -35,5 +35,5 @@ test('logged out users are blocked from the post ad form', async ({ page }) => {
 
   await expect(page.getByRole('heading', { name: 'Log in to post an ad' })).toBeVisible({ timeout: 10000 });
   await expect(page.getByRole('button', { name: 'Log In' })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Register' })).toBeVisible();
+  await expect(page.getByRole('main').getByRole('link', { name: 'Register' })).toBeVisible();
 });
