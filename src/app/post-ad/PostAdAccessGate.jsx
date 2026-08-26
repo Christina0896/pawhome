@@ -6,6 +6,8 @@ import Header from '../../components/header';
 import { getVerifiedAccessToken } from '../../lib/authTokens';
 import PostAdPageClient from './PostAdPageClient';
 
+const SELLER_ACCOUNT_TYPES = ['Private Seller', 'Breeder'];
+
 function GateMessage({
   title,
   message,
@@ -92,6 +94,11 @@ export default function PostAdAccessGate() {
           return;
         }
 
+        if (!SELLER_ACCOUNT_TYPES.includes(result.profile?.account_type)) {
+          setStatus({ loading: false, allowed: false, reason: 'buyer_account' });
+          return;
+        }
+
         if (!result.profile?.phone_number) {
           setStatus({ loading: false, allowed: false, reason: 'phone_missing' });
           return;
@@ -150,6 +157,17 @@ export default function PostAdAccessGate() {
           primaryLabel="Back to PawHome"
           secondaryHref="/register"
           secondaryLabel="Register another account"
+        />
+      );
+    }
+
+    if (status.reason === 'buyer_account') {
+      return (
+        <GateMessage
+          title="Seller account required"
+          message="Buyer accounts cannot post ads. Change your account type to Private Seller or Breeder in your profile before continuing."
+          primaryHref="/profile"
+          primaryLabel="Change account type"
         />
       );
     }
