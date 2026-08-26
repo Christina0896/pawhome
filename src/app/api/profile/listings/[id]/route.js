@@ -13,7 +13,7 @@ import {
   cleanText,
   getImageExtension,
   getMinimumLegalAgeWeeks,
-  normalizeSellerType,
+  getSellerTypeFromAccountType,
   validateImageFile,
 } from '../../../../../lib/listingValidation';
 
@@ -71,6 +71,25 @@ export async function PATCH(request, { params }) {
       return Response.json({ error: 'Not allowed.' }, { status: 403 });
     }
 
+    const { data: profileData, error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .select('account_type')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (profileError || !profileData) {
+      return Response.json({ error: 'Your profile could not be loaded.' }, { status: 400 });
+    }
+
+    const sellerType = getSellerTypeFromAccountType(profileData.account_type);
+
+    if (!sellerType) {
+      return Response.json(
+        { error: 'Buyer accounts cannot edit seller listings. Change your account type to Private Seller or Breeder first.' },
+        { status: 403 },
+      );
+    }
+
     const body = await request.formData();
 
     const title = cleanText(body.get('title'), 80);
@@ -81,7 +100,6 @@ export async function PATCH(request, { params }) {
     const sex = cleanText(body.get('sex'), 40);
     const county = cleanText(body.get('county'), 80);
     const city = cleanText(body.get('city'), 80);
-    const sellerType = normalizeSellerType(body.get('seller_type'));
     const description = cleanText(body.get('description'), 800);
 
     const priceRaw = cleanText(body.get('price'), 20);
@@ -151,10 +169,6 @@ export async function PATCH(request, { params }) {
 
     if (!county) {
       return Response.json({ error: 'Please select a county.' }, { status: 400 });
-    }
-
-    if (!sellerType) {
-      return Response.json({ error: 'Please select a valid seller type.' }, { status: 400 });
     }
 
     if (animalType === 'Dogs' && !ALLOWED_YES_NO.includes(microchipped)) {
