@@ -140,6 +140,20 @@ export function getImageExtension(file) {
   return IMAGE_EXTENSION_BY_TYPE[file?.type] || '';
 }
 
+export function getSellerTypeFromAccountType(accountType) {
+  const cleaned = cleanText(accountType, 80);
+
+  if (cleaned === 'Private Seller') {
+    return 'Private Seller';
+  }
+
+  if (cleaned === 'Breeder') {
+    return 'Registered Breeder';
+  }
+
+  return '';
+}
+
 export function normalizeSellerType(value) {
   const cleaned = cleanText(value, 80);
 
