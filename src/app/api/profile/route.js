@@ -1,5 +1,6 @@
 import { getAuthenticatedUser } from '../../../lib/apiHelpers';
 import { isTrueFlag, normalizePhoneVerified } from '../../../lib/booleanFlags';
+import { getSellerTypeFromAccountType } from '../../../lib/listingValidation';
 import { getSupabaseAdminClient } from '../../../lib/supabaseAdmin';
 import { requireSameOrigin } from '../../../lib/requireSameOrigin';
 import { findProfileWithPhone } from '../../../lib/profilePhoneChecks';
@@ -173,14 +174,19 @@ export async function PATCH(request) {
 
     const sellerName = cleanText(`${firstName} ${lastName}`) || 'Seller';
     const contactPhone = cleanPhone(`${phoneCode} ${phoneNumber}`);
+    const sellerType = getSellerTypeFromAccountType(accountType);
+    const listingUpdate = {
+      seller_name: sellerName,
+      contact_phone: contactPhone,
+    };
+
+    if (sellerType) {
+      listingUpdate.seller_type = sellerType;
+    }
 
     const { error: listingSyncError } = await supabaseAdmin
       .from('listings')
-      .update({
-        seller_name: sellerName,
-        seller_type: accountType,
-        contact_phone: contactPhone,
-      })
+      .update(listingUpdate)
       .eq('user_id', user.id);
 
     if (listingSyncError) {
