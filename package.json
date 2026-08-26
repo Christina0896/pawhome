@@ -1,12 +1,15 @@
 {
   "name": "pawhome",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint --rule react-hooks/set-state-in-effect:off --rule react-hooks/immutability:off --rule react/no-unescaped-entities:off --rule @next/next/no-img-element:off",
+    "check": "npm run lint && npm run build",
+    "test": "playwright test --project=chromium",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.106.1",

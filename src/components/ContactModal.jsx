@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { CloseIcon } from './Icons';
+import { CloseIcon, ArrowIcon } from './Icons';
 
 const contactOptions = [
   {
@@ -133,9 +133,9 @@ export default function ContactModal({ onClose }) {
                 setType('');
                 setStatusMessage('');
               }}
-              className="text-sm font-semibold text-(--primary-green) hover:text-(--primary-orange) cursor-pointer"
+              className="flex gap-2 text-sm font-semibold text-(--primary-green) hover:text-(--primary-orange) cursor-pointer"
             >
-              ← Back
+              <ArrowIcon className="rotate-180" /> Back
             </button>
 
             <h3 className="text-lg font-bold text-(--secondary-green)">{selectedOption?.title}</h3>

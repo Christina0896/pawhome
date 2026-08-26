@@ -1,252 +1,209 @@
-export const ArrowIcon = () => (
-  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" aria-hidden="true">
-    <path d="M5 12h14M13 6l6 6-6 6" stroke="#5f6f64" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
+const defaultStroke = '#5f6f64';
+
+function LineIcon({ className = 'h-4 w-4', children, stroke = defaultStroke, viewBox = '0 0 24 24' }) {
+  return (
+    <svg
+      viewBox={viewBox}
+      className={className}
+      fill="none"
+      stroke={stroke}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {children}
+    </svg>
+  );
+}
+
+export const ArrowIcon = ({ className = 'h-4 w-4' }) => (
+  <LineIcon className={className}>
+    <path d="M5 12h14M13 6l6 6-6 6" />
+  </LineIcon>
 );
 
-export const AgeIcon = () => (
-  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="#5f6f64" strokeWidth="2">
+export const AgeIcon = ({ className = 'h-4 w-4' }) => (
+  <LineIcon className={className}>
     <circle cx="12" cy="12" r="8" />
-    <path d="M12 8v5l3 2" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
+    <path d="M12 8v5l3 2" />
+  </LineIcon>
 );
 
-export const ChipIcon = () => (
-  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="#5f6f64" strokeWidth="2">
+export const ChipIcon = ({ className = 'h-4 w-4' }) => (
+  <LineIcon className={className}>
     <rect x="7" y="7" width="10" height="10" rx="2" />
-    <path d="M4 9h3M4 15h3M17 9h3M17 15h3M9 4v3M15 4v3M9 17v3M15 17v3" strokeLinecap="round" />
-  </svg>
+    <path d="M4 9h3M4 15h3M17 9h3M17 15h3M9 4v3M15 4v3M9 17v3M15 17v3" />
+  </LineIcon>
 );
 
-export const WormIcon = () => (
-  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="#5f6f64" strokeWidth="2">
-    <path d="M5 14c2.5-6 7.5 5 14-3" strokeLinecap="round" strokeLinejoin="round" />
-    <circle cx="18" cy="10" r="1" fill="#5f6f64" />
-  </svg>
+export const WormIcon = ({ className = 'h-4 w-4' }) => (
+  <LineIcon className={className}>
+    <path d="M5 14c2.5-6 7.5 5 14-3" />
+    <circle cx="18" cy="10" r="1" fill="currentColor" stroke="none" />
+  </LineIcon>
 );
 
-export const VaccineIcon = () => (
-  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="#5f6f64" strokeWidth="2">
-    <path d="M15 4l5 5M14 5l5 5M5 19l7-7M8 16l-3 3M12 12l5-5" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M10 8l6 6" strokeLinecap="round" />
-  </svg>
+export const VaccineIcon = ({ className = 'h-4 w-4' }) => (
+  <LineIcon className={className}>
+    <path d="M15 4l5 5M14 5l5 5M5 19l7-7M8 16l-3 3M12 12l5-5" />
+    <path d="M10 8l6 6" />
+  </LineIcon>
 );
 
-export const VetIcon = () => (
-  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="#5f6f64" strokeWidth="2">
-    <path d="M12 6v12M6 12h12" strokeLinecap="round" />
+export const VetIcon = ({ className = 'h-4 w-4' }) => (
+  <LineIcon className={className}>
+    <path d="M12 6v12M6 12h12" />
     <circle cx="12" cy="12" r="8" />
-  </svg>
+  </LineIcon>
 );
 
-export const NeuteredIcon = () => (
-  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="#5f6f64" strokeWidth="2">
+export const NeuteredIcon = ({ className = 'h-4 w-4' }) => (
+  <LineIcon className={className}>
     <circle cx="8" cy="8" r="3" />
     <circle cx="16" cy="16" r="3" />
-    <path d="M10.2 10.2l3.6 3.6M15 6h4v4M19 6l-5 5" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
+    <path d="M10.2 10.2l3.6 3.6M15 6h4v4M19 6l-5 5" />
+  </LineIcon>
 );
 
-export const HealthIcon = () => (
-  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="#5f6f64" strokeWidth="2">
+export const HealthIcon = ({ className = 'h-4 w-4' }) => (
+  <LineIcon className={className}>
     <path d="M12 21s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 11c0 5.6-7 10-7 10z" />
-    <path d="M9 13h2l1-2 1 4 1-2h2" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
+    <path d="M9 13h2l1-2 1 4 1-2h2" />
+  </LineIcon>
 );
 
-export const LitterIcon = () => (
-  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="#5f6f64" strokeWidth="2">
+export const LitterIcon = ({ className = 'h-4 w-4' }) => (
+  <LineIcon className={className}>
     <circle cx="8" cy="8" r="2" />
     <circle cx="16" cy="8" r="2" />
     <circle cx="7" cy="15" r="2" />
     <circle cx="17" cy="15" r="2" />
     <path d="M10 13c1-1.5 3-1.5 4 0l1.5 2.2c1 1.5-.1 3.3-1.9 3.3h-3.2c-1.8 0-2.9-1.8-1.9-3.3L10 13z" />
-  </svg>
+  </LineIcon>
 );
 
-export const AvailableIcon = () => (
-  <svg
-    fill="#5f6f64"
-    className="h-3 w-3"
-    viewBox="0 0 24 24"
-    data-name="Layer 1"
-    id="Layer_1"
-    xmlns="http://www.w3.org/2000/svg"
-  >
-    <g id="SVGRepo_bgCarrier" strokeWidth="0"></g>
-    <g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round"></g>
-    <g id="SVGRepo_iconCarrier">
-      <title></title>
-      <path d="M18,5V3a1,1,0,0,0-2,0V5H8V3A1,1,0,0,0,6,3V5H2V21H22V5Zm2,14H4V7H20Zm-3.94-7.58-1.2-1.2L11.3,13.78,9.14,11.63l-1.2,1.2,3.36,3.36Z"></path>
-    </g>
-  </svg>
+export const AvailableIcon = ({ className = 'h-3 w-3' }) => (
+  <LineIcon className={className}>
+    <rect x="4" y="5" width="16" height="15" rx="2" />
+    <path d="M8 3v4M16 3v4M8 13l2.5 2.5L16 10" />
+  </LineIcon>
 );
 
-export const BirthIcon = () => (
-  <svg viewBox="0 0 24 24" className="h-3 w-3" fill="#5f6f64" xmlns="http://www.w3.org/2000/svg">
-    <g id="SVGRepo_bgCarrier" strokeWidth="0"></g>
-    <g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round"></g>
-    <g id="SVGRepo_iconCarrier">
-      {' '}
-      <path
-        fillRule="evenodd"
-        clipRule="evenodd"
-        d="M13.9999 3.125C13.9999 4.16053 13.1044 5 11.9999 5C10.8953 5 9.99988 4.16053 9.99988 3.125C9.99988 2.08947 11.9999 0 11.9999 0C11.9999 0 13.9999 2.08947 13.9999 3.125ZM0.460826 13.6423L2.31939 14.8317L4.02549 22.2249C4.1302 22.6786 4.53422 23 4.99988 23H18.9999C19.4655 23 19.8696 22.6786 19.9743 22.2249L21.6804 14.8317L23.5389 13.6423C24.0041 13.3446 24.1399 12.7261 23.8421 12.2609C23.5444 11.7958 22.926 11.66 22.4608 11.9577L21.9256 12.3003C21.5906 9.92302 19.5498 8 16.9717 8H12.9999V7C12.9999 6.44772 12.5522 6 11.9999 6C11.4476 6 10.9999 6.44772 10.9999 7V8H7.02808C4.44994 8 2.40918 9.92302 2.0742 12.3003L1.53893 11.9577C1.07376 11.66 0.455319 11.7958 0.157608 12.2609C-0.140103 12.7261 -0.0043478 13.3446 0.460826 13.6423ZM5.79539 21L4.65309 16.05C6.02133 16.4189 7.50983 16.1952 8.72873 15.3826L10.3358 14.3113C11.3435 13.6395 12.6563 13.6395 13.664 14.3113L15.271 15.3826C16.4899 16.1952 17.9784 16.4189 19.3467 16.05L18.2044 21H5.79539ZM16.9717 10C18.8713 10 20.2847 11.74 19.9135 13.588L19.6617 13.7492C18.6588 14.391 17.3712 14.379 16.3804 13.7185L14.7734 12.6472C13.0939 11.5275 10.9059 11.5275 9.22638 12.6472L7.61933 13.7185C6.62859 14.379 5.34099 14.391 4.33807 13.7492L4.08623 13.588C3.71509 11.74 5.12847 10 7.02808 10H11.9999H16.9717ZM8.99993 18C8.99993 17.4477 8.55221 17 7.99993 17C7.44764 17 6.99993 17.4477 6.99993 18V19C6.99993 19.5523 7.44764 20 7.99993 20C8.55221 20 8.99993 19.5523 8.99993 19V18ZM12.9999 18C12.9999 17.4477 12.5522 17 11.9999 17C11.4476 17 10.9999 17.4477 10.9999 18V19C10.9999 19.5523 11.4476 20 11.9999 20C12.5522 20 12.9999 19.5523 12.9999 19V18ZM16.9999 18C16.9999 17.4477 16.5522 17 15.9999 17C15.4476 17 14.9999 17.4477 14.9999 18V19C14.9999 19.5523 15.4476 20 15.9999 20C16.5522 20 16.9999 19.5523 16.9999 19V18Z"
-        fill="#728075"
-      ></path>{' '}
-    </g>
-  </svg>
+export const BirthIcon = ({ className = 'h-3 w-3' }) => (
+  <LineIcon className={className}>
+    <path d="M12 3s2 2 2 3.2A2 2 0 0 1 12 8a2 2 0 0 1-2-1.8C10 5 12 3 12 3Z" />
+    <path d="M5 14h14v6H5z" />
+    <path d="M4 14c1.8-3 4.2-3 6-1s4.2 2 6 0 3.2-1.4 4 1" />
+  </LineIcon>
 );
 
-export const EyeIcon = () => (
-  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="#5f6f64" strokeWidth="2">
-    <path d="M3 12s3.5-6 9-6 9 6 9 6-3.5 6-9 6-9-6-9-6z" strokeLinecap="round" strokeLinejoin="round" />
+export const EyeIcon = ({ className = 'h-4 w-4' }) => (
+  <LineIcon className={className}>
+    <path d="M3 12s3.5-6 9-6 9 6 9 6-3.5 6-9 6-9-6-9-6z" />
     <circle cx="12" cy="12" r="2.5" />
-  </svg>
+  </LineIcon>
 );
 
-export const PaperIcon = () => (
-  <svg
-    fill="#728075"
-    className="h-4 w-4"
-    viewBox="-8 0 32 32"
-    version="1.1"
-    xmlns="http://www.w3.org/2000/svg"
-    stroke="#728075"
-    strokeWidth="0.00032"
-  >
-    <g id="SVGRepo_bgCarrier" strokeWidth="0"></g>
-    <g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round"></g>
-    <g id="SVGRepo_iconCarrier">
-      {' '}
-      <title>archive</title>{' '}
-      <path d="M13.52 5.76h-7.4c-0.36 0-0.56 0.2-0.6 0.24l-5.28 5.28c-0.040 0.040-0.24 0.24-0.24 0.56v12.16c0 1.24 1 2.24 2.24 2.24h11.24c1.24 0 2.24-1 2.24-2.24v-16c0.040-1.24-0.96-2.24-2.2-2.24zM5.28 8.6v1.8c0 0.32-0.24 0.56-0.56 0.56h-1.84l2.4-2.36zM14.080 24.040c0 0.32-0.28 0.56-0.56 0.56h-11.28c-0.32 0-0.56-0.28-0.56-0.56v-11.32h3.040c1.24 0 2.24-1 2.24-2.24v-3.040h6.52c0.32 0 0.56 0.24 0.56 0.56l0.040 16.040zM11.76 16h-7.52c-0.48 0-0.84-0.36-0.84-0.84v0c0-0.48 0.36-0.84 0.84-0.84h7.52c0.48 0 0.84 0.36 0.84 0.84v0c0 0.48-0.36 0.84-0.84 0.84zM11.76 19.4h-7.52c-0.48 0-0.84-0.36-0.84-0.84v0c0-0.48 0.36-0.84 0.84-0.84h7.52c0.48 0 0.84 0.36 0.84 0.84v0c0 0.48-0.36 0.84-0.84 0.84zM11.76 22.8h-7.52c-0.48 0-0.84-0.36-0.84-0.84v0c0-0.48 0.36-0.84 0.84-0.84h7.52c0.48 0 0.84 0.36 0.84 0.84v0c0 0.48-0.36 0.84-0.84 0.84z"></path>{' '}
-    </g>
-  </svg>
+export const PaperIcon = ({ className = 'h-4 w-4' }) => (
+  <LineIcon className={className}>
+    <path d="M7 3h7l4 4v14H7z" />
+    <path d="M14 3v5h5" />
+    <path d="M9 13h6M9 17h6" />
+  </LineIcon>
 );
 
-export const GroupIcon = () => (
-  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="#5f6f64" strokeWidth="2">
+export const GroupIcon = ({ className = 'h-4 w-4' }) => (
+  <LineIcon className={className}>
     <circle cx="8" cy="9" r="3" />
     <circle cx="16" cy="9" r="3" />
-    <path d="M3.5 19c.7-3 2.5-5 4.5-5s3.8 2 4.5 5" strokeLinecap="round" />
-    <path d="M11.5 19c.7-3 2.5-5 4.5-5s3.8 2 4.5 5" strokeLinecap="round" />
-  </svg>
+    <path d="M3.5 19c.7-3 2.5-5 4.5-5s3.8 2 4.5 5" />
+    <path d="M11.5 19c.7-3 2.5-5 4.5-5s3.8 2 4.5 5" />
+  </LineIcon>
 );
 
-export const CalendarIcon = () => (
-  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="#5f6f64" strokeWidth="2">
+export const CalendarIcon = ({ className = 'h-4 w-4' }) => (
+  <LineIcon className={className}>
     <rect x="4" y="5" width="16" height="15" rx="2" />
-    <path d="M8 3v4M16 3v4M4 10h16" strokeLinecap="round" />
-  </svg>
+    <path d="M8 3v4M16 3v4M4 10h16" />
+  </LineIcon>
 );
 
-export const HeartIcon = () => (
-  <svg width="18px" height="18px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
-    <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
-    <g id="SVGRepo_iconCarrier">
-      {' '}
-      <path
-        d="M12 19.7501C11.8012 19.7499 11.6105 19.6708 11.47 19.5301L4.70001 12.7401C3.78387 11.8054 3.27072 10.5488 3.27072 9.24006C3.27072 7.9313 3.78387 6.6747 4.70001 5.74006C5.6283 4.81186 6.88727 4.29042 8.20001 4.29042C9.51274 4.29042 10.7717 4.81186 11.7 5.74006L12 6.00006L12.28 5.72006C12.739 5.25606 13.2857 4.88801 13.8883 4.63736C14.4909 4.3867 15.1374 4.25845 15.79 4.26006C16.442 4.25714 17.088 4.38382 17.6906 4.63274C18.2931 4.88167 18.8402 5.24786 19.3 5.71006C20.2161 6.6447 20.7293 7.9013 20.7293 9.21006C20.7293 10.5188 20.2161 11.7754 19.3 12.7101L12.53 19.5001C12.463 19.5752 12.3815 19.636 12.2904 19.679C12.1994 19.7219 12.1006 19.7461 12 19.7501ZM8.21001 5.75006C7.75584 5.74675 7.30551 5.83342 6.885 6.00505C6.4645 6.17669 6.08215 6.42989 5.76001 6.75006C5.11088 7.40221 4.74646 8.28491 4.74646 9.20506C4.74646 10.1252 5.11088 11.0079 5.76001 11.6601L12 17.9401L18.23 11.6801C18.5526 11.3578 18.8086 10.9751 18.9832 10.5538C19.1578 10.1326 19.2477 9.68107 19.2477 9.22506C19.2477 8.76905 19.1578 8.31752 18.9832 7.89627C18.8086 7.47503 18.5526 7.09233 18.23 6.77006C17.9104 6.44929 17.5299 6.1956 17.1109 6.02387C16.6919 5.85215 16.2428 5.76586 15.79 5.77006C15.3358 5.76675 14.8855 5.85342 14.465 6.02505C14.0445 6.19669 13.6621 6.44989 13.34 6.77006L12.53 7.58006C12.3869 7.71581 12.1972 7.79149 12 7.79149C11.8028 7.79149 11.6131 7.71581 11.47 7.58006L10.66 6.77006C10.3395 6.44628 9.95791 6.18939 9.53733 6.01429C9.11675 5.83919 8.66558 5.74937 8.21001 5.75006Z"
-        fill="#000000"
-      ></path>{' '}
-    </g>
-  </svg>
-);
-
-export const CloseIcon = () => (
+export const HeartIcon = ({ className = 'h-5 w-5', filled = false }) => (
   <svg
-    className="h-4 w-4"
     viewBox="0 0 24 24"
-    fill="none"
-    stroke="#5f6f64"
-    strokeWidth="2"
+    className={className}
+    fill={filled ? 'currentColor' : 'none'}
+    stroke="currentColor"
+    strokeWidth="2.2"
     strokeLinecap="round"
     strokeLinejoin="round"
     aria-hidden="true"
   >
+    <path d="M20.8 4.6c-1.9-1.8-4.9-1.8-6.8.1L12 6.7l-2-2c-1.9-1.9-4.9-1.9-6.8-.1-2 1.9-2.1 5.1-.2 7.1l9 8.8 9-8.8c1.9-2 1.8-5.2-.2-7.1Z" />
+  </svg>
+);
+
+export const ShareIcon = ({ className = 'h-5 w-5' }) => (
+  <LineIcon className={className} stroke="currentColor">
+    <circle cx="18" cy="5" r="3" />
+    <circle cx="6" cy="12" r="3" />
+    <circle cx="18" cy="19" r="3" />
+    <path d="M8.6 10.6 15.4 6.4" />
+    <path d="M8.6 13.4 15.4 17.6" />
+  </LineIcon>
+);
+
+export const CloseIcon = ({ className = 'h-4 w-4' }) => (
+  <LineIcon className={className}>
     <path d="M18 6 6 18" />
     <path d="m6 6 12 12" />
-  </svg>
+  </LineIcon>
 );
 
 export const SearchIcon = ({ className = 'h-5 w-5' }) => (
-  <svg
-    className={className}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="#5f6f64"
-    strokeWidth="2.4"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden="true"
-  >
+  <LineIcon className={className} stroke="#ffffff">
     <circle cx="11" cy="11" r="7" />
     <path d="M20 20 16.5 16.5" />
-  </svg>
+  </LineIcon>
 );
 
-export const PawIcon = ({ className = 'h-5 w-5' }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="#5f6f64" aria-hidden="true">
-    <circle cx="5.5" cy="9.5" r="2" />
-    <circle cx="9.5" cy="5.8" r="2" />
-    <circle cx="14.5" cy="5.8" r="2" />
-    <circle cx="18.5" cy="9.5" r="2" />
-    <path d="M7.5 16.2c0-2.6 2-4.7 4.5-4.7s4.5 2.1 4.5 4.7c0 1.7-1.1 2.8-2.6 2.8-.8 0-1.2-.3-1.9-.3s-1.1.3-1.9.3c-1.5 0-2.6-1.1-2.6-2.8z" />
+export const PawIcon = ({ className = 'h-8 w-8' }) => (
+  <svg viewBox="0 0 64 64" className={className} fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <ellipse cx="23" cy="17" rx="7" ry="9.5" fill="currentColor" />
+    <ellipse cx="39" cy="17" rx="7" ry="9.5" fill="currentColor" />
+    <ellipse cx="12" cy="32" rx="7" ry="8.5" fill="currentColor" />
+    <ellipse cx="52" cy="31" rx="7" ry="8.5" fill="currentColor" />
+    <path
+      d="M32 29C24 29 16 37.2 16 47.5C16 54.2 20.4 58 25.3 58C28.4 58 30 55.8 32 55.8C34 55.8 35.6 58 38.7 58C43.6 58 48 54.2 48 47.5C48 37.2 40 29 32 29Z"
+      fill="currentColor"
+    />
   </svg>
 );
 
 export const BreedIcon = ({ className = 'h-5 w-5' }) => (
-  <svg
-    className={className}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="#5f6f64"
-    strokeWidth="2.3"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden="true"
-  >
+  <LineIcon className={className}>
     <path d="M4 19c2.4-4 5.2-6 8-6s5.6 2 8 6" />
     <path d="M12 13V7" />
     <path d="M8 7h8" />
     <path d="M7 5h10" />
-  </svg>
+  </LineIcon>
 );
 
 export const LocationIcon = ({ className = 'h-5 w-5' }) => (
-  <svg
-    className={className}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="#5f6f64"
-    strokeWidth="2.3"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden="true"
-  >
+  <LineIcon className={className}>
     <path d="M12 21s7-5.2 7-12a7 7 0 0 0-14 0c0 6.8 7 12 7 12Z" />
     <circle cx="12" cy="9" r="2.5" />
-  </svg>
+  </LineIcon>
 );
 
 export const ListingTypeIcon = ({ className = 'h-5 w-5' }) => (
-  <svg
-    className={className}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="#5f6f64"
-    strokeWidth="2.3"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden="true"
-  >
+  <LineIcon className={className}>
     <path d="M4 6h16" />
     <path d="M4 12h16" />
     <path d="M4 18h10" />
     <circle cx="18" cy="18" r="2" />
-  </svg>
+  </LineIcon>
 );
 
 export const UnderlineIcon = ({ className = 'h-4 w-full' }) => (
@@ -256,142 +213,274 @@ export const UnderlineIcon = ({ className = 'h-4 w-full' }) => (
 );
 
 export const ShieldCheckIcon = ({ className = 'h-7 w-7' }) => (
-  <svg
-    className={className}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="#5f6f64"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden="true"
-  >
+  <LineIcon className={className}>
     <path d="M12 3 5 6v5c0 4.5 3 8.5 7 10 4-1.5 7-5.5 7-10V6l-7-3Z" />
     <path d="m8.8 12.2 2.2 2.2 4.5-4.6" />
-  </svg>
+  </LineIcon>
 );
 
 export const LockIcon = ({ className = 'h-7 w-7' }) => (
-  <svg
-    className={className}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="#5f6f64"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden="true"
-  >
+  <LineIcon className={className}>
     <rect x="5" y="10" width="14" height="10" rx="2" />
     <path d="M8 10V7.5A4 4 0 0 1 12 3.5a4 4 0 0 1 4 4V10" />
     <path d="M12 15v2" />
-    <circle cx="12" cy="14" r="1" fill="#5f6f64" stroke="none" />
-  </svg>
+    <circle cx="12" cy="14" r="1" fill="currentColor" stroke="none" />
+  </LineIcon>
 );
 
 export const UsersIcon = ({ className = 'h-7 w-7' }) => (
-  <svg
-    className={className}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="#5f6f64"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden="true"
-  >
+  <LineIcon className={className}>
     <circle cx="12" cy="8" r="3" />
     <path d="M6.5 19c.5-3.2 2.6-5 5.5-5s5 1.8 5.5 5" />
     <circle cx="5.5" cy="10" r="2" />
     <path d="M2.5 18c.3-2.2 1.5-3.5 3.3-3.8" />
     <circle cx="18.5" cy="10" r="2" />
     <path d="M21.5 18c-.3-2.2-1.5-3.5-3.3-3.8" />
-  </svg>
+  </LineIcon>
 );
 
 export const HeadsetIcon = ({ className = 'h-7 w-7' }) => (
-  <svg
-    className={className}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="#5f6f64"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden="true"
-  >
+  <LineIcon className={className}>
     <path d="M4 13a8 8 0 0 1 16 0" />
     <path d="M4 13v3a2 2 0 0 0 2 2h1v-7H6a2 2 0 0 0-2 2Z" />
     <path d="M20 13v3a2 2 0 0 1-2 2h-1v-7h1a2 2 0 0 1 2 2Z" />
     <path d="M15 20h-3" />
     <path d="M18 18c0 1.1-.9 2-2 2h-1" />
-  </svg>
+  </LineIcon>
 );
+
 export const FemaleIcon = ({ className = 'h-3.5 w-3.5' }) => (
-  <svg
-    className={className}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="#5f6f64"
-    strokeWidth="2.4"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden="true"
-  >
+  <LineIcon className={className}>
     <circle cx="12" cy="8" r="4" />
     <path d="M12 12v8" />
     <path d="M8.5 17h7" />
-  </svg>
+  </LineIcon>
 );
 
 export const MaleIcon = ({ className = 'h-3.5 w-3.5' }) => (
-  <svg
-    className={className}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="#5f6f64"
-    strokeWidth="2.4"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden="true"
-  >
+  <LineIcon className={className}>
     <circle cx="9" cy="15" r="5" />
     <path d="M13 11l6-6" />
     <path d="M15 5h4v4" />
-  </svg>
+  </LineIcon>
 );
 
-export const MixedGenderIcon = ({}) => (
-  <svg
-    className="h-3.5 w-3.5"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="#5f6f64"
-    strokeWidth="2.3"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden="true"
-  >
+export const MixedGenderIcon = ({ className = 'h-3.5 w-3.5' }) => (
+  <LineIcon className={className}>
     <circle cx="10" cy="10" r="4" />
     <path d="M10 14v6" />
     <path d="M7 17h6" />
     <path d="M14 6l4-4" />
     <path d="M16 2h2v2" />
+  </LineIcon>
+);
+
+export const PhoneIcon = ({ className = 'h-5 w-5' }) => (
+  <LineIcon className={className}>
+    <path d="M21 5.5C21 14 14 21 5.5 21c-.4 0-.8 0-1.1-.1-.4 0-.7-.3-.8-.7L3 16.8c-.1-.5.2-1 .7-1.2l3.2-1.2c.5-.2 1 .1 1.3.5L10 16c2.7-1.2 4.8-3.4 6-6l-1.1-1.8c-.3-.4-.1-1 .4-1.2l3.2-1.2c.5-.2 1 .1 1.2.6.2.7.3 1.4.3 2.1Z" />
+  </LineIcon>
+);
+
+export const TemperamentIcon = ({ className = 'h-5 w-5' }) => (
+  <LineIcon className={className}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M8.5 10h.01M15.5 10h.01" />
+    <path d="M8.5 15c1.8 1.8 5.2 1.8 7 0" />
+  </LineIcon>
+);
+
+export const ExerciseIcon = ({ className = 'h-5 w-5' }) => (
+  <svg
+    viewBox="0 0 24 24"
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.9"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    {/* person */}
+    <circle cx="6.5" cy="5" r="1.8" />
+    <path d="M6.5 6.8v4.3" />
+    <path d="M6.5 8.5 4.5 10.5" />
+    <path d="M6.5 8.5 9 10" />
+    <path d="M6.4 11.1 4.9 15.5" />
+    <path d="M6.7 11.1 8.8 15" />
+
+    {/* leash */}
+    <path d="M9 10 11.6 10.8" />
+
+    {/* dog */}
+    <path d="M12.1 12.1h3.6l1.2-1.1 1.7.5.9 1.2-.5 1.1h-1.5" />
+    <path d="M12.1 12.1 10.9 11.2" />
+    <path d="M13 12.1 12.4 15.2" />
+    <path d="M15.2 12.1v3.1" />
+    <path d="M17.2 12.8 18 15.1" />
   </svg>
 );
-export const PhoneIcon = ({ className = 'h-5 w-5' }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" transform="rotate(90)">
-    <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
-    <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+
+export const GroomingIcon = ({ className = 'h-5 w-5' }) => (
+  <svg className={className} viewBox="0 0 512 512" fill="currentColor" aria-hidden="true">
+    <path d="M438 14H324c-4.4 0-8 3.6-8 8v263c0 4.4 3.6 8 8 8h106c-1.6 39.4-7.4 81.1-17.3 123.9-1.4 5.9-2.1 12-2.1 18.3 0 21 7.9 40.4 21.2 52.3 8.5 7.6 19.1 11.8 30.4 11.8s21.9-4.2 30.4-11.8c13.3-11.9 21.2-31.3 21.2-52.3 0-6.2-.7-12.4-2.1-18.3-14.2-61.4-21.4-111.9-21.4-150.1V66.7c0-29.2-23.7-52.7-52.3-52.7Zm36.1 253.1c0 39.5 7.3 91.4 21.8 154.8 1 4.3 1.5 8.8 1.5 13.3 0 16.8-6.5 32.7-17 41.3-5.6 4.6-11.8 6.9-18.2 6.9s-12.6-2.3-18.2-6.9c-10.5-8.6-17-24.5-17-41.3 0-4.6.5-9.1 1.5-13.4 10.8-46.8 16.9-92.3 18-135.2.1-2.2-.8-4.3-2.3-5.8-1.5-1.5-3.6-2.4-5.7-2.4H332V29.9h106c19.9 0 36.1 16.2 36.1 36.8v200.4Z" />
+    <path d="M430 45h-26c-4.4 0-8 3.6-8 8s3.6 8 8 8h26c4.4 0 8-3.6 8-8s-3.6-8-8-8ZM430 83h-96v16h96c4.4 0 8-3.6 8-8s-3.6-8-8-8ZM430 122h-96v16h96c4.4 0 8-3.6 8-8s-3.6-8-8-8ZM430 161h-96v16h96c4.4 0 8-3.6 8-8s-3.6-8-8-8ZM430 200h-96v16h96c4.4 0 8-3.6 8-8s-3.6-8-8-8ZM430 239h-96v16h96c4.4 0 8-3.6 8-8s-3.6-8-8-8Z" />
+    <path d="M350.5 423.5c-1.3-38.3-32.3-70.6-70.5-73.5-6.7-.5-13.5-.1-20.1 1.1l-9.5-1.5c-12.3-2-23.8-7.9-32.6-16.7l-6.5-20.9 47.2-258.5c2.8-15.5-2.8-31.7-14.6-42.1-2-1.8-4.8-2.4-7.4-1.7-2.6.7-4.6 2.7-5.4 5.3l-55.8 180.3L119.5 15c-.8-2.6-2.8-4.6-5.4-5.3-2.6-.7-5.4-.1-7.4 1.7-11.9 10.4-17.5 26.6-14.6 42.1l47.2 258.5-6.5 20.9c-8.8 8.8-20.3 14.7-32.6 16.7l-9.5 1.5c-6.6-1.2-13.4-1.6-20.1-1.1C32.4 352.9 1.4 385.2.1 423.5c-.7 21 6.9 40.8 21.4 55.8 14.5 15.1 34.1 23.4 55 23.4 34.4 0 64.5-23 73.7-56 .1-.4.3-.8.4-1.1l24.8-105.5 24.8 105.5c.1.4.2.8.4 1.1 9.2 33 39.3 56 73.7 56 20.9 0 40.5-8.3 55-23.4 14.3-15 21.9-34.8 21.2-55.8ZM201.2 279.1l-17.6-57 57.9-187.1c1.8 4.9 2.4 10.3 1.4 15.6l-41.7 228.5Zm-66 161.9c-.1.2-.1.4-.2.6-7 26.6-31.1 45.1-58.6 45.1-16.6 0-32-6.6-43.6-18.5-11.5-11.9-17.5-27.6-16.9-44.2 1-29.8 26.1-55.9 55.8-58.2 5.8-.4 11.6-.1 17.1 1.1 1.1.2 2.2.2 3.2 0l10.6-1.7c16.3-2.7 31.5-10.8 42.9-22.8.8-.9 1.4-1.9 1.8-3.1l5-16.1 9.7 3.7-26.8 114.1Zm182.4 27.3c-11.5 11.9-27 18.5-43.6 18.5-27.5 0-51.6-18.6-58.6-45.1-.1-.2-.1-.4-.2-.6l-27.6-117.5c-.6-2.6-2.4-4.7-4.9-5.6l-26.3-10-48.8-267.3c-.9-5.3-.4-10.7 1.4-15.6l86.6 279.8 7.6 24.5c.4 1.2 1 2.2 1.8 3.1 11.3 12 26.5 20.1 42.9 22.8l10.6 1.7c1 .2 2.1.2 3.2 0 5.6-1.2 11.4-1.6 17.1-1.1 29.7 2.3 54.8 28.4 55.8 58.2.5 16.5-5.5 32.2-17 44.1Z" />
+    <path d="M274.1 379.2c-25.9 0-47 21.1-47 47s21.1 47 47 47 47-21.1 47-47-21.1-47-47-47Zm0 78.1c-17.1 0-31.1-13.9-31.1-31.1s13.9-31.1 31.1-31.1 31.1 13.9 31.1 31.1-14 31.1-31.1 31.1ZM76.5 379.2c-25.9 0-47 21.1-47 47s21.1 47 47 47 47-21.1 47-47-21.1-47-47-47Zm0 78.1c-17.1 0-31.1-13.9-31.1-31.1s13.9-31.1 31.1-31.1 31.1 13.9 31.1 31.1-14 31.1-31.1 31.1Z" />
+  </svg>
+);
+
+export const SizeIcon = ({ className = 'h-5 w-5' }) => (
+  <LineIcon className={className}>
+    <path d="M4 18h16" />
+    <path d="M7 18V8" />
+    <path d="M17 18V5" />
+    <path d="m7 8 2 2M7 8l-2 2" />
+    <path d="m17 5 2 2M17 5l-2 2" />
+  </LineIcon>
+);
+
+export const IntelligenceIcon = ({ className = 'h-5 w-5' }) => (
+  <LineIcon className={className}>
+    <path d="M9 18h6" />
+    <path d="M10 22h4" />
+    <path d="M8 14c-1.2-1.2-2-2.9-2-4.8A6 6 0 0 1 12 3a6 6 0 0 1 6 6.2c0 1.9-.8 3.6-2 4.8-.8.8-1 1.4-1 2H9c0-.6-.2-1.2-1-2Z" />
+  </LineIcon>
+);
+
+export const GalleryIcon = ({ className = 'h-5 w-5' }) => (
+  <LineIcon className={className}>
+    <rect x="4" y="5" width="16" height="14" rx="2" />
+    <circle cx="9" cy="10" r="1.5" />
+    <path d="m4 16 4-4 3 3 2-2 7 6" />
+  </LineIcon>
+);
+
+export const FoodIcon = ({ className = 'h-5 w-5' }) => (
+  <LineIcon className={className}>
+    <path d="M6 3v8" />
+    <path d="M10 3v8" />
+    <path d="M8 3v18" />
+    <path d="M17 3c2 2.5 2 7.5 0 10v8" />
+  </LineIcon>
+);
+
+export const InsuranceIcon = ({ className = 'h-5 w-5' }) => <ShieldCheckIcon className={className} />;
+
+export const EquipmentIcon = ({ className = 'h-5 w-5' }) => (
+  <LineIcon className={className}>
+    <rect x="5" y="7" width="14" height="11" rx="2" />
+    <path d="M9 7V5h6v2" />
+    <path d="M8 12h8" />
+  </LineIcon>
+);
+
+export const DogIcon = ({ className = 'h-4 w-4' }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <g id="SVGRepo_bgCarrier" strokeWidth="0"></g>
+    <g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round"></g>
     <g id="SVGRepo_iconCarrier">
       {' '}
       <path
-        d="M21 5.5C21 14.0604 14.0604 21 5.5 21C5.11378 21 4.73086 20.9859 4.35172 20.9581C3.91662 20.9262 3.69906 20.9103 3.50103 20.7963C3.33701 20.7019 3.18146 20.5345 3.09925 20.364C3 20.1582 3 19.9181 3 19.438V16.6207C3 16.2169 3 16.015 3.06645 15.842C3.12515 15.6891 3.22049 15.553 3.3441 15.4456C3.48403 15.324 3.67376 15.255 4.05321 15.117L7.26005 13.9509C7.70153 13.7904 7.92227 13.7101 8.1317 13.7237C8.31637 13.7357 8.49408 13.7988 8.64506 13.9058C8.81628 14.0271 8.93713 14.2285 9.17882 14.6314L10 16C12.6499 14.7999 14.7981 12.6489 16 10L14.6314 9.17882C14.2285 8.93713 14.0271 8.81628 13.9058 8.64506C13.7988 8.49408 13.7357 8.31637 13.7237 8.1317C13.7101 7.92227 13.7904 7.70153 13.9509 7.26005L13.9509 7.26005L15.117 4.05321C15.255 3.67376 15.324 3.48403 15.4456 3.3441C15.553 3.22049 15.6891 3.12515 15.842 3.06645C16.015 3 16.2169 3 16.6207 3H19.438C19.9181 3 20.1582 3 20.364 3.09925C20.5345 3.18146 20.7019 3.33701 20.7963 3.50103C20.9103 3.69907 20.9262 3.91662 20.9581 4.35173C20.9859 4.73086 21 5.11378 21 5.5Z"
-        stroke="#000000"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M3.15452 1.01195C5.11987 1.32041 7.17569 2.2474 8.72607 3.49603C9.75381 3.17407 10.8558 2.99995 12 2.99995C13.1519 2.99995 14.261 3.17641 15.2946 3.5025C16.882 2.27488 18.8427 1.31337 20.8354 1.01339C21.2596 0.95092 21.7008 1.16534 21.8945 1.55273C22.6719 3.38958 22.6983 5.57987 22.2202 7.49248L22.2128 7.52213C22.0847 8.03536 21.9191 8.69868 21.3876 8.92182C21.7827 9.89315 22 10.9466 22 12.0526C22 14.825 20.8618 17.6774 19.8412 20.2348L19.8412 20.2348L19.7379 20.4936C19.1182 22.0486 17.7316 23.1196 16.125 23.418L13.8549 23.8397C13.1549 23.9697 12.4562 23.7172 12 23.2082C11.5438 23.7172 10.8452 23.9697 10.1452 23.8397L7.87506 23.418C6.26852 23.1196 4.88189 22.0486 4.26214 20.4936L4.15891 20.2348C3.13833 17.6774 2.00004 14.825 2.00004 12.0526C2.00004 10.9466 2.21737 9.89315 2.6125 8.92182C2.08046 8.69845 1.91916 8.05124 1.7909 7.53658L1.7799 7.49248C1.32311 5.66527 1.23531 3.2968 2.10561 1.55273C2.29827 1.16741 2.72906 0.945855 3.15452 1.01195ZM6.58478 4.44052C5.45516 5.10067 4.47474 5.9652 3.71373 6.98132C3.41572 5.76461 3.41236 4.41153 3.67496 3.18754C4.68842 3.48029 5.68018 3.89536 6.58478 4.44052ZM20.2863 6.98133C19.5303 5.97184 18.5577 5.11195 17.4374 4.45347C18.3364 3.9005 19.3043 3.45749 20.3223 3.17455C20.5884 4.40199 20.5853 5.76068 20.2863 6.98133ZM8.85364 5.56694C9.81678 5.20285 10.8797 4.99995 12 4.99995C13.1204 4.99995 14.1833 5.20285 15.1464 5.56694C18.0554 6.66661 20 9.1982 20 12.0526C20 14.4676 18.9891 16.9876 18.0863 19.238L18.0862 19.2382C18.0167 19.4115 17.9478 19.5832 17.8801 19.7531C17.5291 20.6338 16.731 21.2712 15.7597 21.4516L13.4896 21.8733L12.912 20.5896C12.7505 20.2307 12.3935 19.9999 12 19.9999C11.6065 19.9999 11.2496 20.2307 11.0881 20.5896L10.5104 21.8733L8.24033 21.4516C7.26908 21.2712 6.471 20.6338 6.12001 19.7531C6.05237 19.5834 5.98357 19.4119 5.91414 19.2388L5.91395 19.2384L5.91381 19.238C5.01102 16.9876 4.00004 14.4676 4.00004 12.0526C4.00004 9.1982 5.94472 6.66661 8.85364 5.56694ZM10.5 15.9999C10.1212 15.9999 9.77497 16.2139 9.60557 16.5527C9.43618 16.8915 9.47274 17.2969 9.7 17.5999L11.2 19.5999C11.3889 19.8517 11.6852 19.9999 12 19.9999C12.3148 19.9999 12.6111 19.8517 12.8 19.5999L14.3 17.5999C14.5273 17.2969 14.5638 16.8915 14.3944 16.5527C14.225 16.2139 13.8788 15.9999 13.5 15.9999H10.5ZM9.62134 11.1212C9.62134 11.9497 8.94977 12.6212 8.12134 12.6212C7.29291 12.6212 6.62134 11.9497 6.62134 11.1212C6.62134 10.2928 7.29291 9.62125 8.12134 9.62125C8.94977 9.62125 9.62134 10.2928 9.62134 11.1212ZM16 12.4999C16.8284 12.4999 17.5 11.8284 17.5 10.9999C17.5 10.1715 16.8284 9.49994 16 9.49994C15.1716 9.49994 14.5 10.1715 14.5 10.9999C14.5 11.8284 15.1716 12.4999 16 12.4999Z"
+        fill="#000000"
       ></path>{' '}
     </g>
   </svg>
 );
+
+export const CatIcon = ({ className = 'h-4 w-4' }) => (
+  <svg className={className} fill="#000000" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <g id="SVGRepo_bgCarrier" strokeWidth="0"></g>
+    <g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round"></g>
+    <g id="SVGRepo_iconCarrier">
+      <path d="M10.165,12.211A.75.75,0,0,1,10.791,11h2.418a.75.75,0,0,1,.626,1.211l-1.209,1.5a.815.815,0,0,1-1.252,0ZM1.051,15.316a1,1,0,0,1,.633-1.265l.363-.121C2.019,13.623,2,13.314,2,13V2a1,1,0,0,1,1.515-.857L8.037,3.855A8.578,8.578,0,0,1,12,3a8.588,8.588,0,0,1,3.964.855l4.521-2.712A1,1,0,0,1,22,2V13c0,.314-.019.623-.047.93l.363.121a1,1,0,0,1-.632,1.9l-.119-.04a9.94,9.94,0,0,1-1.4,2.843l.541.541a1,1,0,0,1-1.414,1.414l-.442-.442a9.948,9.948,0,0,1-13.7,0l-.442.442a1,1,0,0,1-1.414-1.414l.541-.541a9.94,9.94,0,0,1-1.4-2.843C1.659,16.123,1.214,15.8,1.051,15.316Zm2.963-2.042,3.67-1.223a1,1,0,0,1,.632,1.9L4.334,15.276a7.964,7.964,0,0,0,.939,2.037l3.02-3.02a1,1,0,0,1,1.414,1.414L6.563,18.851a7.952,7.952,0,0,0,10.874,0l-3.144-3.144a1,1,0,0,1,1.414-1.414l3.02,3.02a7.964,7.964,0,0,0,.939-2.037l-3.982-1.327a1,1,0,0,1,.632-1.9l3.67,1.223c0-.091.014-.181.014-.274V3.766L16.515,5.857a1,1,0,0,1-1,.019A6.665,6.665,0,0,0,12,5a6.665,6.665,0,0,0-3.518.876,1,1,0,0,1-1-.019L4,3.766V13C4,13.093,4.011,13.183,4.014,13.274Z"></path>
+    </g>
+  </svg>
+);
+
+export const RabbitIcon = ({ className = 'h-4 w-4' }) => (
+  <svg
+    viewBox="0 0 512 512"
+    className={className}
+    fill="currentColor"
+    xmlns="http://www.w3.org/2000/svg"
+    aria-hidden="true"
+  >
+    <path d="M197.336,71.465c0-7.21-5.89-13.099-13.099-13.099c-7.246,0-13.098,5.89-13.098,13.099v108.888 c8.331-4.813,17.088-8.902,26.197-12.249V71.465z" />
+    <path d="M340.852,71.465c0-7.21-5.898-13.099-13.098-13.099c-7.246,0-13.099,5.89-13.099,13.099v96.639 c9.1,3.347,17.866,7.436,26.197,12.249V71.465z" />
+    <path d="M389.701,201.9V61.939c0-17.061-6.957-32.63-18.147-43.792C360.682,7.255,345.629,0.425,329.101,0.072 c-0.408-0.044-0.86-0.063-1.348-0.072c-17.061-0.008-32.63,6.957-43.801,18.147c-11.182,11.163-18.146,26.732-18.137,43.792v82.555 c-3.248-0.182-6.514-0.308-9.815-0.308c-3.311,0-6.568,0.126-9.815,0.308V61.939c0.009-17.061-6.957-32.63-18.138-43.802 C217.174,7.247,202.103,0.417,185.576,0.064c-0.371-0.036-0.786-0.055-1.238-0.055c-0.028,0-0.055-0.009-0.091-0.009 c0,0,0,0-0.01,0c-17.052-0.008-32.628,6.957-43.792,18.138c-11.182,11.172-18.146,26.741-18.146,43.802v139.952 c-31.083,32.9-50.215,77.362-50.206,126.202c-0.01,50.739,20.607,96.802,53.86,130.038C159.188,491.393,205.252,512,255.982,512 H256c50.73,0.009,96.793-20.607,130.028-53.861c33.262-33.234,53.878-79.298,53.878-130.037 C439.907,279.262,420.774,234.801,389.701,201.9z M366.887,438.99c-28.423,28.404-67.538,45.927-110.887,45.935h-0.009 c-43.349-0.008-82.473-17.54-110.896-45.945c-28.395-28.423-45.918-67.538-45.927-110.887 c0.009-43.494,17.649-82.718,46.217-111.168l3.998-3.971V61.939c0-9.671,3.881-18.3,10.204-24.651 c6.35-6.332,14.98-10.203,24.65-10.212h0.01c9.67,0.009,18.3,3.88,24.65,10.212c6.332,6.351,10.204,14.98,10.213,24.651v112.949 l15.378-2.117c7.084-0.968,14.248-1.502,21.512-1.502c7.255,0,14.428,0.534,21.512,1.502l15.378,2.117V61.939 c0.009-9.661,3.89-18.3,10.213-24.651c6.342-6.314,14.944-10.186,24.587-10.203h0.064c9.679,0.008,18.309,3.88,24.66,10.213 c6.332,6.341,10.204,14.98,10.204,24.642v151.024l3.988,3.971c28.558,28.441,46.208,67.665,46.217,111.168 C412.814,371.45,395.292,410.566,366.887,438.99z" />
+    <path d="M202.953,307.957c0-9.625-7.807-17.423-17.422-17.423c-9.626,0-17.432,7.798-17.432,17.423 c0,9.624,7.807,17.422,17.432,17.422C195.146,325.379,202.953,317.581,202.953,307.957z" />
+    <path d="M326.469,290.534c-9.626,0-17.423,7.798-17.423,17.423c0,9.624,7.798,17.422,17.423,17.422 c9.625,0,17.423-7.798,17.423-17.422C343.892,298.332,336.094,290.534,326.469,290.534z" />
+    <path d="M307.888,365.327c-3.736,0-6.766,3.031-6.766,6.766c0,5.319-2.135,10.078-5.618,13.569 c-3.491,3.474-8.24,5.609-13.559,5.618c-5.32-0.01-10.068-2.144-13.57-5.618c-2.46-2.479-4.233-5.608-5.066-9.1 c10.113-3.121,17.468-12.547,17.468-23.682c0-13.687-11.1-24.786-24.777-24.786c-13.696,0-24.786,11.099-24.786,24.786 c0,11.135,7.354,20.562,17.477,23.682c-0.832,3.492-2.614,6.621-5.084,9.1c-3.492,3.474-8.25,5.609-13.56,5.618 c-5.319-0.01-10.068-2.144-13.56-5.618c-3.483-3.491-5.618-8.25-5.627-13.569c0-3.736-3.021-6.766-6.766-6.766 c-3.737,0-6.767,3.031-6.767,6.766c0,18.074,14.646,32.72,32.72,32.72c10.584,0,19.965-5.048,25.954-12.845 c5.97,7.798,15.36,12.845,25.944,12.845c18.073,0,32.71-14.645,32.72-32.72C314.664,368.358,311.633,365.327,307.888,365.327z" />
+  </svg>
+);
+
+export const BirdIcon = ({ className = 'h-4 w-4' }) => (
+  <LineIcon className={className}>
+    <path d="M4 12c3-5 8-7 13-3" />
+    <path d="M10 19c4-1 7-4.5 7-9" />
+    <path d="M17 9l4-1-3 3" />
+  </LineIcon>
+);
+
+export const PoultryIcon = ({ className = 'h-4 w-4' }) => (
+  <LineIcon className={className}>
+    <path d="M8 8c0-2 1.4-3 3-3 .7 0 1.4.2 2 .7.2-1 .9-1.7 1.8-1.7 1.2 0 2.2 1 2.2 2.2" />
+    <path d="M7 11c0-2.2 2-4 5-4s6 2.4 6 6-2.5 6-6 6-6-2.6-6-6c0-.7.1-1.3.3-1.8" />
+    <path d="M18 10l3 1.2-3 1.3" />
+  </LineIcon>
+);
+
+export const FishIcon = ({ className = 'h-4 w-4' }) => (
+  <LineIcon className={className}>
+    <path d="M3 12s4-6 10-6 8 6 8 6-2 6-8 6-10-6-10-6Z" />
+    <path d="M19 9l3-3v12l-3-3" />
+  </LineIcon>
+);
+
+export const HorseIcon = ({ className = 'h-4 w-4' }) => (
+  <LineIcon className={className}>
+    <path d="M7 20V9l5-5 5 3v5" />
+    <path d="M12 4v5l4 2" />
+    <path d="M7 12h8" />
+    <path d="M15 12c3 1 4 3.2 4 6v2" />
+  </LineIcon>
+);
+
+export const ReptileIcon = ({ className = 'h-4 w-4' }) => (
+  <LineIcon className={className}>
+    <path d="M4 14c3-5 9-7 16-4" />
+    <path d="M5 15c4 3 9 3.5 14 .5" />
+    <path d="M8 13l-2-3M12 12l-1-4M16 12l2-3" />
+  </LineIcon>
+);
+
+export const RodentIcon = ({ className = 'h-4 w-4' }) => (
+  <LineIcon className={className}>
+    <circle cx="8" cy="8" r="3" />
+    <circle cx="16" cy="8" r="3" />
+    <path d="M5 13c0-3.3 3-5 7-5s7 1.7 7 5-3 7-7 7-7-3.7-7-7Z" />
+  </LineIcon>
+);
+
+export const OtherAnimalIcon = ({ className = 'h-4 w-4' }) => <PawIcon className={className} />;
+
+export function AnimalTypeIcon({ animalType, category, className = 'h-4 w-4' }) {
+  const animal = String(animalType || '').toLowerCase();
+  const type = String(category || '').toLowerCase();
+
+  if (animal === 'dogs' || animal === 'dog') return <DogIcon className={className} />;
+  if (animal === 'cats' || animal === 'cat') return <CatIcon className={className} />;
+  if (type.includes('rabbit')) return <RabbitIcon className={className} />;
+  if (type.includes('poultry') || type.includes('chicken') || type.includes('hen') || type.includes('rooster'))
+    return <PoultryIcon className={className} />;
+  if (type.includes('bird')) return <BirdIcon className={className} />;
+  if (type.includes('fish')) return <FishIcon className={className} />;
+  if (type.includes('horse')) return <HorseIcon className={className} />;
+  if (type.includes('reptile')) return <ReptileIcon className={className} />;
+  if (type.includes('rodent')) return <RodentIcon className={className} />;
+
+  return <OtherAnimalIcon className={className} />;
+}

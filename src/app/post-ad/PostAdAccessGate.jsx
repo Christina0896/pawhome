@@ -1,0 +1,208 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import Header from '../../components/header';
+import { getVerifiedAccessToken } from '../../lib/authTokens';
+import PostAdPageClient from './PostAdPageClient';
+
+const SELLER_ACCOUNT_TYPES = ['Private Seller', 'Breeder'];
+
+function GateMessage({
+  title,
+  message,
+  primaryHref = '/profile',
+  primaryLabel = 'Go to Profile',
+  secondaryHref = '/',
+  secondaryLabel = 'Back to Home',
+  primaryAction,
+}) {
+  return (
+    <div className="min-h-screen bg-(--background)">
+      <Header />
+      <main className="mx-auto flex min-h-[60vh] max-w-[760px] items-center justify-center px-6 py-12">
+        <section className="w-full rounded-3xl border border-(--border-beige) bg-white p-8 text-center shadow-sm">
+          <h1 className="text-3xl font-extrabold text-(--secondary-green)">{title}</h1>
+          <p className="mt-3 text-sm leading-6 text-(--muted-green-text)">{message}</p>
+          <div className="mt-7 flex flex-col justify-center gap-3 sm:flex-row">
+            {primaryAction ? (
+              <button
+                type="button"
+                onClick={primaryAction}
+                className="rounded-xl bg-(--primary-orange) px-6 py-3 text-sm font-bold text-white transition hover:bg-(--secondary-orange)"
+              >
+                {primaryLabel}
+              </button>
+            ) : (
+              <Link
+                href={primaryHref}
+                className="rounded-xl bg-(--primary-orange) px-6 py-3 text-sm font-bold text-white transition hover:bg-(--secondary-orange)"
+              >
+                {primaryLabel}
+              </Link>
+            )}
+            <Link
+              href={secondaryHref}
+              className="rounded-xl border border-(--border-beige) bg-white px-6 py-3 text-sm font-bold text-(--secondary-green) transition hover:border-(--primary-green)"
+            >
+              {secondaryLabel}
+            </Link>
+          </div>
+        </section>
+      </main>
+    </div>
+  );
+}
+
+export default function PostAdAccessGate() {
+  const [status, setStatus] = useState({ loading: true, allowed: false, reason: '' });
+
+  const openLoginModal = () => {
+    window.dispatchEvent(new Event('open-login-modal'));
+  };
+
+  useEffect(() => {
+    let active = true;
+
+    async function checkAccess() {
+      try {
+        const accessToken = await getVerifiedAccessToken({ openLogin: false });
+
+        if (!active) return;
+
+        if (!accessToken) {
+          setStatus({ loading: false, allowed: false, reason: 'not_logged_in' });
+          return;
+        }
+
+        const response = await fetch('/api/profile/me', {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        const result = await response.json().catch(() => ({}));
+
+        if (!active) return;
+
+        if (!response.ok) {
+          setStatus({ loading: false, allowed: false, reason: 'profile_error' });
+          return;
+        }
+
+        const emailVerified = Boolean(result.user?.email_confirmed_at || result.user?.confirmed_at);
+
+        if (!emailVerified) {
+          setStatus({ loading: false, allowed: false, reason: 'email_unverified' });
+          return;
+        }
+
+        if (!SELLER_ACCOUNT_TYPES.includes(result.profile?.account_type)) {
+          setStatus({ loading: false, allowed: false, reason: 'buyer_account' });
+          return;
+        }
+
+        if (!result.profile?.phone_number) {
+          setStatus({ loading: false, allowed: false, reason: 'phone_missing' });
+          return;
+        }
+
+        if (!result.profile?.phone_verified) {
+          setStatus({ loading: false, allowed: false, reason: 'phone_unverified' });
+          return;
+        }
+
+        setStatus({ loading: false, allowed: true, reason: '' });
+      } catch (error) {
+        console.error('Post ad access gate failed:', error);
+        if (active) setStatus({ loading: false, allowed: false, reason: 'profile_error' });
+      }
+    }
+
+    checkAccess();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  if (status.loading) {
+    return (
+      <div className="min-h-screen bg-(--background)">
+        <Header />
+        <main className="mx-auto max-w-[1500px] px-6 py-10">
+          <p className="text-(--secondary-green)">Checking account...</p>
+        </main>
+      </div>
+    );
+  }
+
+  if (!status.allowed) {
+    if (status.reason === 'not_logged_in') {
+      return (
+        <GateMessage
+          title="Log in to post an ad"
+          message="Create an account, confirm your email, log in, and verify your phone before posting a listing."
+          primaryLabel="Log In"
+          primaryAction={openLoginModal}
+          secondaryHref="/register"
+          secondaryLabel="Register"
+        />
+      );
+    }
+
+    if (status.reason === 'email_unverified') {
+      return (
+        <GateMessage
+          title="Verify your email first"
+          message="Open the confirmation email from PawHome. After confirming the address, return and log in before continuing."
+          primaryHref="/"
+          primaryLabel="Back to PawHome"
+          secondaryHref="/register"
+          secondaryLabel="Register another account"
+        />
+      );
+    }
+
+    if (status.reason === 'buyer_account') {
+      return (
+        <GateMessage
+          title="Seller account required"
+          message="Buyer accounts cannot post ads. Change your account type to Private Seller or Breeder in your profile before continuing."
+          primaryHref="/profile"
+          primaryLabel="Change account type"
+        />
+      );
+    }
+
+    if (status.reason === 'phone_missing') {
+      return (
+        <GateMessage
+          title="Add your phone number"
+          message="A saved and verified phone number is required before you can post an ad. Add the number in your profile first."
+          primaryHref="/profile"
+          primaryLabel="Add phone in profile"
+        />
+      );
+    }
+
+    if (status.reason === 'phone_unverified') {
+      return (
+        <GateMessage
+          title="Verify your phone first"
+          message="Open your profile and request an automated verification call. Enter the four-digit code read during the call, then return to post your ad."
+          primaryHref="/profile"
+          primaryLabel="Verify phone by call"
+        />
+      );
+    }
+
+    return (
+      <GateMessage
+        title="Cannot open post form"
+        message="Your account could not be checked. Open your profile and confirm your details before posting an ad."
+        primaryHref="/profile"
+        primaryLabel="Go to Profile"
+      />
+    );
+  }
+
+  return <PostAdPageClient />;
+}
