@@ -1,9 +1,10 @@
 import { getAuthenticatedUser } from '../../../lib/apiHelpers';
 import { isTrueFlag, normalizePhoneVerified } from '../../../lib/booleanFlags';
 import { getSellerTypeFromAccountType } from '../../../lib/listingValidation';
+import { formatPhoneForVerification } from '../../../lib/phoneVerification';
+import { findVerifiedPhoneOwner } from '../../../lib/phoneUniqueness';
 import { getSupabaseAdminClient } from '../../../lib/supabaseAdmin';
 import { requireSameOrigin } from '../../../lib/requireSameOrigin';
-import { findProfileWithPhone } from '../../../lib/profilePhoneChecks';
 
 export const dynamic = 'force-dynamic';
 
@@ -52,6 +53,7 @@ export async function PATCH(request) {
   if (sameOriginError) {
     return sameOriginError;
   }
+
   const supabaseAdmin = getSupabaseAdminClient();
 
   if (!supabaseAdmin) {
@@ -106,7 +108,7 @@ export async function PATCH(request) {
 
     const { data: existingProfile, error: existingError } = await supabaseAdmin
       .from('profiles')
-      .select('user_id, phone_code, phone_number, phone_verified')
+      .select('user_id, phone_code, phone_number, phone_verified, verified_phone_e164')
       .eq('user_id', user.id)
       .maybeSingle();
 
@@ -128,15 +130,30 @@ export async function PATCH(request) {
       phoneNumber = existingProfile.phone_number || '';
     }
 
-    if (phoneNumber) {
-      const duplicatePhone = await findProfileWithPhone(supabaseAdmin, phoneCode, phoneNumber, user.id);
+    let phoneE164 = null;
 
-      if (duplicatePhone.error) {
-        console.error('Phone duplicate check failed:', duplicatePhone.error);
-        return Response.json({ error: 'Could not check phone number.' }, { status: 500 });
+    if (phoneNumber) {
+      phoneE164 = formatPhoneForVerification(phoneCode, phoneNumber);
+
+      if (!phoneE164) {
+        return Response.json({ error: 'Please enter a valid phone number.' }, { status: 400 });
       }
 
-      if (duplicatePhone.owner) {
+      const verifiedOwner = await findVerifiedPhoneOwner(supabaseAdmin, phoneE164, user.id);
+
+      if (verifiedOwner.error) {
+        console.error('Verified phone duplicate check failed:', {
+          message: verifiedOwner.error.message,
+          code: verifiedOwner.error.code,
+        });
+
+        return Response.json(
+          { error: 'Phone ownership checks are not configured correctly. Please contact PawHome support.' },
+          { status: 500 },
+        );
+      }
+
+      if (verifiedOwner.owner) {
         return Response.json({ error: 'This phone number is already linked to another PawHome account.' }, { status: 409 });
       }
     }
@@ -151,8 +168,9 @@ export async function PATCH(request) {
       county,
     };
 
-    if (!existingProfile || (!existingPhoneVerified && phoneChanged)) {
+    if (!existingProfile || (!existingPhoneVerified && phoneChanged) || (!phoneNumber && !existingPhoneVerified)) {
       profilePayload.phone_verified = false;
+      profilePayload.verified_phone_e164 = null;
     }
 
     const { data: updatedProfile, error: updateError } = await supabaseAdmin
