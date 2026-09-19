@@ -10,6 +10,7 @@ import { catBreeds, dogBreeds, otherPetTypes } from '../../data/petOptions';
 import { getVerifiedAccessToken } from '../../lib/authTokens';
 import { addWeeksToDate, getMinimumLegalAgeWeeks, validateImageFile } from '../../lib/listingValidation';
 import CustomSelect from './components/CustomSelect';
+import LitterAnimalsEditor from './components/LitterAnimalsEditor';
 import {
   AGE_UNIT_OPTIONS,
   ANIMAL_TYPE_OPTIONS,
@@ -104,6 +105,7 @@ export default function PostAdPageClient() {
   const [hasTriedSubmit, setHasTriedSubmit] = useState(false);
   const [errors, setErrors] = useState({});
   const [formData, setFormData] = useState(initialFormData);
+  const [litterAnimals, setLitterAnimals] = useState([]);
 
   const breedOptions =
     formData.animal_type === 'Dogs'
@@ -230,6 +232,24 @@ export default function PostAdPageClient() {
       if (!formData.date_of_birth) nextErrors.date_of_birth = 'Please enter the litter date of birth.';
       if (!formData.ready_to_leave) nextErrors.ready_to_leave = 'Please enter when the litter is ready to leave.';
       if (readyToLeaveTooEarly) nextErrors.ready_to_leave = `Minimum legal ready date is ${minimumReadyToLeaveDate}.`;
+
+      if (litterAnimals.length > 0) {
+        const availableAnimals = litterAnimals.filter((animal) => animal.status === 'available');
+        const availableBoys = availableAnimals.filter((animal) => animal.sex === 'Male').length;
+        const availableGirls = availableAnimals.filter((animal) => animal.sex === 'Female').length;
+
+        for (const [index, animal] of litterAnimals.entries()) {
+          if (!animal.name.trim()) nextErrors.litter_animals = `Please enter a name or number for animal ${index + 1}.`;
+          if (!animal.sex) nextErrors.litter_animals = `Please select a sex for ${animal.name || `animal ${index + 1}`}.`;
+          if (!animal.photo) nextErrors.litter_animals = `Please add an individual photo for ${animal.name || `animal ${index + 1}`}.`;
+        }
+
+        if (availableAnimals.length !== available) {
+          nextErrors.litter_animals = 'The number of individual cards marked Available must match the litter available count.';
+        } else if (availableBoys !== boys || availableGirls !== girls) {
+          nextErrors.litter_animals = 'The available boys and girls on the individual cards must match the litter counts.';
+        }
+      }
     }
 
     setErrors(nextErrors);
@@ -303,6 +323,27 @@ export default function PostAdPageClient() {
     const submitData = new FormData();
     Object.entries(formData).forEach(([key, value]) => submitData.append(key, value ?? ''));
     photos.forEach((file) => submitData.append('photos', file));
+
+    if (showLitterInfo && litterAnimals.length > 0) {
+      submitData.append(
+        'litter_animals',
+        JSON.stringify(
+          litterAnimals.map((animal) => ({
+            client_key: animal.client_key,
+            name: animal.name,
+            sex: animal.sex,
+            colour: animal.colour,
+            price: animal.price,
+            status: animal.status,
+            description: animal.description,
+          })),
+        ),
+      );
+
+      litterAnimals.forEach((animal) => {
+        if (animal.photo) submitData.append(`litter_photo_${animal.client_key}`, animal.photo);
+      });
+    }
 
     setSubmitting(true);
 
@@ -451,6 +492,15 @@ export default function PostAdPageClient() {
                   <Field label="Date of Birth" error={errors.date_of_birth}><input name="date_of_birth" type="date" value={formData.date_of_birth} onChange={(event) => { updateField('date_of_birth', event.target.value); if (event.target.value && minimumLegalAgeWeeks) updateField('ready_to_leave', formatDateInput(addWeeksToDate(event.target.value, minimumLegalAgeWeeks))); }} className={INPUT_CLASS} /></Field>
                   <Field label="Ready to Leave" error={errors.ready_to_leave}><input name="ready_to_leave" type="date" min={minimumReadyToLeaveDate || undefined} value={formData.ready_to_leave} onChange={handleInputChange} className={INPUT_CLASS} />{minimumReadyToLeaveDate && <p className="mt-1 text-xs font-semibold text-red-600">Minimum legal ready date: {minimumReadyToLeaveDate}</p>}{readyToLeaveTooEarly && <p className="mt-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700">This litter is too young to leave. Minimum age is {minimumLegalAgeWeeks} weeks.</p>}</Field>
                 </div>
+                <LitterAnimalsEditor
+                  animals={litterAnimals}
+                  onChange={(nextAnimals) => {
+                    setLitterAnimals(nextAnimals);
+                    setErrors((current) => ({ ...current, litter_animals: '', submit: '' }));
+                  }}
+                  onError={(error) => setErrors((current) => ({ ...current, litter_animals: error, submit: '' }))}
+                />
+                {errors.litter_animals && <p className="mt-3 text-sm font-bold text-red-600">{errors.litter_animals}</p>}
               </section>
             )}
 

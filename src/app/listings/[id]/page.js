@@ -4,6 +4,7 @@ import Footer from '../../../components/footer';
 import { PUBLIC_LISTING_SELECT } from '../../../lib/publicListingSelect';
 import { getSupabaseServerClient } from '../../../lib/supabaseServer';
 import { getSupabaseAdminClient } from '../../../lib/supabaseAdmin';
+import { fetchLitterAnimals } from '../../../lib/litterAnimals';
 import AdminListingPreviewClient from './AdminListingPreviewClient';
 import ListingDetailClient from './ListingDetailClient';
 
@@ -199,9 +200,11 @@ async function getListing(listingId) {
   }
 
   const sellerAvatarUrl = await getSellerAvatarUrl(listing.user_id);
+  const litterAnimals = listing.sex === 'Mixed Litter' ? await fetchLitterAnimals(supabase, listing.id) : [];
   const publicListing = {
     ...listing,
     seller_avatar_url: sellerAvatarUrl,
+    litter_animals: litterAnimals,
   };
 
   delete publicListing.user_id;

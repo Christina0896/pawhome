@@ -371,6 +371,14 @@ export default function EditListingPage() {
             </div>
 
             <div className="flex gap-3">
+              {isMixedLitter && (
+                <Link
+                  href={`/profile/listings/${listingId}/litter`}
+                  className="flex h-11 items-center justify-center rounded-xl bg-(--primary-orange) px-5 text-sm font-bold text-white"
+                >
+                  Manage Litter
+                </Link>
+              )}
               <Link
                 href="/profile"
                 className="flex h-11 items-center justify-center rounded-xl border border-(--border-beige) px-5 text-sm font-bold text-(--secondary-green) transition hover:border-(--primary-green)"

@@ -384,6 +384,27 @@ export async function PATCH(request, { params }) {
       return Response.json({ error: 'Could not save listing.' }, { status: 500 });
     }
 
+    if (!isMixedLitter) {
+      const { data: removedLitterAnimals, error: litterLookupError } = await supabaseAdmin
+        .from('litter_animals')
+        .select('id, image_url')
+        .eq('listing_id', listingId);
+
+      if (!litterLookupError && removedLitterAnimals?.length > 0) {
+        const { error: litterDeleteError } = await supabaseAdmin
+          .from('litter_animals')
+          .delete()
+          .eq('listing_id', listingId);
+
+        if (!litterDeleteError) {
+          const litterPaths = removedLitterAnimals
+            .map((animal) => getStoragePathFromPublicUrl(animal.image_url, LISTING_PHOTOS_BUCKET))
+            .filter(Boolean);
+          await removeStorageFiles(supabaseAdmin, LISTING_PHOTOS_BUCKET, litterPaths, 'Edit listing litter cleanup');
+        }
+      }
+    }
+
     let cleanupWarning = false;
 
     if (photosToDelete.length > 0) {
@@ -492,12 +513,38 @@ export async function DELETE(request, { params }) {
       ),
     ];
 
+    const { data: litterAnimals, error: litterAnimalsError } = await supabaseAdmin
+      .from('litter_animals')
+      .select('image_url')
+      .eq('listing_id', listingId);
+
+    if (litterAnimalsError && !['42P01', 'PGRST205'].includes(litterAnimalsError.code)) {
+      console.error('Litter animal photo lookup failed:', {
+        message: litterAnimalsError.message,
+        code: litterAnimalsError.code,
+      });
+
+      return Response.json({ error: 'Could not check litter animal photos.' }, { status: 500 });
+    }
+
+    const litterPhotoPaths = (litterAnimals || [])
+      .map((animal) => getStoragePathFromPublicUrl(animal.image_url, LISTING_PHOTOS_BUCKET))
+      .filter(Boolean);
+
     await safeDelete(supabaseAdmin.from('favorites').delete().eq('listing_id', listingId), 'listing favourites');
     await safeDelete(supabaseAdmin.from('listing_reports').delete().eq('listing_id', listingId), 'listing reports');
     await safeDelete(supabaseAdmin.from('listing_photos').delete().eq('listing_id', listingId), 'listing photo rows');
+    if (!litterAnimalsError) {
+      await safeDelete(supabaseAdmin.from('litter_animals').delete().eq('listing_id', listingId), 'litter animal rows');
+    }
     await safeDelete(supabaseAdmin.from('listings').delete().eq('id', listingId).eq('user_id', user.id), 'listing');
 
-    await removeStorageFiles(supabaseAdmin, LISTING_PHOTOS_BUCKET, photoPaths, 'Listing photo storage cleanup');
+    await removeStorageFiles(
+      supabaseAdmin,
+      LISTING_PHOTOS_BUCKET,
+      [...photoPaths, ...litterPhotoPaths],
+      'Listing photo storage cleanup',
+    );
 
     return Response.json({ success: true }, { status: 200 });
   } catch (error) {

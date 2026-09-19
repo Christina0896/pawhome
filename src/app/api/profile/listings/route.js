@@ -83,9 +83,36 @@ export async function GET(request) {
     }
   }
 
+  const litterListingIds = listingRows
+    .filter((listing) => listing.sex === 'Mixed Litter')
+    .map((listing) => listing.id);
+  const litterSummaryByListingId = new Map();
+
+  if (litterListingIds.length > 0) {
+    const { data: litterAnimals, error: litterAnimalsError } = await supabaseAdmin
+      .from('litter_animals')
+      .select('listing_id, status')
+      .in('listing_id', litterListingIds);
+
+    if (!litterAnimalsError) {
+      for (const animal of litterAnimals || []) {
+        const summary = litterSummaryByListingId.get(animal.listing_id) || { total: 0, available: 0, reserved: 0, sold: 0 };
+        summary.total += 1;
+        if (Object.hasOwn(summary, animal.status)) summary[animal.status] += 1;
+        litterSummaryByListingId.set(animal.listing_id, summary);
+      }
+    } else if (!['42P01', 'PGRST205'].includes(litterAnimalsError.code)) {
+      console.warn('Profile litter summary fetch failed:', {
+        message: litterAnimalsError.message,
+        code: litterAnimalsError.code,
+      });
+    }
+  }
+
   const listingsWithFirstPhoto = listingRows.map((listing) => ({
     ...listing,
     first_photo: firstPhotoByListingId.get(listing.id) || null,
+    litter_summary: litterSummaryByListingId.get(listing.id) || null,
   }));
 
   return Response.json({ listings: listingsWithFirstPhoto }, { status: 200 });

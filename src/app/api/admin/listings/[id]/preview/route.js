@@ -1,5 +1,6 @@
 import { requireAdmin } from '../../../../../../lib/requireAdmin';
 import { PUBLIC_LISTING_SELECT } from '../../../../../../lib/publicListingSelect';
+import { fetchLitterAnimals } from '../../../../../../lib/litterAnimals';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,6 +39,8 @@ export async function GET(request, { params }) {
     if (!listing) {
       return Response.json({ error: 'Listing not found.' }, { status: 404 });
     }
+
+    listing.litter_animals = listing.sex === 'Mixed Litter' ? await fetchLitterAnimals(supabaseAdmin, listing.id) : [];
 
     const { data: similarListings, error: similarError } = await supabaseAdmin
       .from('listings')

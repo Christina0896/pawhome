@@ -1,6 +1,7 @@
 import { getSupabaseAdminClient } from '../../../../../../lib/supabaseAdmin';
 import { getAuthenticatedUser } from '../../../../../../lib/apiHelpers';
 import { PUBLIC_LISTING_SELECT } from '../../../../../../lib/publicListingSelect';
+import { fetchLitterAnimals } from '../../../../../../lib/litterAnimals';
 
 export const dynamic = 'force-dynamic';
 
@@ -50,6 +51,7 @@ export async function GET(request, { params }) {
     }
 
     const { user_id: _userId, ...publicListing } = listing;
+    publicListing.litter_animals = listing.sex === 'Mixed Litter' ? await fetchLitterAnimals(supabaseAdmin, listing.id) : [];
 
     const { data: similarListings, error: similarError } = await supabaseAdmin
       .from('listings')
