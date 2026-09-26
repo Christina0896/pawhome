@@ -419,9 +419,15 @@ export default function EditListingPage() {
           <section className="mb-8">
             <div className="mb-3 flex items-center justify-between gap-4">
               <div>
-                <h2 className="text-lg font-extrabold text-(--secondary-green)">Photos</h2>
+                <h2 className="text-lg font-extrabold text-(--secondary-green)">
+                  {isMixedLitter ? 'Parents & Litter Photos' : 'Photos'}
+                </h2>
 
-                <p className="mt-1 text-xs text-(--muted-green-text)">Add or remove photos. Maximum 6 photos.</p>
+                <p className="mt-1 text-xs text-(--muted-green-text)">
+                  {isMixedLitter
+                    ? 'Add photos of the parents and the complete litter together. Individual photos are managed separately. Maximum 6 photos.'
+                    : 'Add or remove photos. Maximum 6 photos.'}
+                </p>
               </div>
 
               <button

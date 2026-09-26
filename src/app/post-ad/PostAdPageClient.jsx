@@ -505,11 +505,17 @@ export default function PostAdPageClient() {
             )}
 
             <div className="col-span-full">
-              <SectionHeader title="Photos">Add clear photos of the pet. You can upload up to 6 images.</SectionHeader>
+              <SectionHeader title={showLitterInfo ? 'Parents & Litter Photos' : 'Photos'}>
+                {showLitterInfo
+                  ? 'Add photos of the parents and the complete litter together. Individual photos belong in each animal card above. You can upload up to 6 images.'
+                  : 'Add clear photos of the pet. You can upload up to 6 images.'}
+              </SectionHeader>
               <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={(event) => { addPhotos(Array.from(event.target.files || [])); event.target.value = ''; }} className="hidden" />
               <div role="button" tabIndex={0} onClick={() => fileInputRef.current?.click()} onDragEnter={(event) => event.preventDefault()} onDragOver={(event) => event.preventDefault()} onDrop={handlePhotoDrop} className={`mt-6 flex min-h-[170px] cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed px-6 text-center transition ${errors.photos ? 'border-red-300 bg-red-50' : 'border-(--border-beige) bg-(--background) hover:border-(--primary-green)'}`}>
                 <GalleryIcon className="h-8 w-8 text-(--primary-green)" />
-                <p className="mt-3 text-sm font-semibold text-(--secondary-green)">Click or drag photos here</p>
+                <p className="mt-3 text-sm font-semibold text-(--secondary-green)">
+                  {showLitterInfo ? 'Add parents and litter photos' : 'Click or drag photos here'}
+                </p>
                 <p className="mt-1 text-xs text-(--muted-green-text)">JPG, PNG or WEBP. Maximum 6 photos.</p>
               </div>
               {errors.photos && <p className="mt-2 text-xs font-medium text-red-500">{errors.photos}</p>}
