@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '../lib/supabaseClient';
-import { ShieldCheckIcon, ArrowIcon, PawIcon } from './Icons';
+import { ShieldCheckIcon, ArrowIcon, PawIcon, LocationIcon } from './Icons';
 
 const BrowseCards = () => {
   const [countyItems, setCountyItems] = useState([]);
@@ -36,14 +36,14 @@ const BrowseCards = () => {
       Object.entries(countyCounts)
         .sort((a, b) => b[1] - a[1])
         .slice(0, 9)
-        .map(([county, count]) => ({ county, count })),
+        .map(([label, count]) => ({ label, count })),
     );
 
     setBreedItems(
       Object.entries(breedCounts)
         .sort((a, b) => b[1] - a[1])
         .slice(0, 9)
-        .map(([breed, count]) => ({ breed, count })),
+        .map(([label, count]) => ({ label, count })),
     );
   }, []);
 
@@ -63,113 +63,108 @@ const BrowseCards = () => {
 
   return (
     <div className="mx-auto max-w-[var(--page-max-width)] px-4 pb-2">
-      <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-3">
-        <div className="flex h-full min-h-[128px] items-center gap-6 rounded-2xl border border-(--border-beige) bg-white/70 px-6 py-5 shadow-[0_6px_18px_rgba(18,53,36,0.06)]">
-          <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-[#DDE6D0] ">
-            <span
-              aria-hidden="true"
-              style={{
-                display: 'block',
-                width: '48px',
-                height: '48px',
-                backgroundColor: '#8A9A7A',
-                WebkitMask: "url('/svg/ireland.svg') center / contain no-repeat",
-                mask: "url('/svg/ireland.svg') center / contain no-repeat",
-              }}
-            />
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <BrowsePanel tone="green" icon={<LocationIcon className="h-8 w-8" />}>
+          <h3 className="text-lg font-extrabold text-(--secondary-green)">Browse by County</h3>
+
+          <BrowseGrid emptyText="No counties yet">
+            {countyItems.map((item) => (
+              <BrowseItem
+                key={item.label}
+                href={`/listings?county=${encodeURIComponent(item.label)}`}
+                label={item.label}
+                count={item.count}
+              />
+            ))}
+          </BrowseGrid>
+
+          <BrowseCta href="/listings" tone="green">
+            View all counties
+          </BrowseCta>
+        </BrowsePanel>
+
+        <BrowsePanel tone="orange" icon={<PawIcon className="h-8 w-8" />}>
+          <h3 className="text-lg font-extrabold text-(--secondary-green)">Browse by Breed</h3>
+
+          <BrowseGrid emptyText="No breeds yet">
+            {breedItems.map((item) => (
+              <BrowseItem
+                key={item.label}
+                href={`/listings?breed=${encodeURIComponent(item.label)}`}
+                label={item.label}
+                count={item.count}
+              />
+            ))}
+          </BrowseGrid>
+
+          <BrowseCta href="/listings" tone="orange">
+            View all breeds
+          </BrowseCta>
+        </BrowsePanel>
+
+        <div className="flex min-h-[190px] items-center gap-5 overflow-hidden rounded-2xl border border-(--border-beige) bg-[#F4F5E8] px-6 py-5 shadow-[0_6px_18px_rgba(18,53,36,0.06)]">
+          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-[#E2E5C7] text-(--primary-green)">
+            <ShieldCheckIcon className="h-8 w-8" />
           </div>
 
           <div className="min-w-0 flex-1">
-            <h3 className="text-lg font-extrabold text-(--secondary-green)">Browse by County</h3>
-
-            <div className="mt-3 grid grid-cols-1 gap-x-8 gap-y-1 text-sm font-semibold text-(--secondary-green) sm:grid-cols-2">
-              {countyItems.length > 0 ? (
-                countyItems.map((item) => (
-                  <Link
-                    key={item.county}
-                    href={`/listings?county=${encodeURIComponent(item.county)}`}
-                    className="flex items-center transition hover:text-(--primary-orange)"
-                  >
-                    <span>{item.county}</span>
-                    <span className="ml-1 text-xs font-bold text-(--muted-green-text)">({item.count})</span>
-                  </Link>
-                ))
-              ) : (
-                <p className="col-span-2 text-sm text-(--muted-green-text)">No counties yet</p>
-              )}
-            </div>
-
-            <Link
-              href="/listings"
-              className="mt-4 inline-flex items-center gap-2 text-sm font-extrabold text-(--primary-green) transition hover:text-(--primary-orange)"
-            >
-              View all counties <ArrowIcon />
-            </Link>
-          </div>
-        </div>
-
-        <div className="flex h-full min-h-[128px] items-center gap-6 rounded-2xl border border-(--border-beige) bg-[#FFF4EA] px-6 py-5 shadow-[0_6px_18px_rgba(18,53,36,0.06)]">
-          <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-(--primary-orange) text-white">
-            <PawIcon className="h-10 w-15" />
-          </div>
-
-          <div className="min-w-0 flex-1">
-            <h3 className="text-lg font-extrabold text-(--secondary-green)">Browse by Breed</h3>
-
-            <div className="mt-3 grid grid-cols-1 gap-x-8 gap-y-1 text-sm font-semibold text-(--secondary-green) sm:grid-cols-2">
-              {breedItems.length > 0 ? (
-                breedItems.map((item) => (
-                  <Link
-                    key={item.breed}
-                    href={`/listings?breed=${encodeURIComponent(item.breed)}`}
-                    className="flex items-center transition hover:text-(--primary-orange)"
-                  >
-                    <span>{item.breed}</span>
-                    <span className="ml-1 text-xs font-bold text-(--muted-green-text)">({item.count})</span>
-                  </Link>
-                ))
-              ) : (
-                <p className="col-span-2 text-sm text-(--muted-green-text)">No breeds yet</p>
-              )}
-            </div>
-
-            <Link
-              href="/listings"
-              className="mt-4 inline-flex items-center gap-2 text-sm font-extrabold text-(--primary-orange) transition hover:text-(--secondary-orange)"
-            >
-              View all breeds <ArrowIcon />
-            </Link>
-          </div>
-        </div>
-
-        <div className="relative flex h-full min-h-[128px] items-center overflow-hidden rounded-2xl border border-(--border-beige) bg-[#F4F5E8] px-6 py-5 shadow-[0_6px_18px_rgba(18,53,36,0.06)]">
-          <div className="z-10 flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-[#E2E5C7] text-(--primary-green)">
-            <ShieldCheckIcon />
-          </div>
-
-          <div className="z-10 ml-6 max-w-[300px] pr-[130px]">
             <h3 className="text-lg font-extrabold text-(--secondary-green)">Safety Tips</h3>
 
             <p className="mt-2 text-sm font-semibold leading-5 text-(--secondary-green)">
               Tips for meeting, buying and bringing your new pet home safely.
             </p>
 
-            <Link
-              href="/buying-safely"
-              className="mt-3 inline-flex items-center gap-2 text-sm font-extrabold text-(--primary-green) transition hover:text-(--primary-orange)"
-            >
-              Read our safety guide <ArrowIcon />
-            </Link>
+            <BrowseCta href="/buying-safely" tone="green">
+              Read our safety guide
+            </BrowseCta>
           </div>
-
-          <img
-            className="pointer-events-none absolute bottom-0 right-4 hidden h-[105px] w-[145px] object-contain opacity-80 md:block"
-            src="/img/miniLogo.png"
-            alt=""
-          />
         </div>
       </div>
     </div>
+  );
+};
+
+const BrowsePanel = ({ tone, icon, children }) => {
+  const panelClass = tone === 'orange' ? 'bg-[#FFF4EA]' : 'bg-[#F2F3EC]';
+  const iconClass = tone === 'orange' ? 'bg-(--primary-orange) text-white' : 'bg-[#DDE6D0] text-[#6F806F]';
+
+  return (
+    <div className={`flex min-h-[190px] items-center gap-5 rounded-2xl border border-(--border-beige) ${panelClass} px-6 py-5 shadow-[0_6px_18px_rgba(18,53,36,0.06)]`}>
+      <div className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-full ${iconClass}`}>
+        {icon}
+      </div>
+
+      <div className="min-w-0 flex-1">{children}</div>
+    </div>
+  );
+};
+
+const BrowseGrid = ({ children, emptyText }) => {
+  const hasItems = Array.isArray(children) ? children.length > 0 : Boolean(children);
+
+  return (
+    <div className="mt-3 grid grid-cols-3 gap-x-4 gap-y-2 text-[12px] font-semibold text-(--secondary-green)">
+      {hasItems ? children : <p className="col-span-3 text-sm text-(--muted-green-text)">{emptyText}</p>}
+    </div>
+  );
+};
+
+const BrowseItem = ({ href, label, count }) => {
+  return (
+    <Link href={href} title={label} className="flex min-w-0 items-center gap-1 transition hover:text-(--primary-orange)">
+      <span className="min-w-0 truncate whitespace-nowrap">{label}</span>
+      <span className="shrink-0 text-[11px] font-bold text-(--muted-green-text)">({count})</span>
+    </Link>
+  );
+};
+
+const BrowseCta = ({ href, tone, children }) => {
+  const colorClass = tone === 'orange' ? 'text-(--primary-orange) hover:text-(--secondary-orange)' : 'text-(--primary-green) hover:text-(--primary-orange)';
+
+  return (
+    <Link href={href} className={`mt-4 inline-flex items-center gap-2 text-sm font-extrabold transition ${colorClass}`}>
+      {children} <ArrowIcon className="h-3.5 w-3.5" />
+    </Link>
   );
 };
 

@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { dogBreeds, catBreeds, otherPetTypes } from '../data/petOptions';
 import { counties } from '../data/countyList';
-import { PawIcon, BreedIcon, LocationIcon, ListingTypeIcon, SearchIcon } from './Icons';
+import { PawIcon, BreedIcon, LocationIcon, ListingTypeIcon, SearchIcon, ArrowIcon } from './Icons';
 
 const animalOptions = [
   { label: 'All Animals', value: '' },
@@ -32,19 +33,19 @@ const labelClass = 'block text-sm font-bold leading-tight text-(--secondary-gree
 
 const valueClass = 'mt-0.5 block truncate text-sm font-medium text-(--muted-green-text)';
 
-const ArrowIcon = () => <span className="shrink-0 text-xs text-(--primary-green)">▼</span>;
+const DropdownArrow = ({ open = false }) => (
+  <ArrowIcon className={`h-3.5 w-3.5 shrink-0 transition-transform ${open ? '-rotate-90' : 'rotate-90'}`} />
+);
 
 const SearchBar = () => {
-  // Refs
+  const router = useRouter();
   const searchBarRef = useRef(null);
 
-  // Search state
   const [animalType, setAnimalType] = useState('');
   const [breedInput, setBreedInput] = useState('');
   const [county, setCounty] = useState('');
   const [listingType, setListingType] = useState('');
 
-  // Dropdown state
   const [showAnimalDropdown, setShowAnimalDropdown] = useState(false);
   const [showBreedDropdown, setShowBreedDropdown] = useState(false);
   const [showCountyDropdown, setShowCountyDropdown] = useState(false);
@@ -63,7 +64,6 @@ const SearchBar = () => {
     breed.toLowerCase().includes(breedInput.toLowerCase()),
   );
 
-  // Close dropdowns when clicking outside the search bar
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (!searchBarRef.current?.contains(e.target)) {
@@ -85,6 +85,24 @@ const SearchBar = () => {
     setShowListingTypeDropdown(false);
   };
 
+  const toggleDropdown = (dropdown) => {
+    const wasOpen = {
+      animal: showAnimalDropdown,
+      breed: showBreedDropdown,
+      county: showCountyDropdown,
+      listingType: showListingTypeDropdown,
+    }[dropdown];
+
+    closeAllDropdowns();
+
+    if (wasOpen) return;
+
+    if (dropdown === 'animal') setShowAnimalDropdown(true);
+    if (dropdown === 'breed') setShowBreedDropdown(true);
+    if (dropdown === 'county') setShowCountyDropdown(true);
+    if (dropdown === 'listingType') setShowListingTypeDropdown(true);
+  };
+
   const handleSearch = () => {
     const params = new URLSearchParams();
 
@@ -95,7 +113,7 @@ const SearchBar = () => {
 
     const queryString = params.toString();
 
-    window.location.href = queryString ? `/listings?${queryString}` : '/listings';
+    router.push(queryString ? `/listings?${queryString}` : '/listings');
   };
 
   return (
@@ -104,16 +122,12 @@ const SearchBar = () => {
       className="relative z-50 mx-auto max-w-[1280px] rounded-[18px] border border-(--border-beige) bg-(--background) p-4 shadow-[0_12px_35px_rgba(18,53,36,0.12)]"
     >
       <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_1fr_1fr_1fr_190px]">
-        {/* Animal Type */}
         <div className={fieldClass}>
           <PawIcon className="h-5 w-5 shrink-0 text-(--primary-green)" />
 
           <button
             type="button"
-            onClick={() => {
-              closeAllDropdowns();
-              setShowAnimalDropdown((open) => !open);
-            }}
+            onClick={() => toggleDropdown('animal')}
             className="flex min-w-0 flex-1 items-center justify-between text-left"
           >
             <div className="min-w-0">
@@ -121,7 +135,7 @@ const SearchBar = () => {
               <span className={valueClass}>{animalType || 'All Animals'}</span>
             </div>
 
-            <ArrowIcon />
+            <DropdownArrow open={showAnimalDropdown} />
           </button>
 
           {showAnimalDropdown && (
@@ -144,7 +158,6 @@ const SearchBar = () => {
           )}
         </div>
 
-        {/* Breed / Pet Type */}
         <div className={fieldClass}>
           <BreedIcon className="h-5 w-5 shrink-0 text-(--primary-green)" />
 
@@ -154,14 +167,11 @@ const SearchBar = () => {
             {animalType === 'Other Pets' ? (
               <button
                 type="button"
-                onClick={() => {
-                  closeAllDropdowns();
-                  setShowBreedDropdown((open) => !open);
-                }}
+                onClick={() => toggleDropdown('breed')}
                 className="mt-0.5 flex w-full items-center justify-between text-left text-sm font-medium text-(--muted-green-text)"
               >
                 <span className="truncate">{breedInput || 'All Pet Types'}</span>
-                <ArrowIcon />
+                <DropdownArrow open={showBreedDropdown} />
               </button>
             ) : (
               <input
@@ -182,16 +192,8 @@ const SearchBar = () => {
           </div>
 
           {animalType !== 'Other Pets' && (
-            <button
-              type="button"
-              onClick={() => {
-                closeAllDropdowns();
-                setShowBreedDropdown((open) => !open);
-              }}
-              className="shrink-0"
-              aria-label="Open breed dropdown"
-            >
-              <ArrowIcon />
+            <button type="button" onClick={() => toggleDropdown('breed')} className="shrink-0" aria-label="Open breed dropdown">
+              <DropdownArrow open={showBreedDropdown} />
             </button>
           )}
 
@@ -258,16 +260,12 @@ const SearchBar = () => {
           )}
         </div>
 
-        {/* County */}
         <div className={fieldClass}>
           <LocationIcon className="h-5 w-5 shrink-0 text-(--primary-green)" />
 
           <button
             type="button"
-            onClick={() => {
-              closeAllDropdowns();
-              setShowCountyDropdown((open) => !open);
-            }}
+            onClick={() => toggleDropdown('county')}
             className="flex min-w-0 flex-1 items-center justify-between text-left"
           >
             <div className="min-w-0">
@@ -275,7 +273,7 @@ const SearchBar = () => {
               <span className={valueClass}>{county || 'All Counties'}</span>
             </div>
 
-            <ArrowIcon />
+            <DropdownArrow open={showCountyDropdown} />
           </button>
 
           {showCountyDropdown && (
@@ -308,16 +306,12 @@ const SearchBar = () => {
           )}
         </div>
 
-        {/* Ad Type */}
         <div className={fieldClass}>
           <ListingTypeIcon className="h-5 w-5 shrink-0 text-(--primary-green)" />
 
           <button
             type="button"
-            onClick={() => {
-              closeAllDropdowns();
-              setShowListingTypeDropdown((open) => !open);
-            }}
+            onClick={() => toggleDropdown('listingType')}
             className="flex min-w-0 flex-1 items-center justify-between text-left"
           >
             <div className="min-w-0">
@@ -325,7 +319,7 @@ const SearchBar = () => {
               <span className={valueClass}>{listingType || 'Any Type'}</span>
             </div>
 
-            <ArrowIcon />
+            <DropdownArrow open={showListingTypeDropdown} />
           </button>
 
           {showListingTypeDropdown && (
@@ -347,14 +341,12 @@ const SearchBar = () => {
           )}
         </div>
 
-        {/* Search Button */}
         <button
           type="button"
           onClick={handleSearch}
-          className="flex h-[52px] items-center justify-center gap-3 rounded-xl bg-(--primary-orange) px-6 text-base font-bold text-white shadow-sm transition hover:bg-(--secondary-orange)"
+          className="flex h-[52px] cursor-pointer items-center justify-center gap-3 rounded-xl bg-(--primary-orange) px-6 text-base font-bold text-white shadow-sm transition hover:bg-(--secondary-orange)"
         >
           <SearchIcon className="h-5 w-5" />
-
           <span>Search</span>
         </button>
       </div>

@@ -1,0 +1,660 @@
+'use client';
+
+import { useEffect } from 'react';
+
+const AGE_UNITS = ['days', 'weeks', 'months', 'years'];
+const OTHER_PET_CATEGORIES = ['Rodents', 'Reptiles', 'Rabbits', 'Livestock', 'Poultry', 'Birds', 'Fish', 'Horses', 'Invertebrates'];
+const MIXED_LITTER_FIELDS = [
+  ['litter_size', 'Litter Size', '1'],
+  ['available_litter_count', 'Available', '1'],
+  ['male_count', 'Number of Boys', '0'],
+  ['female_count', 'Number of Girls', '0'],
+  ['date_of_birth', 'Date of Birth', ''],
+  ['ready_to_leave', 'Ready to Leave', ''],
+];
+
+function normaliseText(value) {
+  return String(value || '').replace('*', '').replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
+function getField(name) {
+  return document.querySelector(`[name="${name}"]`);
+}
+
+function getLabel(labelText) {
+  const target = normaliseText(labelText);
+  return [...document.querySelectorAll('label')].find((item) => normaliseText(item.textContent) === target);
+}
+
+function getLabelContaining(labelText) {
+  const target = normaliseText(labelText);
+  return [...document.querySelectorAll('label')].find((item) => normaliseText(item.textContent).includes(target));
+}
+
+function getFieldByLabel(labelText) {
+  const label = getLabel(labelText);
+  return label?.closest('div')?.querySelector('input, select, textarea') || null;
+}
+
+function getSelectText(labelText) {
+  const label = getLabel(labelText) || getLabelContaining(labelText);
+  const root = label?.closest('.data-dropdown-root') || label?.parentElement?.parentElement;
+  return root?.querySelector('button span')?.textContent?.trim() || '';
+}
+
+function isAdoption() {
+  return getSelectText('Ad Type') === 'For Adoption';
+}
+
+function isMixedLitter() {
+  return getSelectText('Sex') === 'Mixed Litter';
+}
+
+function isDogSelected() {
+  return getSelectText('Animal Type') === 'Dogs';
+}
+
+function isOtherPetSelected() {
+  return getSelectText('Animal Type') === 'Other Pets';
+}
+
+function cleanNumber(value) {
+  return String(value || '').replace(/\D/g, '').slice(0, 3);
+}
+
+function cleanAgeUnit(value) {
+  return AGE_UNITS.includes(value) ? value : 'weeks';
+}
+
+function buildAgeLabel(value, unit) {
+  const numberText = cleanNumber(value);
+  const cleanUnit = cleanAgeUnit(unit);
+
+  if (!numberText) return '';
+
+  const number = Number(numberText);
+  const labelUnit = number === 1 ? cleanUnit.replace(/s$/, '') : cleanUnit;
+
+  return `${numberText} ${labelUnit}`;
+}
+
+function parseAge(value) {
+  const text = String(value || '').trim().toLowerCase();
+  const match = text.match(/^(\d{1,3})(?:\s+)?(day|days|week|weeks|month|months|year|years)?$/);
+
+  if (!match) return { value: cleanNumber(text), unit: 'weeks' };
+
+  const unit = match[2] || 'weeks';
+  const pluralUnit = unit.endsWith('s') ? unit : `${unit}s`;
+
+  return {
+    value: cleanNumber(match[1]),
+    unit: cleanAgeUnit(pluralUnit),
+  };
+}
+
+function setReactInputValue(input, value) {
+  const descriptor = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value');
+  descriptor?.set?.call(input, value);
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+  input.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function closeAgeUnitMenu(root) {
+  const menu = root?.querySelector('[data-age-unit-menu="true"]');
+  const arrow = root?.querySelector('[data-age-unit-arrow="true"]');
+
+  if (menu) menu.style.display = 'none';
+  if (arrow) arrow.classList.remove('rotate-180');
+}
+
+function openAgeUnitMenu(root) {
+  const menu = root?.querySelector('[data-age-unit-menu="true"]');
+  const arrow = root?.querySelector('[data-age-unit-arrow="true"]');
+
+  if (menu) menu.style.display = '';
+  if (arrow) arrow.classList.add('rotate-180');
+}
+
+function updateAgeUnitButton(root, value) {
+  const text = root?.querySelector('[data-age-unit-text="true"]');
+  if (text) text.textContent = cleanAgeUnit(value);
+}
+
+function enhanceAgeField() {
+  const input = getField('age');
+
+  if (!input || input.dataset.postAdAgeEnhanced === 'true') return Boolean(input);
+
+  input.dataset.postAdAgeEnhanced = 'true';
+
+  const parsed = parseAge(input.value);
+  const originalClassName = input.className;
+
+  input.type = 'text';
+  input.inputMode = 'numeric';
+  input.pattern = '[0-9]*';
+  input.placeholder = '8';
+  input.autocomplete = 'off';
+  input.className = 'h-full min-w-0 flex-1 border-0 bg-white px-4 text-sm text-(--secondary-green) outline-none ring-0 placeholder:text-(--muted-green-text) focus:outline-none focus:ring-0';
+
+  const wrapper = document.createElement('div');
+  wrapper.className = `relative flex h-[45px] w-full items-center overflow-visible rounded-xl border bg-white text-sm text-(--secondary-green) transition ${
+    originalClassName.includes('border-red-400') ? 'border-red-400' : 'border-(--border-beige) focus-within:border-(--primary-green)'
+  }`;
+
+  const select = document.createElement('select');
+  select.name = 'age_unit_visual';
+  select.dataset.postAdAgeUnit = 'true';
+  select.style.display = 'none';
+
+  AGE_UNITS.forEach((unit) => {
+    const option = document.createElement('option');
+    option.value = unit;
+    option.textContent = unit;
+    select.appendChild(option);
+  });
+
+  select.value = parsed.unit;
+
+  const unitButton = document.createElement('button');
+  unitButton.type = 'button';
+  unitButton.dataset.ageUnitButton = 'true';
+  unitButton.className = 'flex h-full w-[92px] shrink-0 items-center justify-center gap-2 border-l border-(--border-beige) px-3 text-xs font-bold text-(--secondary-green) outline-none transition hover:bg-(--background) focus:outline-none';
+  unitButton.innerHTML = `<span data-age-unit-text="true">${parsed.unit}</span><span data-age-unit-arrow="true" class="shrink-0 text-xs text-(--primary-green) transition">▼</span>`;
+
+  const menu = document.createElement('div');
+  menu.dataset.ageUnitMenu = 'true';
+  menu.className = 'absolute right-0 top-full z-[9999] mt-2 w-[112px] max-h-72 overflow-y-auto rounded-xl border border-(--border-beige) bg-white shadow-lg';
+  menu.style.display = 'none';
+
+  AGE_UNITS.forEach((unit) => {
+    const option = document.createElement('button');
+    option.type = 'button';
+    option.className = 'block w-full border-b border-(--border-beige) px-4 py-3 text-left text-sm text-(--secondary-green) outline-none transition hover:bg-(--background) focus:outline-none';
+    option.textContent = unit;
+
+    option.addEventListener('mousedown', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      select.value = unit;
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+      updateAgeUnitButton(wrapper, unit);
+      closeAgeUnitMenu(wrapper);
+    });
+
+    menu.appendChild(option);
+  });
+
+  unitButton.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const isOpen = menu.style.display !== 'none';
+
+    document.querySelectorAll('[data-age-unit-menu="true"]').forEach((item) => {
+      item.style.display = 'none';
+    });
+    document.querySelectorAll('[data-age-unit-arrow="true"]').forEach((item) => {
+      item.classList.remove('rotate-180');
+    });
+
+    if (!isOpen) openAgeUnitMenu(wrapper);
+  });
+
+  input.parentElement?.insertBefore(wrapper, input);
+  wrapper.appendChild(input);
+  wrapper.appendChild(select);
+  wrapper.appendChild(unitButton);
+  wrapper.appendChild(menu);
+
+  setReactInputValue(input, parsed.value);
+
+  input.addEventListener('input', () => {
+    const nextValue = cleanNumber(input.value);
+    if (input.value !== nextValue) setReactInputValue(input, nextValue);
+  });
+
+  return true;
+}
+
+function updateNegotiableCircle(input) {
+  const circle = input?.closest('label')?.querySelector('[data-negotiable-circle="true"]');
+  if (!circle) return;
+
+  circle.className = `flex h-4 w-4 items-center justify-center rounded-full border text-[10px] font-black transition ${
+    input.checked
+      ? 'border-(--primary-green) bg-(--primary-green) text-white'
+      : 'border-(--border-beige) bg-white text-transparent'
+  }`;
+  circle.textContent = input.checked ? '✓' : '';
+}
+
+function styleNegotiableControl(input, label) {
+  if (!input || !label) return;
+
+  if (!label.dataset.negotiableStyled) {
+    [...label.childNodes].forEach((node) => {
+      if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) node.remove();
+    });
+
+    const circle = document.createElement('span');
+    circle.dataset.negotiableCircle = 'true';
+
+    const text = document.createElement('span');
+    text.textContent = 'Price negotiable';
+
+    input.className = 'sr-only';
+    input.insertAdjacentElement('afterend', circle);
+    circle.insertAdjacentElement('afterend', text);
+
+    label.dataset.negotiableStyled = 'true';
+  }
+
+  label.className = 'mt-2 inline-flex cursor-pointer items-center gap-2 text-xs font-bold text-(--muted-green-text)';
+  updateNegotiableCircle(input);
+}
+
+function syncAdoptionPrice() {
+  const priceInput = getField('price');
+  const priceLabel = getLabel('Price');
+  const adoptionSelected = isAdoption();
+  const negotiableInput = [...document.querySelectorAll('input[type="checkbox"]')].find((checkbox) =>
+    checkbox.closest('label')?.textContent?.toLowerCase().includes('negotiable') || checkbox.closest('label')?.dataset.negotiableStyled === 'true',
+  );
+  const negotiableLabel = negotiableInput?.closest('label');
+  const priceWrapper = priceInput?.closest('div.flex');
+  const priceField = priceWrapper?.parentElement;
+
+  if (priceInput) {
+    priceInput.required = !adoptionSelected;
+  }
+
+  syncRequiredStar(priceLabel, !adoptionSelected);
+
+  if (negotiableInput && negotiableLabel && priceWrapper && priceField && negotiableLabel.parentElement !== priceField) {
+    priceWrapper.insertAdjacentElement('afterend', negotiableLabel);
+  }
+
+  if (negotiableInput) {
+    if (adoptionSelected && negotiableInput.checked) negotiableInput.click();
+    negotiableInput.disabled = adoptionSelected;
+  }
+
+  if (negotiableLabel) {
+    styleNegotiableControl(negotiableInput, negotiableLabel);
+    negotiableLabel.style.display = adoptionSelected ? 'none' : 'inline-flex';
+  }
+}
+
+function updateKcToggle(root) {
+  const button = root?.querySelector('[data-kc-registered-toggle="true"]');
+  const circle = root?.querySelector('[data-kc-registered-circle="true"]');
+  const active = root?.dataset.kcRegisteredValue === 'Yes';
+
+  if (!button || !circle) return;
+
+  button.className = `flex h-[45px] w-full items-center justify-between rounded-xl border px-4 text-sm font-semibold transition ${
+    active
+      ? 'border-(--primary-green) bg-(--light-green) text-(--secondary-green)'
+      : 'border-(--border-beige) bg-white text-(--muted-green-text) hover:border-(--primary-green)'
+  }`;
+
+  circle.className = `flex h-5 w-5 items-center justify-center rounded-full border text-xs ${
+    active ? 'border-(--primary-green) bg-(--primary-green) text-white' : 'border-(--border-beige) bg-white'
+  }`;
+  circle.textContent = active ? '✓' : '';
+}
+
+function syncKennelClubField() {
+  const label = getLabel('IKC / KC Registered');
+  const root = label?.closest('.data-dropdown-root') || label?.closest('.relative') || label?.parentElement;
+
+  if (!root) return;
+
+  const showForDogs = isDogSelected();
+  root.style.display = showForDogs ? '' : 'none';
+  root.setAttribute('aria-hidden', showForDogs ? 'false' : 'true');
+
+  if (!showForDogs) return;
+
+  const originalButton = [...root.querySelectorAll('button')].find((button) => button.dataset.kcRegisteredToggle !== 'true');
+  const originalValue = originalButton?.querySelector('span')?.textContent?.trim();
+
+  if (!root.dataset.kcRegisteredValue) {
+    root.dataset.kcRegisteredValue = originalValue === 'Yes' ? 'Yes' : 'No';
+  }
+
+  [...root.querySelectorAll('button')].forEach((button) => {
+    if (button.dataset.kcRegisteredToggle !== 'true') button.style.display = 'none';
+  });
+
+  let toggle = root.querySelector('[data-kc-registered-toggle="true"]');
+
+  if (!toggle) {
+    toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.dataset.kcRegisteredToggle = 'true';
+    toggle.innerHTML = '<span>Dog is IKC / KC registered</span><span data-kc-registered-circle="true"></span>';
+
+    toggle.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      root.dataset.kcRegisteredValue = root.dataset.kcRegisteredValue === 'Yes' ? 'No' : 'Yes';
+      updateKcToggle(root);
+    });
+
+    root.appendChild(toggle);
+  }
+
+  toggle.style.display = '';
+  updateKcToggle(root);
+}
+
+function closeCategoryMenu(root) {
+  const menu = root?.querySelector('[data-other-pet-category-menu="true"]');
+  const arrow = root?.querySelector('[data-other-pet-category-arrow="true"]');
+
+  if (menu) menu.style.display = 'none';
+  if (arrow) arrow.classList.remove('rotate-180');
+}
+
+function openCategoryMenu(root) {
+  const menu = root?.querySelector('[data-other-pet-category-menu="true"]');
+  const arrow = root?.querySelector('[data-other-pet-category-arrow="true"]');
+
+  if (menu) menu.style.display = '';
+  if (arrow) arrow.classList.add('rotate-180');
+}
+
+function updateCategoryButton(root, value) {
+  const text = root?.querySelector('[data-other-pet-category-text="true"]');
+
+  if (!text) return;
+
+  text.textContent = value || 'Select category';
+  text.className = `block truncate ${value ? 'text-(--secondary-green)' : 'text-(--muted-green-text)'}`;
+}
+
+function resetCategoryFieldToBreed(root, input, label) {
+  if (label) label.innerHTML = 'Breed <span class="text-(--primary-orange)">*</span>';
+  if (input) {
+    input.placeholder = 'Start typing...';
+    input.style.display = '';
+  }
+
+  const button = root?.querySelector('button[data-other-pet-category-button="true"]');
+  if (button) button.style.display = 'none';
+
+  closeCategoryMenu(root);
+}
+
+function syncOtherPetCategoryField() {
+  const input = getField('breed');
+  const label = getLabelContaining('breed') || getLabelContaining('category');
+  const root = input?.closest('.data-dropdown-root') || input?.closest('.relative');
+  const otherPetSelected = isOtherPetSelected();
+
+  if (!input || !label || !root) return;
+
+  if (!otherPetSelected) {
+    resetCategoryFieldToBreed(root, input, label);
+    return;
+  }
+
+  label.innerHTML = 'Category <span class="text-(--primary-orange)">*</span>';
+  input.placeholder = 'Select category';
+  input.style.display = 'none';
+
+  let button = root.querySelector('button[data-other-pet-category-button="true"]');
+  let menu = root.querySelector('[data-other-pet-category-menu="true"]');
+
+  if (!button) {
+    button = document.createElement('button');
+    button.type = 'button';
+    button.dataset.otherPetCategoryButton = 'true';
+    button.className = 'flex h-full min-w-0 flex-1 items-center justify-between bg-transparent text-left text-sm outline-none ring-0 focus:outline-none focus:ring-0';
+    button.innerHTML = '<span data-other-pet-category-text="true" class="block truncate text-(--muted-green-text)">Select category</span><span data-other-pet-category-arrow="true" class="ml-3 shrink-0 text-xs text-(--primary-green) transition">▼</span>';
+
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (!isOtherPetSelected()) {
+        resetCategoryFieldToBreed(root, input, label);
+        return;
+      }
+
+      const currentMenu = root.querySelector('[data-other-pet-category-menu="true"]');
+      const isOpen = currentMenu?.style.display !== 'none';
+
+      document.querySelectorAll('[data-other-pet-category-menu="true"]').forEach((item) => {
+        item.style.display = 'none';
+      });
+      document.querySelectorAll('[data-other-pet-category-arrow="true"]').forEach((item) => {
+        item.classList.remove('rotate-180');
+      });
+
+      if (!isOpen) openCategoryMenu(root);
+    });
+
+    input.parentElement?.insertBefore(button, input);
+  }
+
+  if (!menu) {
+    menu = document.createElement('div');
+    menu.dataset.otherPetCategoryMenu = 'true';
+    menu.className = 'absolute left-0 right-0 top-full z-[9999] mt-2 max-h-72 overflow-y-auto rounded-xl border border-(--border-beige) bg-white shadow-lg';
+    menu.style.display = 'none';
+
+    OTHER_PET_CATEGORIES.forEach((category) => {
+      const option = document.createElement('button');
+      option.type = 'button';
+      option.className = 'block w-full border-b border-(--border-beige) px-4 py-3 text-left text-sm text-(--secondary-green) outline-none transition hover:bg-(--background) focus:outline-none';
+      option.textContent = category;
+
+      option.addEventListener('mousedown', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        setReactInputValue(input, category);
+        updateCategoryButton(root, category);
+        closeCategoryMenu(root);
+      });
+
+      menu.appendChild(option);
+    });
+
+    root.appendChild(menu);
+  }
+
+  button.style.display = '';
+  updateCategoryButton(root, OTHER_PET_CATEGORIES.includes(input.value) ? input.value : '');
+}
+
+function syncRequiredStar(label, required) {
+  if (!label) return;
+
+  const existingStar = label.querySelector('[data-required-star="true"]');
+
+  if (required && !existingStar) {
+    const star = document.createElement('span');
+    star.dataset.requiredStar = 'true';
+    star.className = 'text-(--primary-orange)';
+    star.textContent = ' *';
+    label.appendChild(star);
+  }
+
+  if (!required && existingStar) {
+    existingStar.remove();
+  }
+}
+
+function syncMixedLitterFields() {
+  const required = isMixedLitter();
+
+  MIXED_LITTER_FIELDS.forEach(([name, labelText, min]) => {
+    const field = getField(name) || getFieldByLabel(labelText);
+    const label = getLabel(labelText);
+
+    if (!field) return;
+
+    field.required = required;
+    field.setAttribute('aria-required', required ? 'true' : 'false');
+
+    if (min !== '' && field.type === 'number') {
+      field.min = min;
+    }
+
+    syncRequiredStar(label, required);
+  });
+}
+
+function syncForm() {
+  enhanceAgeField();
+  syncAdoptionPrice();
+  syncKennelClubField();
+  syncOtherPetCategoryField();
+  syncMixedLitterFields();
+}
+
+function scheduleSyncForm() {
+  syncForm();
+  window.setTimeout(syncForm, 0);
+  window.setTimeout(syncForm, 75);
+  window.setTimeout(syncForm, 175);
+}
+
+function patchSubmitData(body) {
+  if (!(body instanceof FormData)) return;
+
+  const ageInput = document.querySelector('input[name="age"][data-post-ad-age-enhanced="true"]');
+  const ageUnit = document.querySelector('select[data-post-ad-age-unit="true"]')?.value || 'weeks';
+  const ageLabel = buildAgeLabel(ageInput?.value, ageUnit);
+
+  if (ageLabel) {
+    body.set('age', ageLabel);
+    body.set('age_value', cleanNumber(ageInput?.value));
+    body.set('age_unit', cleanAgeUnit(ageUnit));
+  }
+
+  const categoryInput = getField('breed');
+
+  if (body.get('animal_type') === 'Other Pets' && categoryInput?.value) {
+    body.set('breed', categoryInput.value);
+  }
+
+  if (body.get('listing_type') === 'For Adoption') {
+    body.set('price_negotiable', 'false');
+  }
+
+  const kcLabel = getLabel('IKC / KC Registered');
+  const kcRoot = kcLabel?.closest('.data-dropdown-root') || kcLabel?.closest('.relative') || kcLabel?.parentElement;
+
+  if (body.get('animal_type') === 'Dogs') {
+    const kcValue = kcRoot?.dataset.kcRegisteredValue || body.get('kc_registered') || 'No';
+    body.set('kc_registered', kcValue);
+    body.set('kennel_club_registered', kcValue);
+  } else {
+    body.set('kc_registered', '');
+    body.set('kennel_club_registered', '');
+  }
+}
+
+function getSubmitButtons() {
+  return [...document.querySelectorAll('button[type="submit"], button')].filter((button) =>
+    button.textContent?.toLowerCase().includes('submit') || button.textContent?.toLowerCase().includes('post'),
+  );
+}
+
+function setSubmittingState(isSubmitting) {
+  getSubmitButtons().forEach((button) => {
+    if (isSubmitting) {
+      button.dataset.originalText = button.dataset.originalText || button.textContent || '';
+      button.disabled = true;
+      button.setAttribute('aria-disabled', 'true');
+      button.classList.add('opacity-60', 'cursor-not-allowed');
+      button.textContent = 'Submitting...';
+    } else {
+      button.disabled = false;
+      button.setAttribute('aria-disabled', 'false');
+      button.classList.remove('opacity-60', 'cursor-not-allowed');
+
+      if (button.dataset.originalText) {
+        button.textContent = button.dataset.originalText;
+      }
+    }
+  });
+}
+
+function closeCustomMenusOnOutside(event) {
+  const target = event.target;
+
+  document.querySelectorAll('[data-other-pet-category-menu="true"]').forEach((menu) => {
+    const root = menu.closest('.data-dropdown-root') || menu.closest('.relative');
+
+    if (root && !root.contains(target)) {
+      closeCategoryMenu(root);
+    }
+  });
+
+  document.querySelectorAll('[data-age-unit-menu="true"]').forEach((menu) => {
+    const root = menu.closest('.relative');
+
+    if (root && !root.contains(target)) {
+      closeAgeUnitMenu(root);
+    }
+  });
+}
+
+export default function PostAdFormEnhancer() {
+  useEffect(() => {
+    let tries = 0;
+    let createRequestInFlight = false;
+    const interval = window.setInterval(() => {
+      tries += 1;
+      syncForm();
+
+      if (tries > 40) window.clearInterval(interval);
+    }, 250);
+
+    document.addEventListener('click', scheduleSyncForm, true);
+    document.addEventListener('change', scheduleSyncForm, true);
+    document.addEventListener('mousedown', closeCustomMenusOnOutside, true);
+
+    const originalFetch = window.fetch;
+
+    window.fetch = async (input, init = {}) => {
+      const url = typeof input === 'string' ? input : input?.url || '';
+      const isCreateListing = url.includes('/api/listings/create') && init?.body instanceof FormData;
+
+      if (!isCreateListing) {
+        return originalFetch(input, init);
+      }
+
+      if (createRequestInFlight) {
+        return Response.json({ error: 'Your ad is already being submitted. Please wait.' }, { status: 409 });
+      }
+
+      createRequestInFlight = true;
+      setSubmittingState(true);
+      patchSubmitData(init.body);
+
+      try {
+        return await originalFetch(input, init);
+      } finally {
+        createRequestInFlight = false;
+        setSubmittingState(false);
+      }
+    };
+
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener('click', scheduleSyncForm, true);
+      document.removeEventListener('change', scheduleSyncForm, true);
+      document.removeEventListener('mousedown', closeCustomMenusOnOutside, true);
+      window.fetch = originalFetch;
+    };
+  }, []);
+
+  return null;
+}
