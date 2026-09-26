@@ -3,6 +3,7 @@ import { requireSameOrigin } from '../../../../lib/requireSameOrigin';
 import { getAuthenticatedUser, removeStorageFiles } from '../../../../lib/apiHelpers';
 import { isTrueFlag } from '../../../../lib/booleanFlags';
 import { findProfileWithPhone } from '../../../../lib/profilePhoneChecks';
+import { getLitterCounts, parseLitterAnimalsPayload } from '../../../../lib/litterAnimals';
 import {
   ALLOWED_ANIMAL_TYPES,
   ALLOWED_LISTING_TYPES,
@@ -32,6 +33,7 @@ async function deleteListingRows(supabaseAdmin, listingId) {
   if (!listingId) return;
 
   await supabaseAdmin.from('listing_photos').delete().eq('listing_id', listingId);
+  await supabaseAdmin.from('litter_animals').delete().eq('listing_id', listingId);
   await supabaseAdmin.from('favorites').delete().eq('listing_id', listingId);
   await supabaseAdmin.from('listing_reports').delete().eq('listing_id', listingId);
   await supabaseAdmin.from('listings').delete().eq('id', listingId);
@@ -103,6 +105,13 @@ export async function POST(request) {
 
     const priceNegotiable = listingType === 'For Adoption' ? false : cleanBoolean(body.get('price_negotiable'));
     const photos = body.getAll('photos');
+    const parsedLitterAnimals = parseLitterAnimalsPayload(body.get('litter_animals'));
+
+    if (parsedLitterAnimals.error) {
+      return Response.json({ error: parsedLitterAnimals.error }, { status: 400 });
+    }
+
+    const litterAnimals = parsedLitterAnimals.animals;
 
     if (title.length < 5) {
       return Response.json({ error: 'Please enter a listing title with at least 5 characters.' }, { status: 400 });
@@ -201,6 +210,30 @@ export async function POST(request) {
         return Response.json({ error: 'Boys and girls together must match the available count.' }, { status: 400 });
       }
 
+      if (litterAnimals.length > 0) {
+        const counts = getLitterCounts(litterAnimals);
+
+        if (litterAnimals.length > litterSizeNumber) {
+          return Response.json({ error: 'Individual animal cards cannot exceed the litter size.' }, { status: 400 });
+        }
+
+        if (counts.available !== availableLitterNumber || counts.males !== maleCount || counts.females !== femaleCount) {
+          return Response.json(
+            { error: 'Individual animal statuses and sexes must match the available litter counts.' },
+            { status: 400 },
+          );
+        }
+
+        for (const animal of litterAnimals) {
+          const animalPhoto = body.get(`litter_photo_${animal.client_key}`);
+          const imageError = await validateImageFileContent(animalPhoto);
+
+          if (imageError) {
+            return Response.json({ error: `${animal.name}: ${imageError}` }, { status: 400 });
+          }
+        }
+      }
+
       const minimumWeeks = getMinimumLegalAgeWeeks(animalType, breed);
       const minimumReadyDate = addWeeksToDate(dateOfBirth, minimumWeeks);
       const readyDate = new Date(readyToLeave);
@@ -211,6 +244,8 @@ export async function POST(request) {
           { status: 400 },
         );
       }
+    } else if (litterAnimals.length > 0) {
+      return Response.json({ error: 'Individual animals can only be added to a dog or cat litter.' }, { status: 400 });
     }
 
     const { data: profileData, error: profileError } = await supabaseAdmin
@@ -378,6 +413,68 @@ export async function POST(request) {
         { error: 'Photo records could not be saved. Your listing was not created.' },
         { status: 500 },
       );
+    }
+
+    if (litterAnimals.length > 0) {
+      const litterAnimalRows = [];
+
+      for (const animal of litterAnimals) {
+        const file = body.get(`litter_photo_${animal.client_key}`);
+        const fileExt = getImageExtension(file);
+        const fileName = `${user.id}/${listingData.id}-litter-${animal.sort_order}-${Date.now()}-${crypto.randomUUID()}.${fileExt}`;
+
+        const { error: uploadError } = await supabaseAdmin.storage.from(LISTING_PHOTOS_BUCKET).upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: false,
+          contentType: file.type,
+        });
+
+        if (uploadError) {
+          console.error('Litter animal photo upload failed:', {
+            message: uploadError.message,
+            code: uploadError.code,
+          });
+
+          await removeStorageFiles(supabaseAdmin, LISTING_PHOTOS_BUCKET, uploadedPaths, 'Litter create storage rollback');
+          await deleteListingRows(supabaseAdmin, listingData.id);
+
+          return Response.json({ error: 'An individual animal photo could not be uploaded.' }, { status: 500 });
+        }
+
+        uploadedPaths.push(fileName);
+
+        const { data: publicUrlData } = supabaseAdmin.storage.from(LISTING_PHOTOS_BUCKET).getPublicUrl(fileName);
+
+        litterAnimalRows.push({
+          listing_id: listingData.id,
+          name: animal.name,
+          sex: animal.sex,
+          colour: animal.colour,
+          price: animal.price,
+          status: animal.status,
+          description: animal.description,
+          image_url: publicUrlData.publicUrl,
+          sort_order: animal.sort_order,
+        });
+      }
+
+      const { error: litterInsertError } = await supabaseAdmin.from('litter_animals').insert(litterAnimalRows);
+
+      if (litterInsertError) {
+        console.error('Litter animal row insert failed:', {
+          message: litterInsertError.message,
+          code: litterInsertError.code,
+          details: litterInsertError.details,
+        });
+
+        await removeStorageFiles(supabaseAdmin, LISTING_PHOTOS_BUCKET, uploadedPaths, 'Litter create storage rollback');
+        await deleteListingRows(supabaseAdmin, listingData.id);
+
+        return Response.json(
+          { error: 'Individual animal cards could not be saved. Your listing was not created.' },
+          { status: 500 },
+        );
+      }
     }
 
     return Response.json({ success: true, listing: listingData }, { status: 201 });

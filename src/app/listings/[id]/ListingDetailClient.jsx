@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { getVerifiedAccessToken } from '../../../lib/authTokens';
 import { supabase } from '../../../lib/supabaseClient';
 import { useAuth } from '../../../context/AuthContext';
@@ -97,6 +97,7 @@ const SellerInfoRow = ({ label, value }) => (
 
 export default function ListingDetailClient({ listing: initialListing, similarListings = [] }) {
   const { user } = useAuth();
+  const sellerSectionRef = useRef(null);
   const [listing, setListing] = useState(initialListing);
   const [photos] = useState(sortPhotos(initialListing?.listing_photos));
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
@@ -110,6 +111,7 @@ export default function ListingDetailClient({ listing: initialListing, similarLi
   const [reportDetails, setReportDetails] = useState('');
   const [reportSubmitting, setReportSubmitting] = useState(false);
   const [reportSuccess, setReportSuccess] = useState(false);
+  const [selectedLitterAnimal, setSelectedLitterAnimal] = useState(null);
 
   const mainImage = photos[selectedPhotoIndex]?.image_url || '/img/logo.png';
   const title = listing.title || `${listing.breed || listing.animal_type || 'Pet'} available`;
@@ -134,6 +136,9 @@ export default function ListingDetailClient({ listing: initialListing, similarLi
   const isLongDescription = descriptionText.length > 420;
 
   const listingTags = [listing.breed, listing.age, listing.sex, listing.county].filter(Boolean);
+  const litterAnimals = [...(listing.litter_animals || [])].sort(
+    (a, b) => (a.sort_order || 0) - (b.sort_order || 0),
+  );
 
   const healthItems = [
     { label: 'Current Age', value: listing.age || '-', icon: <AgeIcon /> },
@@ -266,6 +271,11 @@ export default function ListingDetailClient({ listing: initialListing, similarLi
       console.warn('Phone click request failed:', error);
       alert('Could not reveal phone number.');
     }
+  };
+
+  const handleLitterEnquiry = (animal) => {
+    setSelectedLitterAnimal(animal);
+    sellerSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   };
 
   const handleSubmitReport = async (e) => {
@@ -424,6 +434,70 @@ export default function ListingDetailClient({ listing: initialListing, similarLi
             </div>
           </section>
 
+          {listing.sex === 'Mixed Litter' && litterAnimals.length > 0 && (
+            <section className="rounded-3xl border border-(--border-beige) bg-white p-6 shadow-sm">
+              <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-end">
+                <div>
+                  <h2 className="text-[28px] font-extrabold leading-tight text-(--secondary-green)">Animals in this litter</h2>
+                  <p className="mt-1 text-sm text-(--muted-green-text)">Choose the puppy or kitten you would like to ask the seller about.</p>
+                </div>
+                <p className="text-sm font-bold text-(--primary-green)">
+                  {litterAnimals.filter((animal) => animal.status === 'available').length} available
+                </p>
+              </div>
+
+              <div className="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+                {litterAnimals.map((animal) => {
+                  const animalPrice = animal.price ?? listing.price;
+                  const isSold = animal.status === 'sold';
+                  const statusClass =
+                    animal.status === 'available'
+                      ? 'bg-green-100 text-green-700'
+                      : animal.status === 'reserved'
+                        ? 'bg-orange-100 text-orange-700'
+                        : 'bg-gray-200 text-gray-600';
+
+                  return (
+                    <article key={animal.id} className={`overflow-hidden rounded-2xl border border-(--border-beige) bg-(--background) ${isSold ? 'opacity-70' : ''}`}>
+                      <div className="relative h-52 bg-(--light-green)">
+                        {animal.image_url ? (
+                          <Image src={animal.image_url} alt={animal.name} fill sizes="(max-width: 640px) 100vw, 33vw" className="object-cover" />
+                        ) : (
+                          <div className="flex h-full items-center justify-center text-(--primary-green)"><PawIcon className="h-10 w-10" /></div>
+                        )}
+                        <span className={`absolute right-3 top-3 rounded-full px-3 py-1 text-xs font-extrabold capitalize ${statusClass}`}>
+                          {animal.status}
+                        </span>
+                      </div>
+                      <div className="p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <h3 className="text-lg font-extrabold text-(--secondary-green)">{animal.name}</h3>
+                            <p className="mt-1 text-sm font-semibold text-(--muted-green-text)">
+                              {[animal.sex, animal.colour].filter(Boolean).join(' · ')}
+                            </p>
+                          </div>
+                          {animalPrice !== null && animalPrice !== undefined && animalPrice !== '' && (
+                            <p className="font-extrabold text-(--primary-orange)">€{animalPrice}</p>
+                          )}
+                        </div>
+                        {animal.description && <p className="mt-3 line-clamp-3 text-sm leading-6 text-(--muted-green-text)">{animal.description}</p>}
+                        <button
+                          type="button"
+                          onClick={() => handleLitterEnquiry(animal)}
+                          disabled={isSold}
+                          className="mt-4 w-full rounded-xl bg-(--primary-green) px-4 py-2.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:bg-gray-400"
+                        >
+                          {isSold ? 'Sold' : `Enquire about ${animal.name}`}
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
           <section className="rounded-3xl border border-(--border-beige) bg-white p-6 shadow-sm">
             <h2 className="text-[28px] font-extrabold leading-tight text-(--secondary-green)">Description</h2>
             <div className="mt-4 text-[15px] leading-7 text-(--secondary-green)">
@@ -481,9 +555,15 @@ export default function ListingDetailClient({ listing: initialListing, similarLi
         </div>
 
         <aside className="h-fit space-y-5 lg:sticky lg:top-24">
-          <section className="overflow-hidden rounded-3xl border border-(--border-beige) bg-white shadow-sm">
+          <section ref={sellerSectionRef} className="overflow-hidden rounded-3xl border border-(--border-beige) bg-white shadow-sm">
             <div className="p-6">
               <h2 className="text-xl font-extrabold text-(--secondary-green)">About the Seller</h2>
+              {selectedLitterAnimal && (
+                <div className="mt-4 rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+                  <p className="font-extrabold">Enquiring about {selectedLitterAnimal.name}</p>
+                  <p className="mt-1 text-xs">Mention this name when you contact the seller.</p>
+                </div>
+              )}
               <div className="mt-5 flex items-center gap-4">
                 <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-(--background) text-lg font-extrabold text-(--primary-green)">
                   {listing.seller_avatar_url ? (
@@ -507,7 +587,11 @@ export default function ListingDetailClient({ listing: initialListing, similarLi
                 className="mt-6 flex h-14 w-full items-center justify-center rounded-xl bg-(--primary-orange) text-sm font-extrabold text-white transition hover:bg-(--secondary-orange)"
               >
                 <span className="mx-2"><PhoneIcon /></span>
-                {phoneVisible ? revealedPhone || 'Phone not provided' : 'Show Phone Number'}
+                {phoneVisible
+                  ? revealedPhone || 'Phone not provided'
+                  : selectedLitterAnimal
+                    ? `Show phone for ${selectedLitterAnimal.name}`
+                    : 'Show Phone Number'}
               </button>
             </div>
             <div className="grid grid-cols-3 border-t border-(--border-beige) text-center text-xs">

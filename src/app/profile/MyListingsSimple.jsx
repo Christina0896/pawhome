@@ -134,9 +134,17 @@ export default function MyListingsSimple() {
                   </div>
                   <p className="mt-3 text-sm font-bold text-(--primary-green)">€{listing.price || 'Contact'}</p>
                   <p className="mt-1 text-xs font-semibold text-(--muted-green-text)">{listing.breed || listing.animal_type || 'Pet'} · {listing.county || 'Ireland'}</p>
+                  {listing.sex === 'Mixed Litter' && listing.litter_summary && (
+                    <p className="mt-2 text-xs font-bold text-(--primary-green)">
+                      {listing.litter_summary.total} cards · {listing.litter_summary.available} available · {listing.litter_summary.reserved} reserved · {listing.litter_summary.sold} sold
+                    </p>
+                  )}
                   <div className="mt-4 grid grid-cols-2 gap-2">
                     <Link href={`/listings/${listing.id}?ownerPreview=true`} className="rounded-xl border border-(--border-beige) bg-white px-3 py-2 text-center text-xs font-bold text-(--secondary-green)">Preview</Link>
                     <Link href={`/profile/listings/${listing.id}/edit`} className="rounded-xl bg-(--primary-green) px-3 py-2 text-center text-xs font-bold text-white">Edit</Link>
+                    {listing.sex === 'Mixed Litter' && (
+                      <Link href={`/profile/listings/${listing.id}/litter`} className="col-span-2 rounded-xl bg-(--primary-orange) px-3 py-2 text-center text-xs font-bold text-white">Manage litter</Link>
+                    )}
                     <button type="button" onClick={() => deleteListing(listing.id)} className="col-span-2 rounded-xl border border-red-100 bg-white px-3 py-2 text-xs font-bold text-red-600">Delete listing</button>
                   </div>
                 </div>
